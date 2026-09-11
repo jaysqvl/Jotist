@@ -8,6 +8,19 @@
 Scriberr is an open-source, and completely offline audio transcription application designed for self-hosters who value privacy and performance.
 </p>
 
+## Maintained fork
+
+This repository is [Jay Esquivel's maintained fork](https://github.com/jaysqvl/Scriberr) of [rishikanthc/Scriberr](https://github.com/rishikanthc/Scriberr), created by Rishikanth Chandrasekaran and the upstream contributors.
+
+Fork-specific changes include:
+
+- Preserved transcription runs, active-run pinning, transcript comparison, and sequential per-recording run queues.
+- Resumable browser and CLI uploads with chunk checksums and upload capacity limits.
+- Authentication, session, and execution lifecycle protections with regression tests.
+- Fork-owned releases and CPU, CUDA, and Blackwell container builds.
+
+Download this fork's binaries from [GitHub Releases](https://github.com/jaysqvl/Scriberr/releases). The website, hosted documentation, and Homebrew tap linked below belong to the upstream project.
+
 <p align="center">
   <a href="https://scriberr.app">Website</a> •
   <a href="https://scriberr.app/docs/">Docs</a> •
@@ -22,7 +35,7 @@ Scriberr is an open-source, and completely offline audio transcription applicati
   <img src="screenshots/hero.png" alt="Scriberr Desktop App" width="800" />
 </div>
 
-## Update on project status
+## Upstream project status
 Hi everyone,
 It’s been a while since the last update, so I wanted to share what’s been going on with Scriberr.
 
@@ -61,7 +74,7 @@ It combines powerful under-the-hood AI with a polished, fluid user interface tha
 
 [View full list of features →](https://scriberr.app/docs/features)
 
-### Why I built this
+### Upstream project origin
 
 The inspiration for Scriberr was born out of privacy paranoia and not wanting to pay for subscription.
 About a year ago, I purchased a [Plaud Note](https://www.plaud.ai/) for recording voice memos. I loved the device itself; the form factor, microphone quality, and workflow were excellent.
