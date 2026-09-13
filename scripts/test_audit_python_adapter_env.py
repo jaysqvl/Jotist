@@ -27,8 +27,8 @@ class AuditPolicyTests(unittest.TestCase):
             "source_sha256": {"saving.py": hashlib.sha256(b"reviewed source\n").hexdigest()},
         }]}
 
-    def match(self, package=None, advisory="GHSA-known", adapter="whisperx", today=date(2026, 9, 13)):
-        return audit.matching_exception(package or self.package, advisory, adapter, self.policy, [self.site], today)
+    def match(self, package=None, advisory="GHSA-known", adapter="whisperx", today=date(2026, 9, 13), caller_root=None):
+        return audit.matching_exception(package or self.package, advisory, adapter, self.policy, [self.site], today, caller_root)
 
     def test_exception_requires_exact_package_version_advisory_and_adapter(self):
         self.assertIsNotNone(self.match())
@@ -44,6 +44,33 @@ class AuditPolicyTests(unittest.TestCase):
         (self.site / "saving.py").unlink()
         self.assertIsNone(self.match())
         self.assertFalse(audit.source_evidence_matches({}, [self.site]))
+
+    def test_changed_materialized_caller_invalidates_unchanged_dependency_exception(self):
+        caller_root = self.site / "actual-adapter"
+        caller_root.mkdir()
+        caller = caller_root / "transcribe.py"
+        reviewed = b'model = load_model("fixed/vendor-model")\n'
+        caller.write_bytes(reviewed)
+        self.policy["exceptions"][0]["caller_sha256"] = {
+            "transcribe.py": hashlib.sha256(reviewed).hexdigest()
+        }
+        self.assertIsNone(self.match())
+        self.assertIsNone(self.match(caller_root=self.site))
+        self.assertIsNotNone(self.match(caller_root=caller_root))
+
+        # Package versions and installed dependency source remain unchanged.
+        caller.write_text('model = load_model(request["model"])\n')
+        findings = audit.classify_results(
+            [self.package], [{"vulns": [{"id": "GHSA-known"}]}], "whisperx",
+            self.policy, [self.site], date(2026, 9, 13), caller_root,
+        )
+        self.assertEqual(findings[0]["status"], "needs_review")
+        caller.unlink()
+        self.assertIsNone(self.match(caller_root=caller_root))
+        outside = self.site / "reviewed-but-not-deployed.py"
+        outside.write_bytes(reviewed)
+        caller.symlink_to(outside)
+        self.assertIsNone(self.match(caller_root=caller_root))
 
     def test_cuda_versions_query_public_release_without_widening_exception(self):
         for package in ["torch", "torchaudio", "torchvision", "torchcodec"]:

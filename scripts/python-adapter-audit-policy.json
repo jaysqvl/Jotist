@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "adapters": ["nvidia-asr", "canary-qwen", "pyannote", "whisperx", "suplime", "diarizen", "local-asr"],
   "exceptions": [
     {
@@ -26,13 +26,18 @@
       "advisory_ids": ["GHSA-8mgp-746c-j5xp", "PYSEC-2026-3740"],
       "adapters": ["whisperx"],
       "review_by": "2026-10-13",
-      "reason": "The package advisory remains unpatched. Its affected TransitionParser/Perceptron/MaxEnt model import/export APIs are not used by the reviewed WhisperX caller. Alignment chooses a Punkt resource via a fixed language-name map, and installed NLTK routes that resource to pickle-free table loading. This is a caller-specific exception, not a global NLTK suppression; any changed source or adapter requires review.",
+      "reason": "The package advisory remains unpatched. Its affected TransitionParser/Perceptron/MaxEnt model import/export APIs are not used by the reviewed WhisperX caller. Alignment chooses a Punkt resource via a fixed language-name map, and installed NLTK routes that resource to pickle-free table loading. This is a caller-specific exception, not a global NLTK suppression; the listed installed source and actual materialized application caller must match their reviewed hashes.",
       "references": ["https://github.com/advisories/GHSA-8mgp-746c-j5xp"],
       "source_sha256": {
         "whisperx/alignment.py": "346ac19053bd841bed1162b861d2d89efc0fe3aafc83b2493fb487fbc29c6239",
         "whisperx/utils.py": "887b8e4513e21873a3637d7a8592b1ac4da3e6d5b24a52ff43cb9a635c4ee17a",
         "nltk/data.py": "cda75896c3639541f3c3b811d647354dc5829774c2f201a7c942896f5cb99dc8",
-        "nltk/tokenize/punkt.py": "b85d1b51d1357d8c56d9739cb3d7975837ad12721c3702fae6facb47eb583b48"
+        "nltk/tokenize/punkt.py": "b85d1b51d1357d8c56d9739cb3d7975837ad12721c3702fae6facb47eb583b48",
+        "whisperx/__main__.py": "1255992c2f119863dc32a637da7bd5cdcc59c845335ba79770a942060f56eb5b",
+        "whisperx/transcribe.py": "4be80d8db4fe870d017cfc3fcc0b8a045640d739100dc05afaa32d6d4ad9c873"
+      },
+      "caller_sha256": {
+        "whisperx_run.py": "13e718521fd049202874a388561ac7c691c244aa199eeb5a5b37adbe6dda4a7f"
       }
     },
     {
@@ -42,7 +47,7 @@
       "advisory_ids": ["GHSA-8mgp-746c-j5xp", "PYSEC-2026-3740"],
       "adapters": ["canary-qwen"],
       "review_by": "2026-10-13",
-      "reason": "The unpatched model-persistence advisory is not reached by the reviewed Canary-Qwen path: its adapter loads the fixed NVIDIA SALM model, then passes prompt/context text and decoded audio to generate. Installed NLTK consumers use fixed cmudict/words resources, text tokenization or Porter stemming; none calls the advisory's TransitionParser/Perceptron/MaxEnt persistence APIs. Exact SALM, caller and NLTK source fingerprints are required. This does not approve arbitrary model configuration or NLTK use by another adapter.",
+      "reason": "The unpatched model-persistence advisory is not reached by the reviewed Canary-Qwen path: its adapter loads the fixed NVIDIA SALM model, then passes prompt/context text and decoded audio to generate. Installed NLTK consumers use fixed cmudict/words resources, text tokenization or Porter stemming; none calls the advisory's TransitionParser/Perceptron/MaxEnt persistence APIs. Exact SALM, installed NLTK consumers, NLTK source and actual materialized application-caller fingerprints are required. This does not approve arbitrary model configuration or NLTK use by another adapter.",
       "references": ["https://github.com/advisories/GHSA-8mgp-746c-j5xp"],
       "source_sha256": {
         "nemo/collections/speechlm2/models/salm.py": "c3a84938f09382c6a26718e0db1ecce6eb5b441af057153c9afdd73134abcb25",
@@ -54,6 +59,9 @@
         "nltk/tokenize/__init__.py": "2820a93987df61fd4f6b224f8a328e938ed0361c49c3b7c1beed02cae3ca342f",
         "nltk/data.py": "cda75896c3639541f3c3b811d647354dc5829774c2f201a7c942896f5cb99dc8",
         "nltk/tokenize/punkt.py": "b85d1b51d1357d8c56d9739cb3d7975837ad12721c3702fae6facb47eb583b48"
+      },
+      "caller_sha256": {
+        "canary_qwen_transcribe.py": "608c7bea8cf10cf52ab2bb812d9d2d02a24737a4c8342a9f276f5618d86aeaed"
       }
     }
   ]

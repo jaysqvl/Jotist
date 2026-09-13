@@ -94,7 +94,7 @@ def query_osv(packages):
         raise AuditError(f"OSV audit unavailable or incomplete ({type(exc).__name__}); no clean result") from exc
 
 
-def source_evidence_matches(checks, sites):
+def source_evidence_matches(checks, sites, within_roots=False):
     if not checks:
         return False
     for relative, expected_hash in checks.items():
@@ -104,13 +104,18 @@ def source_evidence_matches(checks, sites):
         candidates = [site / relative for site in sites if (site / relative).is_file()]
         if not candidates:
             return False
+        if within_roots and any(
+            not (site / relative).resolve().is_relative_to(site.resolve())
+            for site in sites if (site / relative).is_file()
+        ):
+            return False
         # Reject ambiguity if two import roots supply different source bytes.
         if any(hashlib.sha256(candidate.read_bytes()).hexdigest() != expected_hash for candidate in candidates):
             return False
     return True
 
 
-def matching_exception(package, advisory_id, adapter, policy, sites, today=None):
+def matching_exception(package, advisory_id, adapter, policy, sites, today=None, caller_root=None):
     today = today or date.today()
     for exception in policy.get("exceptions", []):
         if (canonical_name(exception["package"]) != package["name"]
@@ -122,24 +127,31 @@ def matching_exception(package, advisory_id, adapter, policy, sites, today=None)
             continue
         if not exception.get("reason") or not exception.get("references"):
             continue
+        if "caller_sha256" in exception and (
+            caller_root is None or not source_evidence_matches(
+                exception["caller_sha256"], [caller_root], within_roots=True
+            )
+        ):
+            continue
         if source_evidence_matches(exception.get("source_sha256", {}), sites):
             return exception
     return None
 
 
-def classify_results(packages, results, adapter, policy, sites, today=None):
+def classify_results(packages, results, adapter, policy, sites, today=None, caller_root=None):
     findings = []
     for package, result in zip(packages, results):
         for vulnerability in result.get("vulns", []):
             advisory_id = vulnerability["id"]
-            exception = matching_exception(package, advisory_id, adapter, policy, sites, today)
+            exception = matching_exception(package, advisory_id, adapter, policy, sites, today, caller_root)
             finding = {**package, "advisory_id": advisory_id,
                        "status": "reviewed_exception" if exception else "needs_review",
                        "advisory_url": f"https://osv.dev/vulnerability/{advisory_id}"}
             if exception:
                 finding.update({"policy_id": exception["id"], "reason": exception["reason"],
                                 "review_by": exception["review_by"], "references": exception["references"],
-                                "verified_source_files": list(exception["source_sha256"])})
+                                "verified_source_files": list(exception["source_sha256"]),
+                                "verified_caller_files": list(exception.get("caller_sha256", {}))})
             findings.append(finding)
     return findings
 
@@ -150,20 +162,25 @@ def main(argv=None):
     parser.add_argument("--site-packages", action="append", type=Path,
                         help="Explicit installed metadata root; defaults to this venv's site-packages")
     parser.add_argument("--policy", type=Path, default=POLICY)
+    parser.add_argument("--caller-root", type=Path,
+                        help="Actual materialized adapter directory; required for caller-bound exceptions")
     parser.add_argument("--output", type=Path, help="Write complete package inventory and findings as JSON")
     args = parser.parse_args(argv)
     report = {"adapter": args.adapter, "service": OSV_URL, "checked_on": date.today().isoformat()}
     try:
         policy = json.loads(args.policy.read_text())
-        if policy.get("schema_version") != 1 or args.adapter not in policy["adapters"]:
+        if policy.get("schema_version") != 2 or args.adapter not in policy["adapters"]:
             raise AuditError("Unknown adapter or unsupported audit policy")
         if not args.site_packages and sys.prefix == sys.base_prefix:
             raise AuditError("Run with the adapter venv Python or provide --site-packages explicitly")
         sites = args.site_packages or sorted({Path(sysconfig.get_path("purelib")), Path(sysconfig.get_path("platlib"))})
         if any(not site.is_dir() for site in sites):
             raise AuditError("Installed metadata directory is missing")
+        if args.caller_root is not None and not args.caller_root.is_dir():
+            raise AuditError("Application caller directory is missing")
         packages = installed_packages(sites)
-        findings = classify_results(packages, query_osv(packages), args.adapter, policy, sites)
+        findings = classify_results(packages, query_osv(packages), args.adapter, policy, sites,
+                                    caller_root=args.caller_root)
         unreviewed = [f for f in findings if f["status"] == "needs_review"]
         report.update({"status": "needs_review" if unreviewed else "passed",
                        "packages": packages, "findings": findings})

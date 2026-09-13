@@ -87,6 +87,12 @@ CI resolves all supported backend/Python combinations and automatically runs
 Linux CPU imports, native decoding, and installed dependency audits for adapter pull requests. GPU and full
 checkpoint qualification require the corresponding hardware and model assets.
 
+NLTK 3.10.3 still has an unpatched model-persistence advisory. Its exceptions
+apply only to the reviewed WhisperX and Canary-Qwen paths and require matching
+hashes of both installed library code and the actual materialized Jotist caller
+scripts. Missing or changed callers invalidate the exceptions. This differs
+from the Lightning 2.6.6 exception for a malformed advisory version range.
+
 Direct security-sensitive dependencies are pinned. Other transitive requirements
 still resolve through uv at installation; the saved validation graphs describe
 what was actually tested, rather than promising every future installation has

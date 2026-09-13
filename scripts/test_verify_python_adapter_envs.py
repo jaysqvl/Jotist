@@ -62,6 +62,9 @@ class NativeWheelPolicyTests(unittest.TestCase):
                 for original in originals:
                     copied = target / original.relative_to(adapter.pyproject.parent)
                     self.assertEqual(original.read_bytes(), copied.read_bytes())
+                for caller in adapter.caller_scripts:
+                    self.assertEqual((adapter.pyproject.parent / caller).read_bytes(),
+                                     (target / caller).read_bytes())
                 self.assertIn('url = "https://download.pytorch.org/whl/cu130"',
                               (target / "pyproject.toml").read_text())
                 self.assertFalse(list((target / "vendor").rglob("*.pyc")))

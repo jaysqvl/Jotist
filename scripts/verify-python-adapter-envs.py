@@ -41,6 +41,7 @@ class AdapterSpec:
     package_ranges: tuple[PackageRange, ...] = ()
     expected_sources: tuple[SourceExpectation, ...] = ()
     bootstrap_script: str | None = None
+    caller_scripts: tuple[str, ...] = ()
     expected_overrides: tuple[str, ...] = ()
     torch_companions: tuple[str, ...] = ("torchaudio", "torchcodec")
     pair_import_packages: tuple[str, ...] = ()
@@ -99,6 +100,7 @@ ADAPTERS: tuple[AdapterSpec, ...] = (
         ),
         expected_sources=(SourceExpectation("nv-one-logger-pytorch-lightning-integration", "path", "vendor/nv-one-logger-pytorch-lightning-integration"),),
         bootstrap_script="nvidia_compat.py",
+        caller_scripts=("canary_qwen_transcribe.py",),
         expected_overrides=("lightning==2.6.6", "hydra-core==1.3.6"),
         pair_import_packages=("onnx", "ml-dtypes"),
         pair_import_code=(
@@ -130,6 +132,7 @@ ADAPTERS: tuple[AdapterSpec, ...] = (
             "from whisperx.transcribe import transcribe_task; "
             "from whisperx.diarize import DiarizationPipeline"
         ), requires_python=">=3.11,<3.13",
+        caller_scripts=("whisperx_run.py",),
         package_ranges=(PackageRange("whisperx", exact="3.8.7rc1+jotist.1"), PackageRange("torch", exact="2.14.0"), PackageRange("torchaudio", exact="2.11.0"), PackageRange("torchvision", exact="0.29.0"), PackageRange("torchcodec", exact="0.16.0"), PackageRange("transformers", exact="5.17.0"), PackageRange("huggingface-hub", exact="1.31.0")),
         torch_companions=("torchaudio", "torchvision", "torchcodec"),
     ),
@@ -285,6 +288,8 @@ def copy_pyproject(spec: AdapterSpec, temp_root: Path, torch_index: str) -> Path
                         ignore=shutil.ignore_patterns(".git", ".venv", "__pycache__", "*.pyc"))
     if spec.bootstrap_script:
         shutil.copy2(spec.pyproject.parent / spec.bootstrap_script, workdir / spec.bootstrap_script)
+    for caller in spec.caller_scripts:
+        shutil.copy2(spec.pyproject.parent / caller, workdir / caller)
     pyproject_content = spec.pyproject.read_text()
     backend = ("cpu" if spec.key == "local-asr" else "cu126") if torch_index == "project" else torch_index
     pyproject_content = pyproject_content.replace(
@@ -447,7 +452,7 @@ def run_adapter_import_check(
 def run_adapter_audit(spec, workdir, args):
     command = [args.uv, "run", "--no-sync", "--project", str(workdir),
                "python", "-I", str(ROOT / "scripts/audit-python-adapter-env.py"),
-               "--adapter", spec.key]
+               "--adapter", spec.key, "--caller-root", str(workdir)]
     if args.audit_output_dir:
         command += ["--output", str(args.audit_output_dir.resolve() / f"{spec.key}.json")]
     completed = run(command, cwd=ROOT, timeout=args.timeout, verbose=args.verbose)
