@@ -137,7 +137,7 @@ jobs:
   publish:
     name: Publish ${{ matrix.variant }} image
     needs: [resolve, validate]
-    if: always() && needs.resolve.result == 'success' && (needs.validate.result == 'success' || (needs.validate.result == 'skipped' && needs.resolve.outputs.already_validated == 'true'))
+    if: ${{ !cancelled() && needs.resolve.result == 'success' && (needs.validate.result == 'success' || (needs.validate.result == 'skipped' && needs.resolve.outputs.already_validated == 'true')) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -161,8 +161,9 @@ jobs:
           SUFFIX: ${{ matrix.suffix }}
         run: |
           repo="ghcr.io/${OWNER,,}/jotist"
-          tags="${repo}:${IMAGE_CHANNEL}${SUFFIX}"
-          tags="${tags}"$'\n'"${repo}:${IMAGE_CHANNEL}${SUFFIX}-${SHORT_SHA}"
+          tags="${repo}:${IMAGE_CHANNEL}${SUFFIX}-${SHORT_SHA}"
+          # The rolling dev alias moves only after a successful build and a fresh main check.
+          if [[ "$IMAGE_CHANNEL" != dev ]]; then tags="${repo}:${IMAGE_CHANNEL}${SUFFIX}"$'\n'"${tags}"; fi
           if [[ "$PUBLISH_LATEST" == true ]]; then tags="${tags}"$'\n'"${repo}:latest${SUFFIX}"; fi
           echo "repository=$repo" >> "$GITHUB_OUTPUT"
           echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
@@ -200,6 +201,25 @@ jobs:
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ needs.resolve.outputs.sha }}
             org.opencontainers.image.version=${{ needs.resolve.outputs.image_channel }}
+
+      - name: Promote current main to the development alias
+        if: needs.resolve.outputs.image_channel == 'dev'
+        env:
+          REPOSITORY: ${{ steps.metadata.outputs.repository }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+          REVISION: ${{ needs.resolve.outputs.sha }}
+          SUFFIX: ${{ matrix.suffix }}
+        run: |
+          main_sha="$(git ls-remote origin refs/heads/main | cut -f1)"
+          if [[ "$main_sha" != "$REVISION" ]]; then
+            echo "Main moved; keeping the commit image without changing the development alias." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          docker buildx imagetools create --prefer-index=false \
+            --metadata-file promoted-image.json \
+            --tag "${REPOSITORY}:dev${SUFFIX}" "${REPOSITORY}@${DIGEST}"
+          test "$(jq -r '."containerimage.descriptor".digest' promoted-image.json)" = "$DIGEST"
+          echo "Development alias: \`${REPOSITORY}:dev${SUFFIX}\`." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Record immutable deployment reference
         env:

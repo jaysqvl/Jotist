@@ -33,6 +33,41 @@ Container tags omit the Git tag's leading `v`. Builds also publish `<version><va
 
 Stable aliases are `latest`, `latest-cuda`, and `latest-blackwell`. They update only when explicitly requested for a stable version tag pointing at the built source. Prereleases and preview channels never move them.
 
+## Rolling development image
+
+Maintainer installations can track `ghcr.io/jaysqvl/jotist:dev-cuda`. **Publish
+development CUDA image** runs on pushes to `main`, validates the exact pushed
+commit through the existing release checks, and builds the CUDA 12.6 image. It
+publishes `dev-cuda-<12-character-commit>` first, then copies that exact digest to
+`dev-cuda` only if the built commit is still the head of `main`. Superseded runs
+are canceled. Failed validation or builds leave the previous alias available.
+Stable `latest` aliases and version tags are unaffected.
+
+This channel deliberately includes unreleased development changes. The checks
+include frontend/backend validation and Python runtime checks; they do not
+replace model inference or an upgrade check against the NAS's existing runtime
+directories. A floating tag enables the deployment manager to discover newer
+images. Pulling and recreating the container is still a separate update step.
+
+Use **Publish development CUDA image** with no inputs on `main` to request a
+fresh development build. Set repository variable `JOTIST_DEV_AUTOBUILD_ENABLED`
+to `false` to pause builds triggered by pushes during a coordinated migration;
+set it to `true` (or remove it) to resume. Manual dispatch remains available.
+
+To adopt the channel without rebuilding or changing the currently qualified
+application, dispatch the same workflow on `main` with `qualified_cuda_digest`
+set to the full `sha256:...` digest of the already published Jotist CUDA image.
+This mode copies the existing manifest in the same registry and verifies that
+the digest is unchanged. The maintainer must first verify its CUDA variant and
+complete the required NAS qualification; promotion itself performs neither.
+
+For a coordinated first cutover, pause automatic builds before merging this
+workflow, qualify the selected versioned image, promote its digest, and verify
+that `dev-cuda` resolves to it. Then update the existing NAS container and its
+Unraid template together while retaining their data/configuration. Resume
+automatic builds after cutover acceptance. Keep the deployed digest and backup
+with the cutover record so rollback does not depend on the moving alias.
+
 ## Corrected candidate publication
 
 After the corrected source passes review and is on `main`, create and push the annotated `v1.7.0-rc.3` tag. Pushing a tag does not itself publish anything. In GitHub Actions, run **Release** with:
