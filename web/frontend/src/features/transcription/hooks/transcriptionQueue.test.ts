@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+    buildImmediateRunRequest,
     buildQueueRequest,
     getQueuedItems,
     isStopRunTargetCurrent,
@@ -49,6 +50,14 @@ test("queue requests keep execution credentials in transit and metadata outside 
     assert.equal(request.profile_id, "profile-1");
     assert.equal(request.profile_name, "Cloud transcription");
     assert.equal("profile_id" in request.parameters, false);
+});
+
+test("immediate profile runs retain the authoritative profile ID and advanced runs retain their exact parameters", () => {
+    const redacted = { model: "large-v3", hf_token_source: "custom", has_hf_token: true };
+    assert.deepEqual(buildImmediateRunRequest(redacted, "profile-1"), { profile_id: "profile-1" });
+    const custom = { ...redacted, hf_token: "hf_transient", diarize: false };
+    assert.deepEqual(buildImmediateRunRequest(custom), custom);
+    assert.deepEqual(buildImmediateRunRequest(redacted, ""), { profile_id: "" }, "an invalid explicit ID must reach validation rather than silently becoming a parameter run");
 });
 
 test("queue responses are stripped before entering the client query cache", () => {

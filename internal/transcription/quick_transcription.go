@@ -47,6 +47,11 @@ type QuickTranscriptionService struct {
 	jobSlots         chan struct{}
 	maxUploadBytes   int64
 	processTimeout   time.Duration
+	ctx              context.Context
+	cancel           context.CancelFunc
+	workers          sync.WaitGroup
+	closed           bool
+	closeOnce        sync.Once
 }
 
 // NewQuickTranscriptionService creates a new quick transcription service
@@ -70,6 +75,7 @@ func NewQuickTranscriptionService(cfg *config.Config, unifiedProcessor *UnifiedJ
 		processTimeout = time.Duration(cfg.MediaTimeoutMinutes) * time.Minute
 	}
 
+	serviceCtx, serviceCancel := context.WithCancel(context.Background())
 	service := &QuickTranscriptionService{
 		config:           cfg,
 		unifiedProcessor: unifiedProcessor,
@@ -80,6 +86,7 @@ func NewQuickTranscriptionService(cfg *config.Config, unifiedProcessor *UnifiedJ
 		jobSlots:         make(chan struct{}, concurrency),
 		maxUploadBytes:   maxUploadBytes,
 		processTimeout:   processTimeout,
+		ctx:              serviceCtx, cancel: serviceCancel,
 	}
 
 	// Start cleanup routine (run every hour)
@@ -98,6 +105,23 @@ func (qs *QuickTranscriptionService) UseSharedMediaSlots(slots chan struct{}) {
 
 // SubmitQuickJob creates and processes a temporary transcription job
 func (qs *QuickTranscriptionService) SubmitQuickJob(audioData io.Reader, filename string, params models.WhisperXParams) (*QuickTranscriptionJob, error) {
+	qs.jobsMutex.Lock()
+	if qs.closed {
+		qs.jobsMutex.Unlock()
+		return nil, errors.New("quick transcription is shutting down")
+	}
+	if qs.unifiedProcessor != nil && qs.unifiedProcessor.GetUnifiedService().recoveryInitError != nil {
+		qs.jobsMutex.Unlock()
+		return nil, qs.unifiedProcessor.GetUnifiedService().recoveryInitError
+	}
+	qs.workers.Add(1)
+	qs.jobsMutex.Unlock()
+	handedOff := false
+	defer func() {
+		if !handedOff {
+			qs.workers.Done()
+		}
+	}()
 	select {
 	case qs.jobSlots <- struct{}{}:
 	default:
@@ -159,6 +183,7 @@ func (qs *QuickTranscriptionService) SubmitQuickJob(audioData io.Reader, filenam
 	// Start processing in background
 	response := cloneQuickJob(job)
 	releaseSlot = false
+	handedOff = true
 	go qs.processQuickJob(jobID)
 
 	return response, nil
@@ -184,6 +209,9 @@ func (qs *QuickTranscriptionService) GetQuickJob(jobID string) (*QuickTranscript
 
 // processQuickJob processes a quick transcription job
 func (qs *QuickTranscriptionService) processQuickJob(jobID string) {
+	defer qs.workers.Done()
+	ctx, cancel := context.WithTimeout(qs.ctx, qs.processTimeout)
+	defer cancel()
 	defer func() { <-qs.jobSlots }()
 	// Update job status to processing
 	qs.jobsMutex.Lock()
@@ -196,7 +224,7 @@ func (qs *QuickTranscriptionService) processQuickJob(jobID string) {
 	qs.jobsMutex.Unlock()
 
 	// Ensure Python environment and embedded assets are ready
-	if err := qs.unifiedProcessor.ensurePythonEnv(); err != nil {
+	if err := qs.unifiedProcessor.Initialize(ctx); err != nil {
 		qs.jobsMutex.Lock()
 		if job, exists := qs.jobs[jobID]; exists {
 			job.Status = models.StatusFailed
@@ -216,8 +244,6 @@ func (qs *QuickTranscriptionService) processQuickJob(jobID string) {
 	}
 
 	// Create a temporary database entry for unified processing
-	ctx, cancel := context.WithTimeout(context.Background(), qs.processTimeout)
-	defer cancel()
 
 	// Save temporary job to database for processing
 	if err := qs.jobRepo.Create(ctx, &tempJob); err != nil {
@@ -253,7 +279,9 @@ func (qs *QuickTranscriptionService) processQuickJob(jobID string) {
 	}
 
 	// Clean up temporary database entry
-	_ = qs.jobRepo.Delete(cleanupCtx, jobID)
+	if cleanupErr := qs.unifiedProcessor.GetUnifiedService().DeleteRecoveryRecording(cleanupCtx, jobID); cleanupErr == nil {
+		_ = qs.jobRepo.Delete(cleanupCtx, jobID)
+	}
 
 	// Update job with results
 	qs.jobsMutex.Lock()
@@ -341,7 +369,17 @@ func (qs *QuickTranscriptionService) cleanupExpiredJobs() {
 
 // Close stops the cleanup routine
 func (qs *QuickTranscriptionService) Close() {
-	if qs.cleanupTicker != nil {
-		close(qs.stopCleanup)
-	}
+	qs.closeOnce.Do(func() {
+		qs.jobsMutex.Lock()
+		qs.closed = true
+		qs.jobsMutex.Unlock()
+		if qs.cancel != nil {
+			qs.cancel()
+		}
+		if qs.cleanupTicker != nil {
+			qs.cleanupTicker.Stop()
+			close(qs.stopCleanup)
+		}
+	})
+	qs.workers.Wait()
 }

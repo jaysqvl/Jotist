@@ -85,6 +85,11 @@ func (s *Service) SendWebhook(ctx context.Context, url string, payload WebhookPa
 		}
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("User-Agent", "Scriberr-Webhook/1.0")
+		// All delivery retries for one durable execution use the same identity.
+		// Receivers can deduplicate a request whose successful response was lost.
+		if executionID, ok := payload.Metadata["execution_id"].(string); ok && executionID != "" {
+			req.Header.Set("Idempotency-Key", "scriberr-execution-"+executionID)
+		}
 
 		resp, err := s.client.Do(req)
 		if err != nil {

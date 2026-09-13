@@ -1,16 +1,14 @@
 [project]
-name = "voxtral-transcription"
+name = "scriberr-suplime"
 version = "0.1.0"
-description = "Audio transcription using Mistral Voxtral-mini model"
 requires-python = ">=3.11,<3.13"
 dependencies = [
-    "transformers>=4.45.0",
-    "torch>=2.6,<2.8",
-    "torchaudio>=2.6,<2.8",
-    "accelerate",
-    "librosa",
-    "soundfile",
-    "mistral-common",
+    "suplime==0.2.0",
+    "pyannote.audio==4.0.7",
+    "torch==2.8.0",
+    "torchaudio==2.8.0",
+    "torchcodec==0.7.0",
+    "soundfile>=0.12.1",
 ]
 
 [tool.uv.sources]

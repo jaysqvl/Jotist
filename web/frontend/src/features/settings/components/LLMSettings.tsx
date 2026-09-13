@@ -150,7 +150,7 @@ export function LLMSettings() {
 					<div>
 						<Label className="text-base font-medium">Choose LLM Provider</Label>
 						<p className="text-sm text-carbon-600 dark:text-carbon-400 mb-3">
-							Select the LLM service you want to integrate with
+							Summaries and chat send transcript text and prompts to this provider, independently of your transcription model.
 						</p>
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 							<label htmlFor="ollama">
@@ -175,7 +175,7 @@ export function LLMSettings() {
 									</CardHeader>
 									<CardContent>
 										<CardDescription className="text-[var(--text-secondary)]">
-											Local LLM server. Requires Ollama installation.
+											Processes text at your configured Ollama URL. Use your own server for local processing.
 										</CardDescription>
 									</CardContent>
 								</Card>
@@ -203,7 +203,7 @@ export function LLMSettings() {
 									</CardHeader>
 									<CardContent>
 										<CardDescription className="text-[var(--text-secondary)]">
-											OpenAI's cloud API. Requires API key.
+											Sends text to the OpenAI cloud by default, or your configured compatible endpoint. Requires an API key.
 										</CardDescription>
 									</CardContent>
 								</Card>

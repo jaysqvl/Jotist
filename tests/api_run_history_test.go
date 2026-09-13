@@ -75,8 +75,10 @@ func (suite *APIHandlerTestSuite) TestRunHistoryEndpointsReturnExecutionTranscri
 func (suite *APIHandlerTestSuite) TestRerunSnapshotsLegacyTranscriptBeforeQueueing() {
 	job := suite.helper.CreateTestTranscriptionJob(suite.T(), "legacy result")
 	transcript := `{"text":"old result"}`
+	summary := "Summary of the previous published result"
 	job.Status = models.StatusCompleted
 	job.Transcript = &transcript
+	job.Summary = &summary
 	job.Parameters = models.WhisperXParams{
 		ModelFamily: "whisper",
 		Model:       "base",
@@ -102,7 +104,8 @@ func (suite *APIHandlerTestSuite) TestRerunSnapshotsLegacyTranscriptBeforeQueuei
 	var updatedJob models.TranscriptionJob
 	assert.NoError(suite.T(), suite.helper.DB.First(&updatedJob, "id = ?", job.ID).Error)
 	assert.Equal(suite.T(), models.StatusPending, updatedJob.Status)
-	assert.Nil(suite.T(), updatedJob.Transcript)
+	assert.Equal(suite.T(), &transcript, updatedJob.Transcript, "rerun must retain the published transcript until its replacement succeeds")
+	assert.Equal(suite.T(), &summary, updatedJob.Summary)
 	assert.Equal(suite.T(), "nvidia_canary", updatedJob.Parameters.ModelFamily)
 }
 
@@ -141,6 +144,37 @@ func (suite *APIHandlerTestSuite) TestListRunsBackfillsLegacyCompletedTranscript
 	var executionCount int64
 	assert.NoError(suite.T(), suite.helper.DB.Model(&models.TranscriptionJobExecution{}).Where("transcription_job_id = ?", job.ID).Count(&executionCount).Error)
 	assert.Equal(suite.T(), int64(1), executionCount)
+}
+
+func (suite *APIHandlerTestSuite) TestRunHistoryDoesNotBackfillFailedRecoveryExecution() {
+	job := suite.helper.CreateTestTranscriptionJob(suite.T(), "retained publication")
+	transcript := `{"text":"previous completed result"}`
+	job.Status = models.StatusFailed
+	job.Transcript = &transcript
+	assert.NoError(suite.T(), suite.helper.DB.Save(job).Error)
+	now := time.Now()
+	failed := models.TranscriptionJobExecution{
+		TranscriptionJobID: job.ID, StartedAt: now.Add(-time.Minute),
+		CompletedAt: &now, Status: models.StatusFailed, RecoveryVersion: 1,
+		RecoveryState: "failed", OwnerGeneration: 1,
+	}
+	assert.NoError(suite.T(), suite.helper.DB.Create(&failed).Error)
+	w := suite.makeAuthenticatedRequest(http.MethodGet, "/api/v1/transcription/"+job.ID+"/runs", nil, true)
+	assert.Equal(suite.T(), http.StatusOK, w.Code)
+	var stored models.TranscriptionJobExecution
+	assert.NoError(suite.T(), suite.helper.DB.First(&stored, "id = ?", failed.ID).Error)
+	assert.Nil(suite.T(), stored.Transcript, "listing history must never attach the previous publication to a failed recovery run")
+	w = suite.makeAuthenticatedRequest(http.MethodGet, "/api/v1/transcription/"+job.ID+"/runs/"+failed.ID+"/transcript", nil, true)
+	assert.Equal(suite.T(), http.StatusOK, w.Code)
+	var response struct {
+		Available  bool        `json:"available"`
+		Transcript interface{} `json:"transcript"`
+	}
+	assert.NoError(suite.T(), json.Unmarshal(w.Body.Bytes(), &response))
+	assert.False(suite.T(), response.Available)
+	assert.Nil(suite.T(), response.Transcript)
+	assert.NoError(suite.T(), suite.helper.DB.First(job, "id = ?", job.ID).Error)
+	assert.Equal(suite.T(), &transcript, job.Transcript)
 }
 
 func (suite *APIHandlerTestSuite) TestListRunsDoesNotDuplicateExecutionDuringFinalization() {

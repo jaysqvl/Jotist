@@ -25,6 +25,8 @@ interface TranscriptionProfile {
 	parameters: WhisperXParams;
 	created_at: string;
 	updated_at: string;
+	revision?: number;
+	learning_generation?: number;
 }
 
 interface ProfilesTableProps {
@@ -32,6 +34,7 @@ interface ProfilesTableProps {
 	onProfileChange: () => void;
 	onEditProfile: (profile: TranscriptionProfile) => void;
 	onCreateProfile?: () => void;
+	onLearnProfile?: (profile: TranscriptionProfile) => void;
 }
 
 export function ProfilesTable({
@@ -39,6 +42,7 @@ export function ProfilesTable({
 	onProfileChange,
 	onEditProfile,
 	onCreateProfile,
+	onLearnProfile,
 }: ProfilesTableProps) {
 	const { getAuthHeaders } = useAuth();
 	const [profiles, setProfiles] = useState<TranscriptionProfile[]>([]);
@@ -192,6 +196,7 @@ export function ProfilesTable({
 							</div>
 						</div>
 
+						{onLearnProfile && <Button variant="outline" size="sm" className="ml-2" aria-label={`Execution learning for ${profile.name}`} onClick={(event) => { event.stopPropagation(); onLearnProfile(profile); }}>Learning</Button>}
 						<div
 							className="opacity-0 group-hover:opacity-100 transition-opacity duration-200"
 							onClick={(e) => e.stopPropagation()}

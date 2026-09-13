@@ -20,6 +20,8 @@ import { Loader2, SlidersHorizontal } from "lucide-react";
 import type { WhisperXParams } from "./TranscriptionConfigDialog";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { sortProfilesByName } from "@/lib/profiles";
+import { CheckpointReuseField } from "./transcription/RecoveryPolicyFields";
+import { recoveryModeLabel, shouldReuseCheckpoints, type RunSubmissionOptions } from "@/features/transcription/hooks/recoveryPolicy";
 
 interface TranscriptionProfile {
   id: string;
@@ -34,7 +36,7 @@ interface TranscriptionProfile {
 interface TranscribeDDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onStartTranscription: (params: WhisperXParams, profileId?: string, profileName?: string) => void;
+  onStartTranscription: (params: WhisperXParams, profileId?: string, profileName?: string, options?: RunSubmissionOptions) => void;
   loading?: boolean;
   title?: string;
   description?: string;
@@ -59,6 +61,8 @@ export function TranscribeDDialog({
   const [selectedProfileId, setSelectedProfileId] = useState<string>("");
   const [profilesLoading, setProfilesLoading] = useState(false);
   const [defaultProfile, setDefaultProfile] = useState<TranscriptionProfile | null>(null);
+  const [reuseOverride, setReuseOverride] = useState<boolean | undefined>();
+  const selectedProfile = profiles.find((profile) => profile.id === selectedProfileId);
 
   const fetchProfiles = useCallback(async () => {
     try {
@@ -107,6 +111,7 @@ export function TranscribeDDialog({
   // Fetch profiles when dialog opens
   useEffect(() => {
     if (open) {
+      setReuseOverride(undefined);
       fetchProfiles();
     }
   }, [open, fetchProfiles]);
@@ -116,12 +121,13 @@ export function TranscribeDDialog({
 
     const selectedProfile = profiles.find(p => p.id === selectedProfileId);
     if (selectedProfile) {
-      onStartTranscription(selectedProfile.parameters, selectedProfile.id, selectedProfile.name);
+      onStartTranscription(selectedProfile.parameters, selectedProfile.id, selectedProfile.name, { reuse_checkpoints: reuseOverride });
     }
   };
 
   const handleProfileChange = (value: string) => {
     setSelectedProfileId(value);
+    setReuseOverride(undefined);
   };
 
 
@@ -140,7 +146,7 @@ export function TranscribeDDialog({
 
 
 
-        <div className="space-y-4 px-6 py-2">
+        <div className="max-h-[65vh] space-y-4 overflow-y-auto px-6 py-2">
           <div className="space-y-2">
             <Label htmlFor="profile" className="text-[var(--text-secondary)] font-medium">
               Select Profile
@@ -192,8 +198,10 @@ export function TranscribeDDialog({
               </Select>
             )}
           </div>
-
-
+          {selectedProfile && <div className="space-y-3">
+            <p className="text-xs text-[var(--text-secondary)]">Execution policy: {recoveryModeLabel(selectedProfile.parameters)}. Starting creates a new run; it does not resume an earlier execution.</p>
+            <CheckpointReuseField value={reuseOverride ?? shouldReuseCheckpoints(selectedProfile.parameters.reuse_checkpoints)} onChange={setReuseOverride} />
+          </div>}
         </div>
 
         <DialogFooter className="p-6 pt-2 gap-3">

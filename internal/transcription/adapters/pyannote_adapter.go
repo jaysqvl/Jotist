@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -50,7 +49,8 @@ func NewPyAnnoteAdapter(envPath string) *PyAnnoteAdapter {
 		Metadata: map[string]string{
 			"engine":    "pyannote_audio",
 			"framework": "pytorch",
-			"license":   "MIT",
+			"license":   "CC-BY-4.0",
+			"model_id":  "pyannote/speaker-diarization-community-1",
 			"requires":  "huggingface_token",
 			"model_hub": "huggingface",
 		},
@@ -63,7 +63,7 @@ func NewPyAnnoteAdapter(envPath string) *PyAnnoteAdapter {
 			Type:        "string",
 			Required:    false,
 			Default:     nil,
-			Description: "HuggingFace token for model access (optional if HF_TOKEN env var is set)",
+			Description: "Optional Hugging Face token; otherwise use HF_TOKEN or cached login",
 			Group:       "basic",
 		},
 		{
@@ -71,7 +71,7 @@ func NewPyAnnoteAdapter(envPath string) *PyAnnoteAdapter {
 			Type:        "string",
 			Required:    false,
 			Default:     "pyannote/speaker-diarization-community-1",
-			Options:     []string{"pyannote/speaker-diarization-community-1"},
+			Options:     []string{"pyannote/speaker-diarization-community-1", "pyannote/speaker-diarization-3.1"},
 			Description: "PyAnnote model to use",
 			Group:       "basic",
 		},
@@ -181,6 +181,14 @@ func (p *PyAnnoteAdapter) GetMinSpeakers() int {
 
 // PrepareEnvironment sets up the dedicated PyAnnote environment
 func (p *PyAnnoteAdapter) PrepareEnvironment(ctx context.Context) error {
+	release, err := lockPythonPreparation(ctx, p.envPath)
+	if err != nil {
+		return err
+	}
+	defer release()
+	if err := refreshPythonProject(pyannoteScripts, "py/pyannote/pyproject.toml", p.envPath); err != nil {
+		return fmt.Errorf("refresh Python environment: %w", err)
+	}
 	logger.Info("Preparing PyAnnote environment", "env_path", p.envPath)
 
 	// Always ensure diarization script exists
@@ -189,7 +197,7 @@ func (p *PyAnnoteAdapter) PrepareEnvironment(ctx context.Context) error {
 	}
 
 	// Check if PyAnnote is already available (using cache to speed up repeated checks)
-	if CheckEnvironmentReady(p.envPath, "from pyannote.audio import Pipeline") {
+	if checkPythonEnvironmentReady(ctx, p.envPath, "from pyannote.audio import Pipeline") {
 		logger.Info("PyAnnote already available in environment")
 		// Still ensure script exists
 		if err := p.copyDiarizationScript(); err != nil {
@@ -200,14 +208,14 @@ func (p *PyAnnoteAdapter) PrepareEnvironment(ctx context.Context) error {
 	}
 
 	// Create environment if it doesn't exist or is incomplete
-	if err := p.setupPyAnnoteEnvironment(); err != nil {
+	if err := p.setupPyAnnoteEnvironment(ctx); err != nil {
 		return fmt.Errorf("failed to setup PyAnnote environment: %w", err)
 	}
 
 	// Verify PyAnnote is now available
-	testCmd := exec.Command("uv", "run", "--system-certs", "--project", p.envPath, "python", "-c", "from pyannote.audio import Pipeline")
-	if testCmd.Run() != nil {
-		logger.Warn("PyAnnote environment test still failed after setup")
+	testCmd := processutil.CommandContext(ctx, "uv", "run", "--system-certs", "--project", p.envPath, "python", "-c", "from pyannote.audio import Pipeline")
+	if err := testCmd.Run(); err != nil {
+		return fmt.Errorf("PyAnnote import check failed after setup: %w", err)
 	}
 
 	p.initialized = true
@@ -216,7 +224,7 @@ func (p *PyAnnoteAdapter) PrepareEnvironment(ctx context.Context) error {
 }
 
 // setupPyAnnoteEnvironment creates the Python environment
-func (p *PyAnnoteAdapter) setupPyAnnoteEnvironment() error {
+func (p *PyAnnoteAdapter) setupPyAnnoteEnvironment(ctx context.Context) error {
 	if err := os.MkdirAll(p.envPath, 0755); err != nil {
 		return fmt.Errorf("failed to create pyannote directory: %w", err)
 	}
@@ -237,13 +245,13 @@ func (p *PyAnnoteAdapter) setupPyAnnoteEnvironment() error {
 	)
 
 	pyprojectPath := filepath.Join(p.envPath, "pyproject.toml")
-	if err := os.WriteFile(pyprojectPath, []byte(contentStr), 0644); err != nil {
+	if err := writePythonProject(pyprojectPath, []byte(contentStr)); err != nil {
 		return fmt.Errorf("failed to write pyproject.toml: %w", err)
 	}
 
 	// Run uv sync
 	logger.Info("Installing PyAnnote dependencies")
-	cmd := exec.Command("uv", "sync", "--system-certs")
+	cmd := processutil.CommandContext(ctx, "uv", "sync", "--system-certs")
 	cmd.Dir = p.envPath
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -266,7 +274,7 @@ func (p *PyAnnoteAdapter) copyDiarizationScript() error {
 	}
 
 	scriptPath := filepath.Join(p.envPath, "pyannote_diarize.py")
-	if err := os.WriteFile(scriptPath, scriptContent, 0755); err != nil {
+	if err := writeRuntimeScript(scriptPath, scriptContent, 0755); err != nil {
 		return fmt.Errorf("failed to write diarization script: %w", err)
 	}
 
@@ -291,16 +299,12 @@ func (p *PyAnnoteAdapter) Diarize(ctx context.Context, input interfaces.AudioInp
 		return nil, fmt.Errorf("invalid parameters: %w", err)
 	}
 
-	// Check for HF token - use param first, then fall back to environment variable
+	// An explicit token overrides HF_TOKEN; otherwise the Python loader may
+	// use the user's cached Hugging Face login or an already-downloaded model.
 	hfToken := p.GetStringParameter(params, "hf_token")
 	if hfToken == "" {
 		hfToken = os.Getenv("HF_TOKEN")
 	}
-	if hfToken == "" {
-		return nil, fmt.Errorf("HuggingFace token is required for PyAnnote diarization. Set HF_TOKEN environment variable or provide it in the UI")
-	}
-	// Store resolved token in params for buildPyAnnoteArgs
-	params["hf_token"] = hfToken
 
 	// Create temporary directory
 	tempDir, err := p.CreateTempDirectory(procCtx)
@@ -318,7 +322,10 @@ func (p *PyAnnoteAdapter) Diarize(ctx context.Context, input interfaces.AudioInp
 	// Execute PyAnnote
 	cmd := processutil.CommandContext(ctx, "uv", args...)
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
-	cmd.Env = withEnvironmentValue(cmd.Env, "HF_TOKEN", hfToken)
+	cmd.Env = withRequestedDevice(cmd.Env, p.GetStringParameter(params, "device"))
+	if hfToken != "" {
+		cmd.Env = withEnvironmentValue(cmd.Env, "HF_TOKEN", hfToken)
+	}
 
 	// Setup log file
 	logFile, err := os.OpenFile(filepath.Join(procCtx.OutputDirectory, "transcription.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -356,7 +363,7 @@ func (p *PyAnnoteAdapter) Diarize(ctx context.Context, input interfaces.AudioInp
 
 	result.ProcessingTime = time.Since(startTime)
 	result.ModelUsed = p.GetStringParameter(params, "model")
-	result.Metadata = p.CreateDefaultMetadata(params)
+	result.Metadata = mergeRuntimeMetadata(p.CreateDefaultMetadata(params), readRuntimeMetadata(tempDir))
 
 	logger.Info("PyAnnote diarization completed",
 		"segments", len(result.Segments),
@@ -407,7 +414,7 @@ func (p *PyAnnoteAdapter) buildPyAnnoteArgs(input interfaces.AudioInput, params 
 		args = append(args, "--segmentation-offset", fmt.Sprintf("%.3f", offset))
 	}
 
-	// Device is handled automatically by the script
+	args = append(args, "--device", p.GetStringParameter(params, "device"))
 
 	return args, nil
 }

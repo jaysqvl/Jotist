@@ -16,18 +16,20 @@ import (
 )
 
 type queueRunRequest struct {
-	Parameters  *json.RawMessage `json:"parameters"`
-	ProfileID   *string          `json:"profile_id,omitempty"`
-	ProfileName *string          `json:"profile_name,omitempty"`
+	Parameters       *json.RawMessage `json:"parameters"`
+	ProfileID        *string          `json:"profile_id,omitempty"`
+	ProfileName      *string          `json:"profile_name,omitempty"`
+	ReuseCheckpoints *bool            `json:"reuse_checkpoints,omitempty"`
 }
 
 // QueueTranscriptionRunRequest documents the public request schema. The
 // handler binds through RawMessage so partial parameters can be overlaid on
 // server defaults without losing explicit false/zero values.
 type QueueTranscriptionRunRequest struct {
-	Parameters  *models.WhisperXParams `json:"parameters,omitempty"`
-	ProfileID   *string                `json:"profile_id,omitempty"`
-	ProfileName *string                `json:"profile_name,omitempty"`
+	Parameters       *models.WhisperXParams `json:"parameters,omitempty"`
+	ProfileID        *string                `json:"profile_id,omitempty"`
+	ProfileName      *string                `json:"profile_name,omitempty"`
+	ReuseCheckpoints *bool                  `json:"reuse_checkpoints,omitempty"`
 }
 
 // TranscriptionQueueResponse is the public per-audio queue envelope.
@@ -263,7 +265,19 @@ func (h *Handler) resolveQueuedRun(c *gin.Context, request *queueRunRequest) (*m
 		// Stored profile data is authoritative. In particular, redacted browser
 		// payloads cannot accidentally erase the credentials needed later.
 		name := profile.Name
-		return &profile.Parameters, &profile.ID, &name, true
+		if request.ReuseCheckpoints != nil {
+			profile.Parameters.ReuseCheckpoints = request.ReuseCheckpoints
+		}
+		params, err := h.admitSavedProfile(c, profile)
+		if err != nil {
+			if errors.Is(err, repository.ErrAdaptiveConflict) {
+				c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			} else {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Could not snapshot profile settings; reload the profile and retry"})
+			}
+			return nil, nil, nil, false
+		}
+		return &params, &profile.ID, &name, true
 	}
 	if request.Parameters == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "parameters or profile_id is required"})
@@ -274,6 +288,10 @@ func (h *Handler) resolveQueuedRun(c *gin.Context, request *queueRunRequest) (*m
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid transcription parameters"})
 		return nil, nil, nil, false
 	}
+	if request.ReuseCheckpoints != nil {
+		params.ReuseCheckpoints = request.ReuseCheckpoints
+	}
+	clearClientLearningSnapshot(&params)
 	return &params, nil, nil, true
 }
 

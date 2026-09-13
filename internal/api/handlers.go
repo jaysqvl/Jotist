@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -571,18 +572,25 @@ func (h *Handler) GetTrackProgress(c *gin.Context) {
 }
 
 // @Summary Submit a transcription job
-// @Description Submit an audio file for transcription with WhisperX
+// @Description Submit an audio file using a supported transcription model. Omitted context fields inherit the authenticated user's defaults; empty fields explicitly disable those hints.
 // @Tags transcription
 // @Accept multipart/form-data
 // @Produce json
 // @Param audio formData file true "Audio file"
 // @Param title formData string false "Job title"
 // @Param diarization formData boolean false "Enable speaker diarization"
-// @Param model formData string false "Whisper model" default(base)
+// @Param model_family formData string false "Model family from /transcription/models" default(whisper)
+// @Param model formData string false "Checkpoint or Whisper model size; defaults to base for Whisper and the family default for local models"
+// @Param transcription_context formData string false "Meeting context, at most 4000 characters; omitted inherits and empty disables"
+// @Param transcription_context_terms formData string false "Vocabulary, one term per line, at most 8000 characters; omitted inherits and empty disables"
+// @Param audio_chunk_duration formData int false "Audio chunk duration in seconds; omit for the model default, 0 requests full-recording context where supported"
+// @Param diarize_model formData string false "Speaker diarization model; native requires an integrated diarizer" Enums(pyannote,nvidia_sortformer,diarizen,suplime,native) default(pyannote)
+// @Param diarization_device formData string false "Device used for speaker diarization; same follows the transcription device" Enums(same,cpu,cuda,auto) default(same)
+// @Param diarization_checkpoint formData string false "Optional research diarizer checkpoint, such as rewayai/suplime or rewayai/suplime-large"
 // @Param language formData string false "Language code"
 // @Param batch_size formData int false "Batch size" default(16)
-// @Param compute_type formData string false "Compute type" default(float16)
-// @Param device formData string false "Device" default(auto)
+// @Param compute_type formData string false "Compute precision; Whisper defaults to int8, local ASR to float32, and BitNet uses fixed quantized weights"
+// @Param device formData string false "Transcription device; supported choices depend on the model" default(cpu)
 // @Param vad_filter formData boolean false "Enable VAD filter"
 // @Param vad_onset formData number false "VAD onset" default(0.500)
 // @Param vad_offset formData number false "VAD offset" default(0.363)
@@ -610,18 +618,22 @@ func (h *Handler) SubmitJob(c *gin.Context) {
 		return
 	}
 
+	// Validate options and snapshot inherited context before persisting the audio.
+	// Client errors must not leave a saved file without a transcription job.
+	params, err := submitParamsFromForm(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := h.validateContextForRun(c, &params); err != nil {
+		return
+	}
+
 	// Save file using FileService
 	uploadDir := h.config.UploadDir
 	filePath, err := h.fileService.SaveUpload(header, uploadDir)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
-		return
-	}
-
-	params, err := submitParamsFromForm(c)
-	if err != nil {
-		_ = h.fileService.RemoveFile(filePath)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -843,7 +855,7 @@ func (h *Handler) GetTranscriptionJob(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path string true "Job ID"
-// @Param parameters body models.WhisperXParams true "Transcription parameters"
+// @Param parameters body ImmediateTranscriptionRequest true "Transcription parameters or authoritative saved profile ID"
 // @Success 200 {object} models.TranscriptionJob
 // @Failure 400 {object} map[string]string
 // @Failure 404 {object} map[string]string
@@ -875,9 +887,8 @@ func (h *Handler) StartTranscription(c *gin.Context) {
 	job.Diarization = requestParams.Diarize
 	job.Status = models.StatusPending
 
-	// Clear previous results for re-transcription
-	job.Transcript = nil
-	job.Summary = nil
+	// Keep the published result until the replacement execution commits all
+	// requested outputs. A failed or cancelled rerun must not erase it.
 	job.ErrorMessage = nil
 
 	// Atomically recheck idle/queue state, save the parameters, and dispatch.
@@ -929,15 +940,37 @@ func (h *Handler) getJobForTranscription(c *gin.Context, jobID string) (*models.
 	return job, nil
 }
 
+// ImmediateTranscriptionRequest preserves the flat parameter API. When
+// profile_id is supplied, the stored profile is authoritative, including its
+// write-only credentials, and accompanying parameter values are ignored.
+type ImmediateTranscriptionRequest struct {
+	models.WhisperXParams
+	ProfileID *string `json:"profile_id,omitempty"`
+}
+
 func (h *Handler) getValidatedTranscriptionParams(c *gin.Context, job *models.TranscriptionJob, jobID string) (*models.WhisperXParams, error) {
-	requestParams := defaultTranscriptionParams()
+	request := ImmediateTranscriptionRequest{WhisperXParams: defaultTranscriptionParams()}
 
 	// Parse request body parameters, overriding defaults
-	if err := bindJSON(c, &requestParams); err != nil {
-		// Use defaults if JSON parsing fails
-		logger.Debug("Failed to parse JSON parameters, using defaults", "error", err)
+	if err := bindJSON(c, &request); err != nil && !errors.Is(err, io.EOF) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid transcription parameters JSON"})
+		return nil, err
 	}
-	return h.validateTranscriptionParams(c, job, jobID, &requestParams)
+	params := &request.WhisperXParams
+	if request.ProfileID != nil {
+		if strings.TrimSpace(*request.ProfileID) == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "profile_id must identify a saved profile"})
+			return nil, fmt.Errorf("empty transcription profile ID")
+		}
+		var ok bool
+		params, _, _, ok = h.resolveQueuedRun(c, &queueRunRequest{ProfileID: request.ProfileID, ReuseCheckpoints: request.ReuseCheckpoints})
+		if !ok {
+			return nil, fmt.Errorf("failed to load transcription profile")
+		}
+	} else {
+		clearClientLearningSnapshot(params)
+	}
+	return h.validateTranscriptionParams(c, job, jobID, params)
 }
 
 func defaultTranscriptionParams() models.WhisperXParams {
@@ -961,7 +994,8 @@ func defaultTranscriptionParams() models.WhisperXParams {
 		VadOffset:                      0.363,
 		ChunkSize:                      30,
 		Diarize:                        false,
-		DiarizeModel:                   "pyannote/speaker-diarization-3.1",
+		DiarizeModel:                   "pyannote",
+		DiarizationDevice:              "same",
 		SpeakerEmbeddings:              false,
 		Temperature:                    0,
 		BestOf:                         5,
@@ -985,6 +1019,9 @@ func defaultTranscriptionParams() models.WhisperXParams {
 }
 
 func (h *Handler) validateTranscriptionParams(c *gin.Context, job *models.TranscriptionJob, jobID string, requestParams *models.WhisperXParams) (*models.WhisperXParams, error) {
+	if err := h.validateContextForRun(c, requestParams); err != nil {
+		return nil, err
+	}
 	// Debug: log what we received
 	logger.Debug("Parsed transcription parameters",
 		"job_id", jobID,
@@ -994,17 +1031,9 @@ func (h *Handler) validateTranscriptionParams(c *gin.Context, job *models.Transc
 		"diarize_model", requestParams.DiarizeModel,
 		"language", requestParams.Language)
 
-	// Validate NVIDIA-specific constraints
-	if requestParams.ModelFamily == "nvidia_parakeet" || requestParams.ModelFamily == "nvidia_canary" || requestParams.ModelFamily == "nvidia_canary_qwen" {
-		// Both NVIDIA models support multiple European languages
-		// No language restriction needed - models support auto-detection
-
-		// NVIDIA models support diarization via Pyannote integration or NVIDIA Sortformer
-		if requestParams.Diarize && requestParams.DiarizeModel == "pyannote" && (requestParams.HfToken == nil || *requestParams.HfToken == "") {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Hugging Face token (hf_token) is required for Pyannote diarization"})
-			return nil, fmt.Errorf("hf_token required")
-		}
-	}
+	// Model access can use a write-only profile token, HF_TOKEN, or the local
+	// Hugging Face login/cache. Let the adapter check access instead of requiring
+	// the client to resend a credential for every NVIDIA run.
 
 	// Validate multi-track compatibility
 	if job.IsMultiTrack && !requestParams.IsMultiTrackEnabled {
@@ -1164,6 +1193,12 @@ func (h *Handler) DeleteTranscriptionJob(c *gin.Context) {
 		return
 	}
 	defer releaseDeletion()
+	if h.unifiedProcessor != nil {
+		if err := h.unifiedProcessor.GetUnifiedService().DeleteRecoveryRecording(c.Request.Context(), jobID); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Checkpoint cleanup is pending; retry deletion. The original recording has been retained."})
+			return
+		}
+	}
 
 	// Delete files
 	if job.IsMultiTrack && job.MultiTrackFolder != nil {
@@ -2276,9 +2311,25 @@ func (h *Handler) ListProfiles(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Security BearerAuth
 func (h *Handler) CreateProfile(c *gin.Context) {
-	var profile models.TranscriptionProfile
+	// Seed omitted fields before decoding so explicit false/zero values remain
+	// distinguishable from the legacy defaults previously supplied by GORM.
+	profile := models.TranscriptionProfile{Parameters: defaultTranscriptionParams()}
+	profile.Parameters.DiarizationDevice = ""
+	profile.Parameters.NvidiaChunkDuration = 300
+	profile.Parameters.NvidiaPrecision = "float16"
+	timestamps := true
+	profile.Parameters.NvidiaTimestamps = &timestamps
 	if err := bindJSON(c, &profile); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
+		return
+	}
+
+	if err := prepareProfileHFToken(&profile.Parameters, nil); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateModelRunOptions(profile.Parameters); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -2346,9 +2397,33 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	var updatedProfile models.TranscriptionProfile
-	if err := bindJSON(c, &updatedProfile); err != nil {
+	var request struct {
+		models.TranscriptionProfile
+		ExpectedRevision *int64 `json:"expected_revision"`
+	}
+	if err := bindJSON(c, &request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
+		return
+	}
+	updatedProfile := request.TranscriptionProfile
+	// Older clients omit the revision. They retain their request behavior while
+	// the revision read above still fences concurrent writes during this update.
+	if request.ExpectedRevision != nil {
+		if *request.ExpectedRevision < 1 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "expected_revision must be positive"})
+			return
+		}
+		updatedProfile.Revision = *request.ExpectedRevision
+	} else if updatedProfile.Revision < 1 {
+		updatedProfile.Revision = existingProfile.Revision
+	}
+
+	if err := prepareProfileHFToken(&updatedProfile.Parameters, &existingProfile.Parameters); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateModelRunOptions(updatedProfile.Parameters); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -2366,14 +2441,15 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 	// GORM Save updates all fields.
 	updatedProfile.ID = existingProfile.ID
 	updatedProfile.CreatedAt = existingProfile.CreatedAt
-	if updatedProfile.Parameters.HfToken == nil {
-		updatedProfile.Parameters.HfToken = existingProfile.Parameters.HfToken
-	}
 	if updatedProfile.Parameters.APIKey == nil {
 		updatedProfile.Parameters.APIKey = existingProfile.Parameters.APIKey
 	}
 
 	if err := h.profileRepo.Update(c.Request.Context(), &updatedProfile); err != nil {
+		if errors.Is(err, repository.ErrAdaptiveConflict) {
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update profile"})
 		return
 	}
@@ -2496,7 +2572,11 @@ func (h *Handler) SubmitQuickTranscription(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load profile"})
 			return
 		}
-		params = profile.Parameters
+		params, err = h.admitSavedProfile(c, profile)
+		if err != nil {
+			c.JSON(http.StatusConflict, gin.H{"error": "Could not snapshot profile settings; reload the profile and retry"})
+			return
+		}
 
 	} else if parametersJSON := c.PostForm("parameters"); parametersJSON != "" {
 		// Parse parameters from JSON string
@@ -2504,6 +2584,7 @@ func (h *Handler) SubmitQuickTranscription(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid parameters JSON"})
 			return
 		}
+		clearClientLearningSnapshot(&params)
 	} else {
 		// Use default parameters with all required fields
 		params = models.WhisperXParams{
@@ -2560,6 +2641,10 @@ func (h *Handler) SubmitQuickTranscription(c *gin.Context) {
 			SegmentResolution: "sentence",
 			PrintProgress:     false,
 		}
+	}
+
+	if err := h.validateContextForRun(c, &params); err != nil {
+		return
 	}
 
 	// Submit quick transcription job
@@ -2902,13 +2987,20 @@ func (h *Handler) SetUserDefaultProfile(c *gin.Context) {
 
 // UserSettingsResponse represents the user's settings
 type UserSettingsResponse struct {
-	AutoTranscriptionEnabled bool    `json:"auto_transcription_enabled"`
-	DefaultProfileID         *string `json:"default_profile_id,omitempty"`
+	AutoTranscriptionEnabled  bool    `json:"auto_transcription_enabled"`
+	DefaultProfileID          *string `json:"default_profile_id,omitempty"`
+	TranscriptionContext      string  `json:"transcription_context"`
+	TranscriptionContextTerms string  `json:"transcription_context_terms"`
+	HasHFToken                bool    `json:"has_hf_token"`
 }
 
 // UpdateUserSettingsRequest represents the request to update user settings
 type UpdateUserSettingsRequest struct {
-	AutoTranscriptionEnabled *bool `json:"auto_transcription_enabled,omitempty"`
+	AutoTranscriptionEnabled  *bool   `json:"auto_transcription_enabled,omitempty"`
+	TranscriptionContext      *string `json:"transcription_context,omitempty"`
+	TranscriptionContextTerms *string `json:"transcription_context_terms,omitempty"`
+	// Write-only: omitted/null preserves the saved token; an empty string clears it.
+	HFToken *string `json:"hf_token,omitempty"`
 }
 
 // @Summary Get user settings
@@ -2934,8 +3026,11 @@ func (h *Handler) GetUserSettings(c *gin.Context) {
 	}
 
 	response := UserSettingsResponse{
-		AutoTranscriptionEnabled: user.AutoTranscriptionEnabled,
-		DefaultProfileID:         user.DefaultProfileID,
+		AutoTranscriptionEnabled:  user.AutoTranscriptionEnabled,
+		DefaultProfileID:          user.DefaultProfileID,
+		TranscriptionContext:      user.TranscriptionContext,
+		TranscriptionContextTerms: user.TranscriptionContextTerms,
+		HasHFToken:                user.HFToken != "",
 	}
 
 	c.JSON(http.StatusOK, response)
@@ -2973,6 +3068,23 @@ func (h *Handler) UpdateUserSettings(c *gin.Context) {
 	}
 
 	// Update fields if provided
+	if err := validateContext(req.TranscriptionContext, req.TranscriptionContextTerms); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateHFToken(req.HFToken); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if req.HFToken != nil {
+		user.HFToken = strings.TrimSpace(*req.HFToken)
+	}
+	if req.TranscriptionContext != nil {
+		user.TranscriptionContext = strings.TrimSpace(*req.TranscriptionContext)
+	}
+	if req.TranscriptionContextTerms != nil {
+		user.TranscriptionContextTerms = strings.TrimSpace(*req.TranscriptionContextTerms)
+	}
 	if req.AutoTranscriptionEnabled != nil {
 		user.AutoTranscriptionEnabled = *req.AutoTranscriptionEnabled
 	}
@@ -2984,8 +3096,11 @@ func (h *Handler) UpdateUserSettings(c *gin.Context) {
 	}
 
 	response := UserSettingsResponse{
-		AutoTranscriptionEnabled: user.AutoTranscriptionEnabled,
-		DefaultProfileID:         user.DefaultProfileID,
+		AutoTranscriptionEnabled:  user.AutoTranscriptionEnabled,
+		DefaultProfileID:          user.DefaultProfileID,
+		TranscriptionContext:      user.TranscriptionContext,
+		TranscriptionContextTerms: user.TranscriptionContextTerms,
+		HasHFToken:                user.HFToken != "",
 	}
 
 	c.JSON(http.StatusOK, response)

@@ -34,13 +34,13 @@ RUN go mod download
 # Copy source
 COPY . .
 
-# Block image publication when reachable Go vulnerabilities are known.
-ARG GOVULNCHECK_VERSION=v1.6.0
-RUN go run golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION} ./cmd/... ./internal/... ./pkg/...
-
 # Copy built UI into embed path
 RUN rm -rf internal/web/dist && mkdir -p internal/web
 COPY --from=ui-builder /web/frontend/dist internal/web/dist
+
+# Block image publication when reachable Go vulnerabilities are known.
+ARG GOVULNCHECK_VERSION=v1.6.0
+RUN go run golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION} ./cmd/... ./internal/... ./pkg/...
 
 # Build binary (arch matches builder platform)
 RUN CGO_ENABLED=0 \
@@ -71,12 +71,13 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
+# CMake and C/C++ tools also build the optional CPU-only VibeASR.cpp runtime on first use.
 # System deps: curl for uv install, ca-certs, ffmpeg for yt-dlp, git for git+ installs, gosu for user switching
 # Build tools: gcc, g++, make for compiling Python C extensions (needed for NeMo dependencies like texterrors)
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   curl ca-certificates ffmpeg git gosu \
-  build-essential gcc g++ make python3-dev unzip\
+  build-essential gcc g++ make cmake python3-dev unzip\
   && rm -rf /var/lib/apt/lists/*
 
 # Install uv (fast Python package manager) directly to system PATH

@@ -78,8 +78,10 @@ func (mt *MultiTrackTranscriber) ProcessMultiTrackTranscription(ctx context.Cont
 	mt.trackJobsMutex.Unlock()
 
 	// Clear any existing individual transcripts to ensure clean progress tracking from 0/N
-	if err := mt.db.Model(&models.TranscriptionJob{}).Where("id = ?", jobID).Update("individual_transcripts", nil).Error; err != nil {
-		logger.Warn("Failed to clear individual transcripts at start", "job_id", jobID, "error", err)
+	if execution.RecoveryVersion == 0 {
+		if err := mt.db.Model(&models.TranscriptionJob{}).Where("id = ?", jobID).Update("individual_transcripts", nil).Error; err != nil {
+			logger.Warn("Failed to clear individual transcripts at start", "job_id", jobID, "error", err)
+		}
 	}
 
 	// Ensure cleanup of tracking on exit
@@ -104,7 +106,7 @@ func (mt *MultiTrackTranscriber) ProcessMultiTrackTranscription(ctx context.Cont
 			"offset", trackFile.Offset)
 
 		// Create a temporary job for this individual track
-		trackResult, err := mt.transcribeIndividualTrack(ctx, &job, &trackFile)
+		trackResult, err := mt.transcribeIndividualTrack(ctx, &job, &trackFile, execution)
 		trackEndTime := time.Now()
 		trackDuration := trackEndTime.Sub(trackStartTime).Milliseconds()
 
@@ -137,7 +139,7 @@ func (mt *MultiTrackTranscriber) ProcessMultiTrackTranscription(ctx context.Cont
 		individualTranscriptsJSON, err := json.Marshal(individualTranscripts)
 		if err != nil {
 			logger.Warn("Failed to serialize individual transcripts for progress update", "error", err)
-		} else {
+		} else if execution.RecoveryVersion == 0 {
 			individualTranscriptsStr := string(individualTranscriptsJSON)
 			if err := mt.db.Model(&models.TranscriptionJob{}).Where("id = ?", jobID).Update("individual_transcripts", &individualTranscriptsStr).Error; err != nil {
 				logger.Warn("Failed to update individual transcripts progress", "job_id", jobID, "error", err)
@@ -189,9 +191,11 @@ func (mt *MultiTrackTranscriber) ProcessMultiTrackTranscription(ctx context.Cont
 	individualTranscriptsStr := string(individualTranscriptsJSON)
 
 	// Create speaker mappings for multi-track transcription (so speakers can be renamed in UI)
-	if err := mt.createSpeakerMappings(jobID, trackTranscripts); err != nil {
-		logger.Warn("Failed to create speaker mappings", "job_id", jobID, "error", err)
-		// Don't fail the entire job for speaker mapping issues, just log the warning
+	if execution.RecoveryVersion == 0 {
+		if err := mt.createSpeakerMappings(jobID, trackTranscripts); err != nil {
+			logger.Warn("Failed to create speaker mappings", "job_id", jobID, "error", err)
+			// Don't fail the entire job for speaker mapping issues, just log the warning
+		}
 	}
 
 	// Save results to database
@@ -200,9 +204,18 @@ func (mt *MultiTrackTranscriber) ProcessMultiTrackTranscription(ctx context.Cont
 		"individual_transcripts": &individualTranscriptsStr,
 		"status":                 models.StatusCompleted,
 	}
+	if execution.RecoveryVersion > 0 {
+		execution.Transcript = &mergedTranscriptStr
+		execution.IndividualTranscripts = &individualTranscriptsStr
+		delete(updates, "transcript")
+		delete(updates, "status")
+		delete(updates, "individual_transcripts")
+	}
 
-	if err := mt.db.Model(&models.TranscriptionJob{}).Where("id = ?", jobID).Updates(updates).Error; err != nil {
-		return fmt.Errorf("failed to save transcription results: %w", err)
+	if len(updates) > 0 {
+		if err := mt.db.Model(&models.TranscriptionJob{}).Where("id = ?", jobID).Updates(updates).Error; err != nil {
+			return fmt.Errorf("failed to save transcription results: %w", err)
+		}
 	}
 
 	// Attach multi-track timing data to the execution created by the unified
@@ -225,7 +238,7 @@ func (mt *MultiTrackTranscriber) ProcessMultiTrackTranscription(ctx context.Cont
 }
 
 // transcribeIndividualTrack transcribes a single track file using the direct transcription method
-func (mt *MultiTrackTranscriber) transcribeIndividualTrack(ctx context.Context, job *models.TranscriptionJob, trackFile *models.MultiTrackFile) (*interfaces.TranscriptResult, error) {
+func (mt *MultiTrackTranscriber) transcribeIndividualTrack(ctx context.Context, job *models.TranscriptionJob, trackFile *models.MultiTrackFile, parentExecution *models.TranscriptionJobExecution) (*interfaces.TranscriptResult, error) {
 	// Create a proper copy of parameters for this track (disable diarization, enable word timestamps)
 	trackParams := job.Parameters
 
@@ -258,6 +271,29 @@ func (mt *MultiTrackTranscriber) transcribeIndividualTrack(ctx context.Context, 
 	}
 	if trackParams.DiarizeModel == "" {
 		trackParams.DiarizeModel = "pyannote/speaker-diarization-3.1"
+	}
+	if parentExecution.RecoveryVersion > 0 {
+		// Each track is a node beneath the exact parent execution. A resume keeps
+		// its completed track artifacts; no disposable child execution owns them.
+		trackJob := *job
+		trackJob.AudioPath = trackFile.FilePath
+		trackJob.Parameters = trackParams
+		trackJob.IsMultiTrack = false
+		trackExecution := *parentExecution
+		trackExecution.Transcript = nil
+		nodePrefix := "track-" + digestBytes([]byte(fmt.Sprint(trackFile.ID))) + "."
+		trackCtx := context.WithValue(ctx, recoveryTrackKey{}, nodePrefix)
+		if err := mt.unifiedProcessor.GetUnifiedService().processSingleTrackJob(trackCtx, &trackJob, &trackExecution); err != nil {
+			return nil, err
+		}
+		if trackExecution.Transcript == nil {
+			return nil, fmt.Errorf("track checkpoint did not produce a transcript")
+		}
+		var result interfaces.TranscriptResult
+		if err := json.Unmarshal([]byte(*trackExecution.Transcript), &result); err != nil {
+			return nil, err
+		}
+		return &result, nil
 	}
 
 	// Create a temporary database job for unified processing

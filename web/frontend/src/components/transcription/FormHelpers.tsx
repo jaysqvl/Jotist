@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
@@ -174,19 +174,27 @@ export function SelectField({ label, description, optional, value, onValueChange
     optional?: boolean;
     value: string;
     onValueChange: (value: string) => void;
-    options: readonly { value: string; label: string }[] | string[];
+    options: readonly { value: string; label: string; description?: string; disabled?: boolean }[] | string[];
 }) {
+    const id = useId();
+    const selected = options.find((option) => typeof option !== "string" && option.value === value);
+    const detailed = options.some((option) => typeof option !== "string" && option.description);
     return (
-        <FormField label={label} description={description} optional={optional}>
+        <FormField label={label} htmlFor={id} description={description} optional={optional}>
             <Select value={value} onValueChange={onValueChange}>
-                <SelectTrigger className={selectTriggerClassName}>
-                    <SelectValue />
+                <SelectTrigger id={id} className={`${selectTriggerClassName} w-full min-w-0 [&_[data-slot=select-value]]:truncate`}>
+                    <SelectValue>{detailed && selected && typeof selected !== "string" ? selected.label : undefined}</SelectValue>
                 </SelectTrigger>
-                <SelectContent className={selectContentClassName}>
+                <SelectContent className={`${selectContentClassName} ${detailed ? "w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]" : ""}`}>
                     {options.map((opt) => {
                         const v = typeof opt === 'string' ? opt : opt.value;
                         const l = typeof opt === 'string' ? opt : opt.label;
-                        return <SelectItem key={v} value={v} className={selectItemClassName}>{l}</SelectItem>;
+                        return <SelectItem key={v} value={v} textValue={l} disabled={typeof opt !== "string" && opt.disabled} className={`${selectItemClassName} ${detailed ? "mx-0 py-2.5" : ""}`}>
+                            {typeof opt !== "string" && opt.description ? <span className="block min-w-0 whitespace-normal">
+                                <span className="block font-medium leading-5">{l}</span>
+                                <span className="mt-1 block text-xs leading-5 text-[var(--text-secondary)]">{opt.description}</span>
+                            </span> : l}
+                        </SelectItem>;
                     })}
                 </SelectContent>
             </Select>

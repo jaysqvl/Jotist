@@ -15,6 +15,7 @@ import (
 	"scriberr/internal/audio"
 	"scriberr/internal/models"
 	"scriberr/internal/transcription"
+	"scriberr/internal/transcription/adapters"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -69,8 +70,14 @@ func (h *Handler) finalizeAssembledUpload(c *gin.Context, session *models.Upload
 		if err != nil {
 			return "", "", nil, err
 		}
-		params, err := h.quickParamsForUploadSession(c.Request.Context(), session)
+		params, err := h.quickParamsForUploadSession(c, session)
 		if err != nil {
+			return "", "", nil, err
+		}
+		if err := h.resolveTranscriptionContext(c, &params); err != nil {
+			return "", "", nil, err
+		}
+		if err := validateModelRunOptions(params); err != nil {
 			return "", "", nil, err
 		}
 		quickJob, err := h.createQuickTranscriptionFromPath(file.Path, file.OriginalName, params)
@@ -83,11 +90,21 @@ func (h *Handler) finalizeAssembledUpload(c *gin.Context, session *models.Upload
 		if err != nil {
 			return "", "", nil, err
 		}
+		params, err := submitParamsFromJSON(session.ParametersJSON)
+		if err != nil {
+			return "", "", nil, invalidUploadParametersError{err}
+		}
+		if err := validateModelRunOptions(params); err != nil {
+			return "", "", nil, invalidUploadParametersError{err}
+		}
+		if err := h.resolveTranscriptionContext(c, &params); err != nil {
+			return "", "", nil, err
+		}
 		path, err := h.moveAssembledToUpload(file)
 		if err != nil {
 			return "", "", nil, err
 		}
-		job, err := h.createSubmittedJobFromPath(c, path, title, session.ParametersJSON)
+		job, err := h.createSubmittedJobWithParams(c, path, title, params)
 		if err != nil {
 			return "", "", nil, err
 		}
@@ -184,17 +201,46 @@ func (h *Handler) createUploadedVideoJob(c *gin.Context, videoPath, title string
 	return &job, nil
 }
 
-func (h *Handler) createSubmittedJobFromPath(c *gin.Context, filePath, title string, parametersJSON *string) (*models.TranscriptionJob, error) {
-	params := defaultSubmitParams()
-	if parametersJSON != nil && strings.TrimSpace(*parametersJSON) != "" {
-		if err := json.Unmarshal([]byte(*parametersJSON), &params); err != nil {
-			return nil, fmt.Errorf("Invalid parameters JSON")
+type invalidUploadParametersError struct{ error }
+
+func submitModelDefaults(family string) (precision, model string) {
+	if family == "vibevoice-bitnet" {
+		return "i2_s+i8_s", "vibevoice-bitnet"
+	}
+	for _, spec := range adapters.LocalASRModels() {
+		if family == spec.Family || family == spec.ID {
+			return "float32", spec.ID
 		}
 	}
-	return h.createSubmittedJobWithParams(c, filePath, title, params)
+	return "int8", "base"
+}
+
+func submitParamsFromJSON(parametersJSON *string) (models.WhisperXParams, error) {
+	params := defaultSubmitParams()
+	if parametersJSON != nil && strings.TrimSpace(*parametersJSON) != "" {
+		var route struct {
+			ModelFamily string `json:"model_family"`
+		}
+		if err := json.Unmarshal([]byte(*parametersJSON), &route); err != nil {
+			return params, fmt.Errorf("Invalid parameters JSON")
+		}
+		params.ComputeType, params.Model = submitModelDefaults(route.ModelFamily)
+		if err := json.Unmarshal([]byte(*parametersJSON), &params); err != nil {
+			return params, fmt.Errorf("Invalid parameters JSON")
+		}
+	}
+	clearClientLearningSnapshot(&params)
+	return params, nil
 }
 
 func (h *Handler) createSubmittedJobWithParams(c *gin.Context, filePath, title string, params models.WhisperXParams) (*models.TranscriptionJob, error) {
+	clearClientLearningSnapshot(&params)
+	if err := validateModelRunOptions(params); err != nil {
+		return nil, err
+	}
+	if err := h.resolveTranscriptionContext(c, &params); err != nil {
+		return nil, err
+	}
 	jobID := filenameWithoutExt(filePath)
 	job := models.TranscriptionJob{
 		ID:          jobID,
@@ -225,14 +271,33 @@ func submitParamsFromForm(c *gin.Context) (models.WhisperXParams, error) {
 		diarize = getFormBoolWithDefault(c, "diarize", false)
 	}
 
+	family := getFormValueWithDefault(c, "model_family", "whisper")
+	defaultPrecision, defaultModel := submitModelDefaults(family)
 	params := models.WhisperXParams{
-		Model:       getFormValueWithDefault(c, "model", "base"),
-		BatchSize:   getFormIntWithDefault(c, "batch_size", 16),
-		ComputeType: getFormValueWithDefault(c, "compute_type", "int8"),
-		Device:      getFormValueWithDefault(c, "device", "cpu"),
-		VadOnset:    getFormFloatWithDefault(c, "vad_onset", 0.500),
-		VadOffset:   getFormFloatWithDefault(c, "vad_offset", 0.363),
-		Diarize:     diarize,
+		ModelFamily:           family,
+		Model:                 getFormValueWithDefault(c, "model", defaultModel),
+		BatchSize:             getFormIntWithDefault(c, "batch_size", 16),
+		ComputeType:           getFormValueWithDefault(c, "compute_type", defaultPrecision),
+		Device:                getFormValueWithDefault(c, "device", "cpu"),
+		VadOnset:              getFormFloatWithDefault(c, "vad_onset", 0.500),
+		VadOffset:             getFormFloatWithDefault(c, "vad_offset", 0.363),
+		Diarize:               diarize,
+		DiarizationDevice:     getFormValueWithDefault(c, "diarization_device", "same"),
+		DiarizationCheckpoint: c.PostForm("diarization_checkpoint"),
+		HFTokenSource:         c.PostForm("hf_token_source"),
+	}
+	if value, exists := c.GetPostForm("audio_chunk_duration"); exists {
+		seconds, err := strconv.Atoi(strings.TrimSpace(value))
+		if err != nil {
+			return models.WhisperXParams{}, fmt.Errorf("audio_chunk_duration must be an integer number of seconds")
+		}
+		params.AudioChunkDuration = &seconds
+	}
+	if value, exists := c.GetPostForm("transcription_context"); exists {
+		params.TranscriptionContext = &value
+	}
+	if value, exists := c.GetPostForm("transcription_context_terms"); exists {
+		params.TranscriptionContextTerms = &value
 	}
 
 	if lang := c.PostForm("language"); lang != "" {
@@ -251,13 +316,13 @@ func submitParamsFromForm(c *gin.Context) (models.WhisperXParams, error) {
 		}
 	}
 
-	if hfToken := c.PostForm("hf_token"); hfToken != "" {
+	if hfToken, exists := c.GetPostForm("hf_token"); exists {
 		params.HfToken = &hfToken
 	}
 
 	diarizeModel := getFormValueWithDefault(c, "diarize_model", "pyannote")
-	if diarizeModel != "pyannote" && diarizeModel != "nvidia_sortformer" {
-		return models.WhisperXParams{}, fmt.Errorf("Invalid diarize_model. Must be 'pyannote' or 'nvidia_sortformer'")
+	if diarizeModel != "pyannote" && diarizeModel != transcription.ModelDiarization31 && diarizeModel != "pyannote/speaker-diarization-community-1" && diarizeModel != "nvidia_sortformer" && diarizeModel != "diarizen" && diarizeModel != "suplime" && diarizeModel != "native" {
+		return models.WhisperXParams{}, fmt.Errorf("Invalid diarize_model")
 	}
 	params.DiarizeModel = diarizeModel
 
@@ -365,7 +430,11 @@ func (h *Handler) applyAutoTranscription(c *gin.Context, job *models.Transcripti
 		return
 	}
 
-	job.Parameters = profile.Parameters
+	params, err := h.admitSavedProfile(c, profile)
+	if err != nil {
+		return
+	}
+	job.Parameters = params
 	job.Diarization = profile.Parameters.Diarize
 	job.Status = models.StatusPending
 	if err := h.jobRepo.Update(c.Request.Context(), job); err == nil {
@@ -389,13 +458,13 @@ func (h *Handler) convertWebMToMP3IfNeeded(ctx context.Context, filePath string)
 	return mp3Path, nil
 }
 
-func (h *Handler) quickParamsForUploadSession(ctx context.Context, session *models.UploadSession) (models.WhisperXParams, error) {
+func (h *Handler) quickParamsForUploadSession(c *gin.Context, session *models.UploadSession) (models.WhisperXParams, error) {
 	if session.ProfileName != nil && strings.TrimSpace(*session.ProfileName) != "" {
-		profile, err := h.profileRepo.FindByName(ctx, strings.TrimSpace(*session.ProfileName))
+		profile, err := h.profileRepo.FindByName(c.Request.Context(), strings.TrimSpace(*session.ProfileName))
 		if err != nil {
 			return models.WhisperXParams{}, fmt.Errorf("Profile %q not found", *session.ProfileName)
 		}
-		return profile.Parameters, nil
+		return h.admitSavedProfile(c, profile)
 	}
 	params := defaultQuickTranscriptionParams()
 	if session.ParametersJSON != nil && strings.TrimSpace(*session.ParametersJSON) != "" {
@@ -403,6 +472,7 @@ func (h *Handler) quickParamsForUploadSession(ctx context.Context, session *mode
 			return models.WhisperXParams{}, fmt.Errorf("Invalid parameters JSON")
 		}
 	}
+	clearClientLearningSnapshot(&params)
 	return params, nil
 }
 

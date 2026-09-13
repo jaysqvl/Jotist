@@ -102,7 +102,7 @@ func NewBaseAdapter(modelID, modelPath string, capabilities interfaces.ModelCapa
 
 // GetCapabilities returns the model capabilities
 func (b *BaseAdapter) GetCapabilities() interfaces.ModelCapabilities {
-	return b.capabilities
+	return withAdaptiveCapabilities(b.capabilities)
 }
 
 // GetParameterSchema returns the parameter schema

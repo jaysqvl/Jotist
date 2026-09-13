@@ -8,6 +8,19 @@ import argparse
 import json
 import sys
 import os
+from copy import deepcopy
+
+# Keep recording metadata local even when the host enables Pyannote telemetry.
+# This must run before importing pyannote.audio or a library that imports it.
+os.environ["PYANNOTE_METRICS_ENABLED"] = "false"
+
+# Fence explicit CPU jobs before NeMo/PyTorch checkpoint loading can select CUDA.
+if "--device=cpu" in sys.argv or any(
+    arg == "--device" and next_arg == "cpu"
+    for arg, next_arg in zip(sys.argv, sys.argv[1:])
+):
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""
+
 from pathlib import Path
 from pyannote.audio import Pipeline
 import torch
@@ -24,10 +37,57 @@ except Exception as e:
     print(f"Warning: Could not add safe globals: {e}")
 
 
+# Load the bundled helper by path, including under Python isolated mode.
+import importlib.util as _runtime_import
+from pathlib import Path as _RuntimePath
+_runtime_path = _RuntimePath(__file__).resolve().with_name("runtime_failure.py")
+if not _runtime_path.exists():
+    _runtime_path = _RuntimePath(__file__).resolve().parent.parent / "runtime_failure.py"
+_runtime_spec = _runtime_import.spec_from_file_location("scriberr_runtime_failure", _runtime_path)
+_runtime_helper = _runtime_import.module_from_spec(_runtime_spec)
+_runtime_spec.loader.exec_module(_runtime_helper)
+gpu_execution = _runtime_helper.gpu_execution
+
+
+def resolve_device(device):
+    if device not in {"auto", "cpu", "cuda"}:
+        raise ValueError("device must be auto, cpu, or cuda")
+    if device == "cuda" and not torch.cuda.is_available():
+        raise RuntimeError("CUDA was requested but is not available")
+    return ("cuda" if torch.cuda.is_available() else "cpu") if device == "auto" else device
+
+
+def apply_segmentation_thresholds(pipeline, onset=None, offset=None):
+    """Apply supported probability thresholds without adding pipeline parameters."""
+    if onset is None and offset is None:
+        return
+    params = deepcopy(pipeline.parameters(instantiated=True))
+    segmentation = params.get("segmentation", {})
+    changed = False
+    for label, value, candidate_keys in (
+        ("onset", onset, ("onset", "threshold")),
+        ("offset", offset, ("offset",)),
+    ):
+        if value is None:
+            continue
+        key = next((key for key in candidate_keys if key in segmentation), None)
+        if key is None:
+            print(f"Skipping segmentation {label}: this pipeline does not expose that probability threshold")
+            continue
+        if segmentation[key] != value:
+            segmentation[key] = value
+            changed = True
+            print(f"Setting segmentation {key}: {value}")
+    if changed:
+        # instantiate can mutate a pipeline before failing. Let the caller stop
+        # loading on failure; never continue inference with that partial state.
+        pipeline.instantiate(params)
+
+
 def diarize_audio(
     audio_path: str,
     output_file: str,
-    hf_token: str,
+    hf_token: str = None,
     model: str = "pyannote/speaker-diarization-community-1",
     min_speakers: int = None,
     max_speakers: int = None,
@@ -43,49 +103,17 @@ def diarize_audio(
 
     try:
         # Initialize the diarization pipeline
-        pipeline = Pipeline.from_pretrained(
-            model,
-            token=hf_token
-        )
+        load_options = {"token": hf_token} if hf_token else {}
+        pipeline = Pipeline.from_pretrained(model, **load_options)
 
-        # Move to specified device
-        # if device == "auto" or device == "cuda":
-        try:
-            if torch.cuda.is_available():
-                pipeline = pipeline.to(torch.device("cuda"))
-                print("Using CUDA for diarization")
-            elif device == "cuda":
-                print("CUDA requested but not available, falling back to CPU")
-            else:
-                print("CUDA not available, using CPU")
-        except ImportError:
-            print("PyTorch not available for CUDA, using CPU")
-        except Exception as e:
-            print(f"Error moving to device: {e}, using CPU")
+        resolved_device = resolve_device(device)
+        with gpu_execution(resolved_device):
+            pipeline.to(torch.device(resolved_device))
+        print(f"Using {resolved_device} for diarization")
 
-        # Apply segmentation thresholds if provided
-        if segmentation_onset is not None or segmentation_offset is not None:
-            try:
-                # Get current parameters
-                params = pipeline.parameters(instantiated=True)
-
-                # Update segmentation thresholds
-                if "segmentation" in params:
-                    if segmentation_onset is not None:
-                        params["segmentation"]["threshold"] = segmentation_onset
-                        print(f"Set segmentation onset threshold: {segmentation_onset}")
-                    if segmentation_offset is not None:
-                        # PyAnnote uses min_duration_off for offset behavior
-                        params["segmentation"]["min_duration_off"] = segmentation_offset
-                        print(f"Set segmentation offset (min_duration_off): {segmentation_offset}")
-
-                    # Instantiate pipeline with new parameters
-                    pipeline.instantiate(params)
-                else:
-                    print("Warning: Could not find segmentation parameters in pipeline")
-            except Exception as e:
-                print(f"Warning: Could not set segmentation thresholds: {e}")
-                print("Continuing with default thresholds")
+        # Powerset segmentation (Community-1 and 3.1) has no probability
+        # threshold. Its min_duration_off is seconds, not a VAD offset.
+        apply_segmentation_thresholds(pipeline, segmentation_onset, segmentation_offset)
 
         print("Pipeline loaded successfully")
     except Exception as e:
@@ -105,41 +133,33 @@ def diarize_audio(
 
         if diarization_params:
             print(f"Using speaker constraints: {diarization_params}")
-            diarization = pipeline(audio_path, **diarization_params)
+            with gpu_execution(resolved_device):
+                diarization = pipeline(audio_path, **diarization_params)
         else:
             print("Using automatic speaker detection")
-            diarization = pipeline(audio_path)
+            with gpu_execution(resolved_device):
+                diarization = pipeline(audio_path)
 
         print(f"Diarization completed. Saving results to: {output_file}")
 
         if output_format == "rttm":
             # Save the diarization output to RTTM format
             with open(output_file, "w") as rttm:
-                diarization.write_rttm(rttm)
+                getattr(diarization, "speaker_diarization", diarization).write_rttm(rttm)
         else:
             # Save as JSON format
-            save_json_format(diarization, output_file, audio_path)
+            save_json_format(diarization, output_file, audio_path, model, resolved_device)
+
+        with open(str(Path(output_file).parent / "runtime.json"), "w") as metadata_file:
+            json.dump({"resolved_device": resolved_device}, metadata_file)
 
         # Print summary
         speakers = set()
         total_speech_time = 0.0
 
-        # Iterate over speaker diarization
-        # PyAnnote 4.x returns a DiarizeOutput object with a speaker_diarization attribute
-        if hasattr(diarization, "speaker_diarization"):
-            for turn, speaker in diarization.speaker_diarization:
-                speakers.add(speaker)
-                total_speech_time += turn.duration
-        elif hasattr(diarization, "itertracks"):
-            # Fallback for older versions
-            for segment, track, speaker in diarization.itertracks(yield_label=True):
-                speakers.add(speaker)
-                total_speech_time += segment.duration
-        else:
-            # Try iterating directly (some versions return Annotation directly)
-            for segment, track, speaker in diarization.itertracks(yield_label=True):
-                speakers.add(speaker)
-                total_speech_time += segment.duration
+        for turn, _, speaker in iter_speaker_turns(diarization):
+            speakers.add(speaker)
+            total_speech_time += turn.duration
 
         print(f"\nDiarization Summary:")
         print(f"  Speakers detected: {len(speakers)}")
@@ -152,40 +172,34 @@ def diarize_audio(
         sys.exit(1)
 
 
-def save_json_format(diarization, output_file: str, audio_path: str):
+def iter_speaker_turns(diarization):
+    """Read labels, rather than track IDs, in both Pyannote output versions."""
+    annotation = getattr(diarization, "speaker_diarization", diarization)
+    return annotation.itertracks(yield_label=True)
+
+
+def save_json_format(diarization, output_file: str, audio_path: str, model="pyannote/speaker-diarization-community-1", resolved_device=""):
     """Save diarization results in JSON format."""
     segments = []
     speakers = set()
 
-    # PyAnnote 4.x
-    if hasattr(diarization, "speaker_diarization"):
-        for turn, speaker in diarization.speaker_diarization:
-            segments.append({
-                "start": turn.start,
-                "end": turn.end,
-                "speaker": speaker,
-                "confidence": 1.0,
-                "duration": turn.duration
-            })
-            speakers.add(speaker)
-    # Older versions
-    elif hasattr(diarization, "itertracks"):
-        for segment, track, speaker in diarization.itertracks(yield_label=True):
-            segments.append({
-                "start": segment.start,
-                "end": segment.end,
-                "speaker": speaker,
-                "confidence": 1.0,
-                "duration": segment.duration
-            })
-            speakers.add(speaker)
+    for turn, _, speaker in iter_speaker_turns(diarization):
+        segments.append({
+            "start": turn.start,
+            "end": turn.end,
+            "speaker": speaker,
+            "confidence": 1.0,
+            "duration": turn.duration,
+        })
+        speakers.add(speaker)
 
     # Sort segments by start time
     segments.sort(key=lambda x: x["start"])
 
     results = {
         "audio_file": audio_path,
-        "model": "pyannote/speaker-diarization-community-1",
+        "model": model,
+        "resolved_device": resolved_device,
         "segments": segments,
         "speakers": sorted(speakers),
         "speaker_count": len(speakers),
@@ -216,7 +230,7 @@ def main():
     parser.add_argument(
         "--hf-token",
         default=os.environ.get("HF_TOKEN"),
-        help="Hugging Face access token (defaults to HF_TOKEN)"
+        help="Optional Hugging Face access token (otherwise HF_TOKEN or cached login)"
     )
     parser.add_argument(
         "--model",
@@ -257,9 +271,6 @@ def main():
     )
 
     args = parser.parse_args()
-
-    if not args.hf_token:
-        parser.error("a Hugging Face token is required via HF_TOKEN or --hf-token")
 
     # Validate input file
     if not os.path.exists(args.audio_file):

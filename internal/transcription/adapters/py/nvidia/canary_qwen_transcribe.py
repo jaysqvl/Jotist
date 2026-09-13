@@ -7,6 +7,14 @@ import argparse
 import json
 import os
 import sys
+
+# Fence explicit CPU jobs before NeMo/PyTorch checkpoint loading can select CUDA.
+if "--device=cpu" in sys.argv or any(
+    arg == "--device" and next_arg == "cpu"
+    for arg, next_arg in zip(sys.argv, sys.argv[1:])
+):
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""
+
 import tempfile
 from typing import Iterable, List
 
@@ -14,6 +22,18 @@ import librosa
 import soundfile as sf
 import torch
 from nemo.collections.speechlm2.models import SALM
+
+
+# Load the bundled helper by path, including under Python isolated mode.
+import importlib.util as _runtime_import
+from pathlib import Path as _RuntimePath
+_runtime_path = _RuntimePath(__file__).resolve().with_name("runtime_failure.py")
+if not _runtime_path.exists():
+    _runtime_path = _RuntimePath(__file__).resolve().parent.parent / "runtime_failure.py"
+_runtime_spec = _runtime_import.spec_from_file_location("scriberr_runtime_failure", _runtime_path)
+_runtime_helper = _runtime_import.module_from_spec(_runtime_spec)
+_runtime_spec.loader.exec_module(_runtime_helper)
+gpu_execution = _runtime_helper.gpu_execution
 
 
 def batched(items: List[dict], batch_size: int) -> Iterable[List[dict]]:
@@ -80,8 +100,14 @@ def decode_answer(model, answer_ids) -> str:
     return text.replace("<|endoftext|>", "").strip()
 
 
-def build_prompt(model, prompt: str) -> str:
+def build_prompt(model, prompt: str, context: str = "") -> str:
     prompt = prompt.strip() or "Transcribe the following:"
+    if context.strip():
+        # Context is reference vocabulary, not text to invent in the transcript.
+        context = context.replace(model.audio_locator_tag, " ")
+        prompt = ("Use the following background only to disambiguate words heard in the audio. "
+                  "Do not include these notes or invent speech.\n"
+                  f"Background: {json.dumps(context.strip(), ensure_ascii=False)}\n" + prompt)
     if model.audio_locator_tag in prompt:
         return prompt
     return f"{prompt} {model.audio_locator_tag}"
@@ -97,11 +123,15 @@ def transcribe_audio(
     precision: str = "float16",
     prompt: str = "Transcribe the following:",
     timestamps: bool = True,
+    context: str = "",
 ):
     print("Loading NVIDIA Canary-Qwen model: nvidia/canary-qwen-2.5b")
     torch_device = resolve_device(device)
-    model = SALM.from_pretrained("nvidia/canary-qwen-2.5b")
-    model = configure_model(model, torch_device, precision)
+    if device == "auto" and torch_device.type == "cpu":
+        precision = "float32"
+    with gpu_execution(torch_device):
+        model = SALM.from_pretrained("nvidia/canary-qwen-2.5b")
+        model = configure_model(model, torch_device, precision)
 
     print(f"Processing: {audio_path}")
     print(f"Device: {torch_device}")
@@ -114,11 +144,11 @@ def transcribe_audio(
         chunks = split_audio_file(audio_path, chunk_duration_secs, temp_dir)
         print(f"Created {len(chunks)} chunks")
 
-        prompt_text = build_prompt(model, prompt)
+        prompt_text = build_prompt(model, prompt, context)
         full_text = []
         segments = []
 
-        with torch.inference_mode():
+        with gpu_execution(torch_device), torch.inference_mode():
             for batch in batched(chunks, max(1, batch_size)):
                 prompts = [
                     [{
@@ -149,6 +179,7 @@ def transcribe_audio(
     output_data = {
         "text": final_text,
         "language": "en",
+        "resolved_device": str(torch_device),
         "segments": segments,
         "word_timestamps": [],
         "model": "nvidia/canary-qwen-2.5b",
@@ -185,6 +216,7 @@ def main():
         default="Transcribe the following:",
         help="Prompt text. The audio locator is appended automatically if omitted.",
     )
+    parser.add_argument("--context", default="", help="Background vocabulary used only to disambiguate audible speech")
     parser.add_argument("--timestamps", action="store_true", default=True, help="Include chunk-level timestamps")
     parser.add_argument("--no-timestamps", dest="timestamps", action="store_false", help="Disable chunk-level timestamps")
 
@@ -204,6 +236,7 @@ def main():
             device=args.device,
             precision=args.precision,
             prompt=args.prompt,
+            context=args.context,
             timestamps=args.timestamps,
         )
     except Exception as exc:

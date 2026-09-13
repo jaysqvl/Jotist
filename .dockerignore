@@ -30,6 +30,7 @@ dist
 **/dist
 build
 **/build
+output/
 
 # Data and Logs
 data

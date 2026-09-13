@@ -34,15 +34,31 @@ type TranscriptionQueueRepository interface {
 	ClearQueued(ctx context.Context, jobID string) (int64, error)
 	PromoteNext(ctx context.Context, jobID string) (*models.TranscriptionQueueItem, error)
 	ClaimPending(ctx context.Context, jobID, itemID string) (*models.TranscriptionQueueItem, bool, error)
+	BindExecution(ctx context.Context, jobID, itemID, executionID string) error
 	FindPending(ctx context.Context, jobID string) (*models.TranscriptionQueueItem, error)
 	FindActive(ctx context.Context, jobID string) (*models.TranscriptionQueueItem, error)
 	ListProcessing(ctx context.Context) ([]models.TranscriptionQueueItem, error)
 	MarkActiveCancelled(ctx context.Context, jobID, itemID, reason string) error
 	Finalize(ctx context.Context, jobID, itemID string, status models.TranscriptionQueueStatus, errorMessage string, executionID *string) error
 	FailInterrupted(ctx context.Context, reason string) ([]string, error)
+	FailInterruptedExcept(ctx context.Context, reason string, protectedJobIDs []string) ([]string, error)
 	ListJobIDsWithItems(ctx context.Context) ([]string, error)
 	ListJobIDsWithQueued(ctx context.Context) ([]string, error)
 	DeleteByJobID(ctx context.Context, jobID string) error
+}
+
+func (r *transcriptionQueueRepository) BindExecution(ctx context.Context, jobID, itemID, executionID string) error {
+	if executionID == "" {
+		return ErrExecutionOwnership
+	}
+	result := r.db.WithContext(ctx).Model(&models.TranscriptionQueueItem{}).Where("id = ? AND transcription_job_id = ? AND status = ? AND (execution_id IS NULL OR execution_id = ?)", itemID, jobID, models.QueueStatusProcessing, executionID).Update("execution_id", executionID)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return ErrExecutionOwnership
+	}
+	return nil
 }
 
 type transcriptionQueueRepository struct {
@@ -294,8 +310,8 @@ func (r *transcriptionQueueRepository) PromoteNext(ctx context.Context, jobID st
 		job.Parameters = item.Parameters
 		job.Diarization = item.Parameters.Diarize
 		job.Status = models.StatusPending
-		job.Transcript = nil
-		job.Summary = nil
+		// Keep the last published output visible while its replacement runs.
+		// Successful publication replaces the transcript and invalidates summary.
 		job.ErrorMessage = nil
 		if err := tx.Save(&job).Error; err != nil {
 			return err
@@ -454,8 +470,10 @@ func (r *transcriptionQueueRepository) Finalize(ctx context.Context, jobID, item
 			"status":          status,
 			"position":        0,
 			"completed_at":    &now,
-			"execution_id":    executionID,
 			"parameters_json": gorm.Expr("json_remove(parameters_json, '$.hf_token', '$.api_key')"),
+		}
+		if executionID != nil {
+			updates["execution_id"] = executionID
 		}
 		if errorMessage != "" {
 			updates["error_message"] = errorMessage
@@ -485,13 +503,20 @@ func (r *transcriptionQueueRepository) Finalize(ctx context.Context, jobID, item
 }
 
 func (r *transcriptionQueueRepository) FailInterrupted(ctx context.Context, reason string) ([]string, error) {
+	return r.FailInterruptedExcept(ctx, reason, nil)
+}
+
+func (r *transcriptionQueueRepository) FailInterruptedExcept(ctx context.Context, reason string, protectedJobIDs []string) ([]string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	jobIDs := make([]string, 0)
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&models.TranscriptionQueueItem{}).
-			Where("status = ?", models.QueueStatusProcessing).
+		query := tx.Model(&models.TranscriptionQueueItem{}).Where("status = ?", models.QueueStatusProcessing)
+		if len(protectedJobIDs) > 0 {
+			query = query.Where("transcription_job_id NOT IN ?", protectedJobIDs)
+		}
+		if err := query.
 			Distinct("transcription_job_id").Pluck("transcription_job_id", &jobIDs).Error; err != nil {
 			return err
 		}
@@ -500,7 +525,7 @@ func (r *transcriptionQueueRepository) FailInterrupted(ctx context.Context, reas
 		}
 		now := time.Now()
 		return tx.Model(&models.TranscriptionQueueItem{}).
-			Where("status = ?", models.QueueStatusProcessing).
+			Where("status = ? AND transcription_job_id IN ?", models.QueueStatusProcessing, jobIDs).
 			Updates(map[string]any{
 				"status":          models.QueueStatusFailed,
 				"position":        0,

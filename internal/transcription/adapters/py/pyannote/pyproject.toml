@@ -4,10 +4,12 @@ version = "0.1.0"
 description = "Audio diarization using PyAnnote"
 requires-python = ">=3.10,<3.13"
 dependencies = [
-    "torch>=2.5.0",
-    "torchaudio>=2.5.0",
+    "torch==2.8.0",
+    "torchaudio==2.8.0",
     "huggingface-hub>=0.28.1",
-    "pyannote.audio==4.0.2"
+    "pyannote.audio==4.0.7",
+    "torchcodec==0.7.0",
+    "soundfile>=0.12.1"
 ]
 
 [project.optional-dependencies]
@@ -18,7 +20,7 @@ dev = [
 
 [tool.uv]
 override-dependencies = [
-    "torchcodec ; sys_platform != 'linux' or platform_machine != 'aarch64'"
+    "torchcodec==0.7.0 ; sys_platform != 'linux' or platform_machine != 'aarch64'"
 ]
 
 [tool.uv.sources]

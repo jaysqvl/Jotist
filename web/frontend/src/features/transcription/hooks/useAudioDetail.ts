@@ -104,6 +104,7 @@ export interface Transcript {
     text: string;
     segments?: TranscriptSegment[];
     word_segments?: WordSegment[];
+    metadata?: Record<string, string>;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -120,6 +121,7 @@ function normalizeTranscript(data: any): Transcript | null {
             text: data.transcript.text,
             segments: data.transcript.segments,
             word_segments: data.transcript.word_segments,
+            metadata: data.transcript.metadata,
         };
     }
     if (data.transcript.segments) {
@@ -131,10 +133,11 @@ function normalizeTranscript(data: any): Transcript | null {
             text: fullText,
             segments: data.transcript.segments,
             word_segments: data.transcript.word_segments,
+            metadata: data.transcript.metadata,
         };
     }
 
-    return { text: "" };
+    return { text: "", metadata: data.transcript.metadata };
 }
 
 export function useAudioDetail(audioId: string) {

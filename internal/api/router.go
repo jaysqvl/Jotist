@@ -169,6 +169,8 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			transcription.DELETE("/:id/runs/active", handler.ClearActiveRun)
 			transcription.GET("/:id/runs/:run_id/transcript", handler.GetRunTranscript)
 			transcription.GET("/:id/runs/:run_id/logs", handler.GetRunLogs)
+			transcription.GET("/:id/runs/:run_id/recovery", handler.GetRunRecovery)
+			transcription.POST("/:id/runs/:run_id/resume", handler.ResumeRun)
 			transcription.POST("/:id/runs/:run_id/active", handler.SetActiveRun)
 			transcription.GET("/:id/merge-status", handler.GetMergeStatus)
 			transcription.GET("/:id/track-progress", handler.GetTrackProgress)
@@ -201,6 +203,10 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			profiles.PUT("/:id", handler.UpdateProfile)
 			profiles.DELETE("/:id", handler.DeleteProfile)
 			profiles.POST("/:id/set-default", handler.SetDefaultProfile)
+			profiles.GET("/:id/adaptive-policy", handler.GetAdaptivePolicy)
+			profiles.POST("/:id/reset-adaptive", handler.ResetAdaptivePolicy)
+			profiles.POST("/:id/freeze-adaptive", handler.FreezeAdaptivePolicy)
+			profiles.POST("/:id/restore-revision", handler.RestoreProfileRevision)
 		}
 
 		// User routes (require authentication)

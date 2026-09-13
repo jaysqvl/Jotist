@@ -1,0 +1,51 @@
+[project]
+name = "scriberr-diarizen"
+version = "0.1.0"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "diarizen",
+    "pyannote.audio",
+    "torch==2.5.1",
+    "torchaudio==2.5.1",
+    "numpy==1.26.4",
+    "huggingface-hub>=0.28.1,<1",
+    "accelerate==1.6.0",
+    "transformers>=4.48,<5",
+    "speechbrain>=1.0,<1.1",
+    "lightning>=2.4,<2.6",
+    "torchmetrics>=1.6,<1.9",
+    "torch-audiomentations>=0.11,<0.12",
+    "librosa>=0.10,<0.12",
+    "soundfile>=0.12.1",
+    "toml",
+    "torchinfo",
+    "thop",
+    "h5py",
+]
+
+# Both distributions must come from the same reviewed source revision.
+# DiariZen's custom pyannote fork is not compatible with stock pyannote 4.
+[tool.uv.sources]
+diarizen = { git = "https://github.com/BUTSpeechFIT/DiariZen.git", rev = "844f5555b0a98acd0931511fc641a8c5b8ba92c7" }
+"pyannote.audio" = { git = "https://github.com/BUTSpeechFIT/DiariZen.git", rev = "844f5555b0a98acd0931511fc641a8c5b8ba92c7", subdirectory = "pyannote-audio" }
+
+torch = [
+    { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
+    { index = "pytorch-cpu", marker = "platform_machine != 'x86_64' and sys_platform != 'darwin'" },
+    { index = "pytorch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+]
+torchaudio = [
+    { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
+    { index = "pytorch-cpu", marker = "platform_machine != 'x86_64' and sys_platform != 'darwin'" },
+    { index = "pytorch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true

@@ -1,0 +1,285 @@
+{
+  "snapshot_date": "2026-09-11",
+  "retrieved_at": "2026-09-12T05:29:49.075289+00:00",
+  "sources": {
+    "english_short": {
+      "url": "https://huggingface.co/datasets/hf-audio/open-asr-leaderboard-results/resolve/main/english_short_latest.csv",
+      "sha256": "a9ede7bf0b81b9d764522aaa6eb0b26f60ecbde74496f7b3790cb1ad1e74e6e4"
+    },
+    "private": {
+      "url": "https://hf-audio-open-asr-leaderboard.hf.space/config",
+      "sha256": "281d9c3e6ccc10ad4c6245ae5dfe541dcbe247d789abe9b36ed4ba8ecb260f9b"
+    }
+  },
+  "english_short_rows": [
+    {
+      "model": "AutoArk-AI/ARK-ASR-3B",
+      "AMI-Cleaned WER": "7.89",
+      "avg": "4.475",
+      "Size (B)": "3.75"
+    },
+    {
+      "model": "CohereLabs/cohere-transcribe-03-2026",
+      "AMI-Cleaned WER": "7.02",
+      "avg": "4.67",
+      "Size (B)": "2"
+    },
+    {
+      "model": "ibm-granite/granite-speech-4.1-2b",
+      "AMI-Cleaned WER": "7.06",
+      "avg": "4.615",
+      "Size (B)": "2"
+    },
+    {
+      "model": "ibm-granite/granite-speech-5.0-470m-turboctc",
+      "AMI-Cleaned WER": "7.72",
+      "avg": "5.04375",
+      "Size (B)": "0.47"
+    },
+    {
+      "model": "ibm-granite/granite-speech-5.0-470m-turboctc-nc",
+      "AMI-Cleaned WER": "7.13",
+      "avg": "4.77875",
+      "Size (B)": "0.47"
+    },
+    {
+      "model": "microsoft/VibeVoice-ASR-HF",
+      "AMI-Cleaned WER": "12.02",
+      "avg": "5.575",
+      "Size (B)": "8"
+    },
+    {
+      "model": "mistralai/Voxtral-Mini-3B-2507",
+      "AMI-Cleaned WER": "13.57",
+      "avg": "5.53875",
+      "Size (B)": "5"
+    },
+    {
+      "model": "mistralai/Voxtral-Mini-4B-Realtime-2602",
+      "AMI-Cleaned WER": "13.34",
+      "avg": "6.4625",
+      "Size (B)": "4"
+    },
+    {
+      "model": "nvidia/canary-1b-v2",
+      "AMI-Cleaned WER": "13.03",
+      "avg": "5.70625",
+      "Size (B)": "1"
+    },
+    {
+      "model": "nvidia/canary-qwen-2.5b",
+      "AMI-Cleaned WER": "7.91",
+      "avg": "4.4275",
+      "Size (B)": "2.5"
+    },
+    {
+      "model": "nvidia/parakeet-tdt-0.6b-v3",
+      "AMI-Cleaned WER": "9.42",
+      "avg": "4.85875",
+      "Size (B)": "0.6"
+    },
+    {
+      "model": "openai/whisper-large-v3",
+      "AMI-Cleaned WER": "13.63",
+      "avg": "5.78",
+      "Size (B)": "2"
+    },
+    {
+      "model": "OpenMOSS-Team/MOSS-Transcribe-Diarize",
+      "AMI-Cleaned WER": "8.33",
+      "avg": "4.63625",
+      "Size (B)": "0.91"
+    },
+    {
+      "model": "OpenMOSS-Team/MOSS-Transcribe-preview-2B",
+      "AMI-Cleaned WER": "7.8",
+      "avg": "4.86",
+      "Size (B)": "2.42"
+    },
+    {
+      "model": "Qwen/Qwen3-ASR-0.6B-hf",
+      "AMI-Cleaned WER": "9.33",
+      "avg": "5.045",
+      "Size (B)": "0.78"
+    },
+    {
+      "model": "Qwen/Qwen3-ASR-1.7B-hf",
+      "AMI-Cleaned WER": "8.31",
+      "avg": "4.31125",
+      "Size (B)": "2.04"
+    }
+  ],
+  "snapshot_timezone": "America/Vancouver",
+  "private_conversational_rows": [
+    {
+      "Rank": "3",
+      "Model": "Qwen/Qwen3-ASR-1.7B-hf",
+      "Average WER ⬇️": "7.51",
+      "Avg Scripted": "2.87",
+      "Avg Conversational": "12.14"
+    },
+    {
+      "Rank": "11",
+      "Model": "AutoArk-AI/ARK-ASR-3B",
+      "Average WER ⬇️": "8.01",
+      "Avg Scripted": "3.11",
+      "Avg Conversational": "12.9"
+    },
+    {
+      "Rank": "14",
+      "Model": "CohereLabs/cohere-transcribe-03-2026",
+      "Average WER ⬇️": "8.33",
+      "Avg Scripted": "3.2",
+      "Avg Conversational": "13.46"
+    },
+    {
+      "Rank": "15",
+      "Model": "Qwen/Qwen3-ASR-0.6B-hf",
+      "Average WER ⬇️": "8.33",
+      "Avg Scripted": "3.92",
+      "Avg Conversational": "12.74"
+    },
+    {
+      "Rank": "17",
+      "Model": "nvidia/canary-qwen-2.5b",
+      "Average WER ⬇️": "8.44",
+      "Avg Scripted": "3.47",
+      "Avg Conversational": "13.41"
+    },
+    {
+      "Rank": "21",
+      "Model": "ibm-granite/granite-speech-5.0-470m-turboctc-nc",
+      "Average WER ⬇️": "8.62",
+      "Avg Scripted": "3.81",
+      "Avg Conversational": "13.42"
+    },
+    {
+      "Rank": "23",
+      "Model": "ibm-granite/granite-speech-4.1-2b",
+      "Average WER ⬇️": "8.68",
+      "Avg Scripted": "3.16",
+      "Avg Conversational": "14.19"
+    },
+    {
+      "Rank": "27",
+      "Model": "nvidia/parakeet-tdt-0.6b-v3",
+      "Average WER ⬇️": "8.86",
+      "Avg Scripted": "4.27",
+      "Avg Conversational": "13.44"
+    },
+    {
+      "Rank": "32",
+      "Model": "OpenMOSS-Team/MOSS-Transcribe-Diarize",
+      "Average WER ⬇️": "9.04",
+      "Avg Scripted": "4.68",
+      "Avg Conversational": "13.4"
+    },
+    {
+      "Rank": "33",
+      "Model": "ibm-granite/granite-speech-5.0-470m-turboctc",
+      "Average WER ⬇️": "9.04",
+      "Avg Scripted": "4.12",
+      "Avg Conversational": "13.97"
+    },
+    {
+      "Rank": "37",
+      "Model": "openai/whisper-large-v3",
+      "Average WER ⬇️": "9.37",
+      "Avg Scripted": "3.61",
+      "Avg Conversational": "15.13"
+    },
+    {
+      "Rank": "43",
+      "Model": "OpenMOSS-Team/MOSS-Transcribe-preview-2B",
+      "Average WER ⬇️": "9.66",
+      "Avg Scripted": "4.84",
+      "Avg Conversational": "14.47"
+    },
+    {
+      "Rank": "48",
+      "Model": "mistralai/Voxtral-Mini-3B-2507",
+      "Average WER ⬇️": "9.87",
+      "Avg Scripted": "3.73",
+      "Avg Conversational": "16.0"
+    },
+    {
+      "Rank": "50",
+      "Model": "nvidia/canary-1b-v2",
+      "Average WER ⬇️": "9.91",
+      "Avg Scripted": "4.65",
+      "Avg Conversational": "15.16"
+    },
+    {
+      "Rank": "56",
+      "Model": "mistralai/Voxtral-Mini-4B-Realtime-2602",
+      "Average WER ⬇️": "11.61",
+      "Avg Scripted": "5.76",
+      "Avg Conversational": "17.45"
+    },
+    {
+      "Rank": "59",
+      "Model": "microsoft/VibeVoice-ASR-HF",
+      "Average WER ⬇️": "12.86",
+      "Avg Scripted": "11.09",
+      "Avg Conversational": "14.62"
+    }
+  ],
+  "checkpoint_aliases": [
+    {
+      "leaderboard_id": "AutoArk-AI/ARK-ASR-3B",
+      "runtime_id": "Edge0/ARK-ASR-3B",
+      "verification_url": "https://huggingface.co/api/models/AutoArk-AI/ARK-ASR-3B",
+      "redirects_to": "https://huggingface.co/api/models/Edge0/ARK-ASR-3B",
+      "resolved_revision": "1e28271b79edc97635783bea65abc89195a09ed3"
+    }
+  ],
+  "not_assigned": [
+    "Granite 4.1 Plus has no matching published row; base-model WER is not inherited.",
+    "VibeVoice BitNet or streaming variants do not inherit full VibeVoice-ASR-HF WER."
+  ],
+  "diarization_rows": [
+    {
+      "model": "nvidia/diar_streaming_sortformer_4spk-v2.1",
+      "dataset": "AMI Test SDM",
+      "der_percent": 17.8,
+      "input_buffer_latency_seconds": 30.4,
+      "speakers_max": 4,
+      "overlap_included": true,
+      "collar_seconds": 0,
+      "reference": "Forced-alignment-derived labels",
+      "source": "https://huggingface.co/nvidia/diar_streaming_sortformer_4spk-v2.1"
+    },
+    {
+      "model": "pyannote/speaker-diarization-community-1",
+      "dataset": "AMI SDM",
+      "der_percent": 19.9,
+      "overlap_included": true,
+      "collar_seconds": 0,
+      "reference": "Publisher model-card protocol; not asserted equivalent to Sortformer forced-alignment labels",
+      "source": "https://huggingface.co/pyannote/speaker-diarization-community-1",
+      "source_table_date": "2025-09",
+      "verified_on_utc": "2026-09-12"
+    }
+  ],
+  "memory_evidence": [
+    {
+      "model": "Qwen/Qwen3-ASR-1.7B-hf",
+      "kind": "local smoke measurement reported by test operator",
+      "observed_at_utc": "2026-09-12",
+      "audio_seconds": 15,
+      "execution": "CPU float32, including loading and forced word alignment",
+      "cpu": "AMD Ryzen 7 5700G",
+      "child_peak_rss_kib": 12878776,
+      "planning_cpu_gb": "13–17",
+      "limitation": "Short public audio sample; not a long meeting or concurrency guarantee."
+    },
+    {
+      "model": "mistralai/Voxtral-Mini-3B-2507",
+      "kind": "publisher guidance",
+      "precision": "FP16/BF16",
+      "gpu_ram_gb": 9.5,
+      "source": "https://huggingface.co/mistralai/Voxtral-Mini-3B-2507",
+      "limitation": "Not a measured peak for the Scriberr runtime."
+    }
+  ]
+}

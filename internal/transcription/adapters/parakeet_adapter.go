@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -53,6 +52,7 @@ func NewParakeetAdapter(envPath string) *ParakeetAdapter {
 	}
 
 	schema := []interfaces.ParameterSchema{
+		{Name: "device", Type: "string", Default: "auto", Options: []string{"auto", "cpu", "cuda"}, Description: "Device for inference", Group: "basic"},
 		// Core settings
 		{
 			Name:        "timestamps",
@@ -144,6 +144,14 @@ func (p *ParakeetAdapter) GetSupportedModels() []string {
 
 // PrepareEnvironment sets up the Parakeet environment
 func (p *ParakeetAdapter) PrepareEnvironment(ctx context.Context) error {
+	release, err := lockPythonPreparation(ctx, p.envPath)
+	if err != nil {
+		return err
+	}
+	defer release()
+	if err := refreshPythonProject(nvidiaScripts, "py/nvidia/pyproject.toml", p.envPath); err != nil {
+		return fmt.Errorf("refresh Python environment: %w", err)
+	}
 	logger.Info("Preparing NVIDIA Parakeet environment", "env_path", p.envPath)
 
 	// Copy transcription scripts (standard and buffered)
@@ -156,7 +164,7 @@ func (p *ParakeetAdapter) PrepareEnvironment(ctx context.Context) error {
 	}
 
 	// Check if environment is already ready (using cache to speed up repeated checks)
-	if CheckEnvironmentReady(p.envPath, "import nemo.collections.asr") {
+	if checkPythonEnvironmentReady(ctx, p.envPath, "import nemo.collections.asr") {
 		modelPath := filepath.Join(p.envPath, "parakeet-tdt-0.6b-v3.nemo")
 		scriptPath := filepath.Join(p.envPath, "parakeet_transcribe.py")
 		bufferedScriptPath := filepath.Join(p.envPath, "parakeet_transcribe_buffered.py")
@@ -180,12 +188,12 @@ func (p *ParakeetAdapter) PrepareEnvironment(ctx context.Context) error {
 	}
 
 	// Setup environment
-	if err := p.setupParakeetEnvironment(); err != nil {
+	if err := p.setupParakeetEnvironment(ctx); err != nil {
 		return fmt.Errorf("failed to setup Parakeet environment: %w", err)
 	}
 
 	// Download model
-	if err := p.downloadParakeetModel(); err != nil {
+	if err := p.downloadParakeetModel(ctx); err != nil {
 		return fmt.Errorf("failed to download Parakeet model: %w", err)
 	}
 
@@ -195,7 +203,7 @@ func (p *ParakeetAdapter) PrepareEnvironment(ctx context.Context) error {
 }
 
 // setupParakeetEnvironment creates the Python environment for Parakeet
-func (p *ParakeetAdapter) setupParakeetEnvironment() error {
+func (p *ParakeetAdapter) setupParakeetEnvironment(ctx context.Context) error {
 	if err := os.MkdirAll(p.envPath, 0755); err != nil {
 		return fmt.Errorf("failed to create parakeet directory: %w", err)
 	}
@@ -216,13 +224,13 @@ func (p *ParakeetAdapter) setupParakeetEnvironment() error {
 	)
 
 	pyprojectPath := filepath.Join(p.envPath, "pyproject.toml")
-	if err := os.WriteFile(pyprojectPath, []byte(contentStr), 0644); err != nil {
+	if err := writePythonProject(pyprojectPath, []byte(contentStr)); err != nil {
 		return fmt.Errorf("failed to write pyproject.toml: %w", err)
 	}
 
 	// Run uv sync
 	logger.Info("Installing Parakeet dependencies")
-	cmd := exec.Command("uv", "sync", "--system-certs")
+	cmd := processutil.CommandContext(ctx, "uv", "sync", "--system-certs")
 	cmd.Dir = p.envPath
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -233,7 +241,7 @@ func (p *ParakeetAdapter) setupParakeetEnvironment() error {
 }
 
 // downloadParakeetModel downloads the Parakeet model file
-func (p *ParakeetAdapter) downloadParakeetModel() error {
+func (p *ParakeetAdapter) downloadParakeetModel(ctx context.Context) error {
 	modelFileName := "parakeet-tdt-0.6b-v3.nemo"
 	modelPath := filepath.Join(p.envPath, modelFileName)
 
@@ -247,7 +255,7 @@ func (p *ParakeetAdapter) downloadParakeetModel() error {
 
 	modelURL := "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3/resolve/main/parakeet-tdt-0.6b-v3.nemo?download=true"
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 	defer cancel()
 
 	if err := downloader.DownloadFile(ctx, modelURL, modelPath); err != nil {
@@ -279,7 +287,7 @@ func (p *ParakeetAdapter) copyTranscriptionScript() error {
 	}
 
 	scriptPath := filepath.Join(p.envPath, "parakeet_transcribe.py")
-	if err := os.WriteFile(scriptPath, scriptContent, 0755); err != nil {
+	if err := writeRuntimeScript(scriptPath, scriptContent, 0755); err != nil {
 		return fmt.Errorf("failed to write transcription script: %w", err)
 	}
 
@@ -358,7 +366,7 @@ func (p *ParakeetAdapter) Transcribe(ctx context.Context, input interfaces.Audio
 
 	result.ProcessingTime = time.Since(startTime)
 	result.ModelUsed = "parakeet-tdt-0.6b-v3"
-	result.Metadata = p.CreateDefaultMetadata(params)
+	result.Metadata = mergeRuntimeMetadata(p.CreateDefaultMetadata(params), readRuntimeMetadata(tempDir))
 
 	logger.Info("Parakeet transcription completed",
 		"segments", len(result.Segments),
@@ -403,6 +411,7 @@ func (p *ParakeetAdapter) transcribeStandard(ctx context.Context, input interfac
 	cmd.Env = append(os.Environ(),
 		"PYTHONUNBUFFERED=1",
 		"PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True")
+	cmd.Env = withRequestedDevice(cmd.Env, p.GetStringParameter(params, "device"))
 
 	// Setup log file
 	logFile, err := os.OpenFile(filepath.Join(outputDir, "transcription.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -454,6 +463,7 @@ func (p *ParakeetAdapter) transcribeBuffered(ctx context.Context, input interfac
 	cmd.Env = append(os.Environ(),
 		"PYTHONUNBUFFERED=1",
 		"PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True")
+	cmd.Env = withRequestedDevice(cmd.Env, p.GetStringParameter(params, "device"))
 
 	// Setup log file
 	logFile, err := os.OpenFile(filepath.Join(outputDir, "transcription.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -501,6 +511,7 @@ func (p *ParakeetAdapter) buildParakeetArgs(input interfaces.AudioInput, params 
 		"run", "--system-certs", "--project", p.envPath, "python", scriptPath,
 		input.FilePath,
 		"--output", outputFile,
+		"--device", p.GetStringParameter(params, "device"),
 	}
 
 	// Add timestamps flag (Parakeet script supports --timestamps)
@@ -597,7 +608,7 @@ func (p *ParakeetAdapter) copyBufferedScript() error {
 	}
 
 	scriptPath := filepath.Join(p.envPath, "parakeet_transcribe_buffered.py")
-	if err := os.WriteFile(scriptPath, scriptContent, 0755); err != nil {
+	if err := writeRuntimeScript(scriptPath, scriptContent, 0755); err != nil {
 		return fmt.Errorf("failed to write buffered script: %w", err)
 	}
 
@@ -616,6 +627,7 @@ func (p *ParakeetAdapter) buildBufferedArgs(input interfaces.AudioInput, params 
 		"run", "--system-certs", "--project", p.envPath, "python", scriptPath,
 		input.FilePath,
 		"--output", outputFile,
+		"--device", p.GetStringParameter(params, "device"),
 		"--chunk-len", strconv.Itoa(chunkDuration),
 	}
 

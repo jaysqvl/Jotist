@@ -25,6 +25,9 @@ func NewBaseRepository[T any](db *gorm.DB) *BaseRepository[T] {
 	return &BaseRepository[T]{db: db}
 }
 
+// Database exposes the deployment connection to transactional coordinators.
+func (r *BaseRepository[T]) Database() *gorm.DB { return r.db }
+
 func (r *BaseRepository[T]) Create(ctx context.Context, entity *T) error {
 	return r.db.WithContext(ctx).Create(entity).Error
 }

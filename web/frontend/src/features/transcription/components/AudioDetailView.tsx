@@ -23,6 +23,8 @@ import { EmberPlayer, type EmberPlayerRef } from "@/components/audio/EmberPlayer
 import { cn } from "@/lib/utils";
 
 // Custom Hooks
+import { useExecutionRecovery, useResumeExecution } from "@/features/transcription/hooks/useExecutionRecovery";
+import { canResumeExecution, recoveryIsActive, type RunSubmissionOptions } from "@/features/transcription/hooks/recoveryPolicy";
 import { useAudioDetail, useExecutionRuns, useRunTranscript, useSetActiveRun, useUpdateTitle, useTranscript, type ExecutionRun, type Transcript, type TranscriptSegment } from "@/features/transcription/hooks/useAudioDetail";
 import { useSpeakerMappings } from "@/features/transcription/hooks/useTranscriptionSpeakers";
 import { useTranscriptDownload } from "@/features/transcription/hooks/useTranscriptDownload";
@@ -48,6 +50,7 @@ import {
     useTranscriptionQueue,
 } from "@/features/transcription/hooks/useTranscriptionQueue";
 import {
+    buildImmediateRunRequest,
     getQueuedItems,
     isStopRunTargetCurrent,
     moveQueuedItemIds,
@@ -147,9 +150,12 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
         canStopRun
     );
     const runs = useMemo(() => runsData?.runs || [], [runsData?.runs]);
-    const currentRun = runs.find((run) => run.status === "processing" || run.status === "pending");
+    const currentRun = runs.find((run) => recoveryIsActive(run.status));
     const hasSequentialRuns = Boolean(activeQueueItem) || queuedRuns.length > 0;
     const selectedRun = runs.find((run) => run.id === selectedRunId);
+    const recoveryQuery = useExecutionRecovery(audioId || "", selectedRunId, canStopRun);
+    const resumeExecution = useResumeExecution(audioId || "");
+    const recoveryOtherRunActive = canStopRun && currentRun?.id !== selectedRunId;
     const { data: selectedRunTranscript, isLoading: selectedRunTranscriptLoading } = useRunTranscript(audioId || "", selectedRunId, !!selectedRunId);
     const { data: compareRunTranscript, isLoading: compareRunTranscriptLoading } = useRunTranscript(audioId || "", compareRunId, runViewMode === "compare" && !!compareRunId);
     const transcript = selectedRunId ? selectedRunTranscript : latestTranscript;
@@ -272,6 +278,16 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
     }, [activeQueueItem?.id, activeQueueItem?.status, audioFile?.status, audioId, queryClient]);
 
     // Handlers
+    const handleResumeExecution = useCallback(async (executionID: string) => {
+        if (!canResumeExecution(recoveryQuery.data || undefined, executionID, recoveryOtherRunActive)) return;
+        try {
+            await resumeExecution.mutateAsync(executionID);
+            toast({ title: "Execution resumed", description: "Continuing the saved plan with its recorded checkpoints." });
+        } catch (error) {
+            toast({ title: "Could not resume execution", description: error instanceof Error ? error.message : "Reload recovery details and try again." });
+        }
+    }, [recoveryQuery.data, recoveryOtherRunActive, resumeExecution, toast]);
+
     const handleTimeUpdate = useCallback((time: number) => {
         setCurrentTime(time);
     }, []);
@@ -299,7 +315,7 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
         setStopRunDialogOpen(true);
     }, [activeQueueItem?.id, canStopRun, currentRun?.id]);
 
-    const handleRerun = useCallback(async (params: WhisperXParams) => {
+    const handleRerun = useCallback(async (params: WhisperXParams, profileId?: string, _profileName?: string, options?: RunSubmissionOptions) => {
         if (!audioId || !audioFile) return;
 
         if (queueQuery.isLoading || queueQuery.isError) {
@@ -334,7 +350,7 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                     ...getAuthHeaders(),
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify(params),
+                body: JSON.stringify(buildImmediateRunRequest(params, profileId, options)),
             });
             if (!response.ok) {
                 const errorText = await response.text();
@@ -496,7 +512,7 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
         setRerunAdvancedDialogOpen(true);
     }, []);
 
-    const handleQueueRun = useCallback(async (params: WhisperXParams, profileId?: string, profileName?: string) => {
+    const handleQueueRun = useCallback(async (params: WhisperXParams, profileId?: string, profileName?: string, options?: RunSubmissionOptions) => {
         if (!audioId || !audioFile) return;
 
         if (audioFile.is_multi_track && !params.is_multi_track_enabled) {
@@ -519,6 +535,7 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                 parameters: params,
                 profile_id: profileId,
                 profile_name: profileName,
+                reuse_checkpoints: options?.reuse_checkpoints,
             });
             setQueueProfileDialogOpen(false);
             setQueueAdvancedDialogOpen(false);
@@ -869,6 +886,14 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                                     onSetActiveRun={handleSetActiveRun}
                                     onClearActiveRun={handleClearActiveRun}
                                     activeRunUpdating={activeRunUpdating}
+                                    recovery={recoveryQuery.data}
+                                    recoveryLoading={recoveryQuery.isLoading}
+                                    recoveryError={recoveryQuery.error instanceof Error ? recoveryQuery.error.message : undefined}
+                                    resuming={resumeExecution.isPending}
+                                    recoveryOtherRunActive={recoveryOtherRunActive}
+                                    onResumeExecution={handleResumeExecution}
+                                    onNewSubmission={() => setQueueProfileDialogOpen(true)}
+                                    onRetryRecovery={() => void recoveryQuery.refetch()}
                                 />
 
                                 {/* Transcript */}

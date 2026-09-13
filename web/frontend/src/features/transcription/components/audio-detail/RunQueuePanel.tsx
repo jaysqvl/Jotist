@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils";
 import type { ExecutionRun } from "@/features/transcription/hooks/useAudioDetail";
 import type { TranscriptionQueueItem } from "@/features/transcription/hooks/transcriptionQueue";
 import type { WhisperXParams } from "@/components/TranscriptionConfigDialog";
+import { transcriptionModelLabel } from "@/features/transcription/hooks/modelCapabilities";
 
 interface RunQueuePanelProps {
     items: TranscriptionQueueItem[];
@@ -401,13 +402,7 @@ function EmptyQueue({
 }
 
 function modelLabel(params: Partial<WhisperXParams>) {
-    if (params.model_family === "nvidia_canary") return "NVIDIA Canary 1B";
-    if (params.model_family === "nvidia_canary_qwen") return "NVIDIA Canary-Qwen 2.5B";
-    if (params.model_family === "nvidia_parakeet") return "NVIDIA Parakeet";
-    if (params.model_family === "mistral_voxtral") return "Mistral Voxtral-mini";
-    if (params.model_family === "openai") return `OpenAI ${params.model || "Whisper"}`;
-    if (params.model_family === "whisper") return `Whisper ${params.model || ""}`.trim();
-    return params.model_family || "Transcription";
+    return transcriptionModelLabel(params.model_family, params.model);
 }
 
 function deviceLabel(device?: string) {

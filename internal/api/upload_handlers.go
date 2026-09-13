@@ -6,6 +6,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -372,6 +373,11 @@ func (h *Handler) CompleteUploadSession(c *gin.Context) {
 
 	resultID, resultType, result, err := h.finalizeAssembledUpload(c, session, assembledFiles)
 	if err != nil {
+		var invalidParams invalidUploadParametersError
+		if errors.As(err, &invalidParams) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

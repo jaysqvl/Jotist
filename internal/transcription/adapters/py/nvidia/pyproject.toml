@@ -5,13 +5,14 @@ description = "Audio transcription and diarization using NVIDIA models (Canary, 
 requires-python = ">=3.11,<3.13"
 dependencies = [
     "nemo-toolkit[asr]",
-    "torch>=2.6,<2.8",
-    "torchaudio>=2.6,<2.8",
+    "torch==2.8.0",
+    "torchaudio==2.8.0",
+    "transformers==4.57.6",
+    "peft==0.17.1",
     "librosa",
     "soundfile",
-    "ml-dtypes>=0.3.1,<0.5.0",
-    "onnx>=1.15.0,<1.18.0",
-    # "pyannote.audio" # needed for sortformer or no?
+    "ml-dtypes>=0.5.0,<0.6.0",
+    "onnx>=1.18.0,<1.20.0",
 ]
 
 [project.optional-dependencies]
@@ -21,7 +22,7 @@ dev = [
 ]
 
 [tool.uv.sources]
-nemo-toolkit = { git = "https://github.com/NVIDIA/NeMo.git", tag = "v2.5.3" }
+nemo-toolkit = { git = "https://github.com/NVIDIA/NeMo.git", tag = "v2.7.3" }
 torch = [
     { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
     { index = "pytorch-cpu", marker = "platform_machine != 'x86_64' and sys_platform != 'darwin'" },

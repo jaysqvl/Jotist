@@ -19,6 +19,10 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import type { WhisperXParams } from "@/components/TranscriptionConfigDialog";
 import type { ExecutionRun, Transcript } from "@/features/transcription/hooks/useAudioDetail";
+import { transcriptionModelLabel as modelLabel } from "@/features/transcription/hooks/modelCapabilities";
+import type { ExecutionRecovery } from "@/features/transcription/hooks/recoveryPolicy";
+import { RunRecoveryPanel } from "./RunRecoveryPanel";
+import { executionEvidenceRows } from "@/features/transcription/hooks/executionPresentation";
 
 type RunWorkspaceMode = "transcript" | "compare";
 type DownloadFormat = "srt" | "txt" | "json";
@@ -60,6 +64,14 @@ interface RunWorkspaceProps {
     onSetActiveRun: (runId: string) => void;
     onClearActiveRun: () => void;
     activeRunUpdating?: boolean;
+    recovery?: ExecutionRecovery | null;
+    recoveryLoading?: boolean;
+    recoveryError?: string;
+    resuming?: boolean;
+    recoveryOtherRunActive?: boolean;
+    onResumeExecution?: (executionID: string) => void;
+    onNewSubmission?: () => void;
+    onRetryRecovery?: () => void;
 }
 
 export function RunWorkspace({
@@ -90,6 +102,14 @@ export function RunWorkspace({
     onSetActiveRun,
     onClearActiveRun,
     activeRunUpdating = false,
+    recovery,
+    recoveryLoading,
+    recoveryError,
+    resuming,
+    recoveryOtherRunActive,
+    onResumeExecution,
+    onNewSubmission,
+    onRetryRecovery,
 }: RunWorkspaceProps) {
     const selectedRun = runs.find((run) => run.id === selectedRunId) || runs[0];
     const compareRun = runs.find((run) => run.id === compareRunId) || runs.find((run) => run.id !== selectedRun?.id);
@@ -175,6 +195,13 @@ export function RunWorkspace({
                         )}
                     </div>
                 </div>
+
+                {selectedRun && onResumeExecution && <RunRecoveryPanel executionID={selectedRun.id}
+                    parameters={selectedRun.actual_parameters}
+                    recovery={recovery} loading={recoveryLoading} error={recoveryError} resuming={resuming}
+                    otherRunActive={recoveryOtherRunActive} onResume={onResumeExecution}
+                    onNewSubmission={onNewSubmission || onRunAgain} onSelectRun={onSelectedRunChange}
+                    onRetry={onRetryRecovery || (() => undefined)} />}
 
                 {mode === "compare" && compareRun ? (
                     <>
@@ -371,7 +398,7 @@ function SelectedRunPanel({
                     Settings Snapshot
                 </h4>
                 <div className="space-y-1.5">
-                    {settingsRows(params).map((row) => (
+                    {settingsRows(params, transcript?.metadata).map((row) => (
                         <div key={row.label} className="flex items-start justify-between gap-3 border-b border-[var(--border-subtle)] pb-1.5 last:border-0">
                             <span className="text-[var(--text-secondary)]">{row.label}</span>
                             <span className="text-right font-mono text-xs text-[var(--text-primary)] break-all">{row.value}</span>
@@ -897,25 +924,16 @@ function PinnedBadge() {
     );
 }
 
-function settingsRows(params: Partial<WhisperXParams>) {
+function settingsRows(params: Partial<WhisperXParams>, metadata?: Record<string, string>) {
     return [
+        { label: "ASR Device Used", value: metadata?.resolved_device || "Not recorded" },
+        ...(params.diarize ? [{ label: "Diarization Device Used", value: metadata?.diarization_device || "Not recorded" }] : []),
         { label: "Task", value: params.task || "transcribe" },
         { label: "Language", value: params.language || "auto" },
-        { label: "Precision", value: params.model_family?.startsWith("nvidia_") ? params.nvidia_precision || "default" : params.compute_type || "default" },
-        { label: "Timestamps", value: params.nvidia_timestamps === false ? "No" : "Yes" },
-        { label: "Chunking", value: params.nvidia_use_chunking === undefined ? "Default" : params.nvidia_use_chunking ? "Yes" : "No" },
-        { label: "Chunk Duration", value: params.nvidia_chunk_duration ? `${params.nvidia_chunk_duration}s` : "Default" },
+        ...executionEvidenceRows(params, metadata),
+        ...(params.model_family === "nvidia_canary" ? [{ label: "Chunking", value: params.nvidia_use_chunking == null ? "Default" : params.nvidia_use_chunking ? "Yes" : "No" }] : []),
+        { label: "Chunk Duration", value: params.model_family === "whisper" && params.chunk_size ? `${params.chunk_size}s` : params.audio_chunk_duration != null ? params.audio_chunk_duration === 0 ? "Model default / full recording" : `${params.audio_chunk_duration}s` : params.model_family?.startsWith("nvidia_") && params.nvidia_chunk_duration ? `${params.nvidia_chunk_duration}s` : "Default" },
     ].filter((row) => row.value !== "Default" || row.label === "Chunking" || row.label === "Chunk Duration");
-}
-
-function modelLabel(modelFamily?: string, model?: string) {
-    if (modelFamily === "nvidia_canary") return "NVIDIA Canary 1B";
-    if (modelFamily === "nvidia_canary_qwen") return "NVIDIA Canary-Qwen 2.5B";
-    if (modelFamily === "nvidia_parakeet") return "NVIDIA Parakeet";
-    if (modelFamily === "mistral_voxtral") return "Mistral Voxtral-mini";
-    if (modelFamily === "openai") return `OpenAI ${model || "Whisper"}`;
-    if (modelFamily === "whisper") return `Whisper ${model || ""}`.trim();
-    return modelFamily || "Transcription";
 }
 
 function formatDuration(value?: number | null) {

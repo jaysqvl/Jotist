@@ -8,6 +8,11 @@ import { useAuth } from "@/features/auth/hooks/useAuth";
 import { sortProfilesByName } from "@/lib/profiles";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Settings } from "lucide-react";
+import { HuggingFaceTokenSettings } from "./HuggingFaceTokenSettings";
+import { TranscriptionContextSettings } from "./TranscriptionContextSettings";
+import { TranscriptionPresetsDialog } from "./TranscriptionPresetsDialog";
+import { createPresetDraft, RECOMMENDED_PRESETS, type TranscriptionPreset } from "@/features/transcription/hooks/profilePresets";
+import { ProfileLearningDialog } from "./ProfileLearningDialog";
 
 interface TranscriptionProfile {
 	id: string;
@@ -17,6 +22,8 @@ interface TranscriptionProfile {
 	parameters: WhisperXParams;
 	created_at: string;
 	updated_at: string;
+	revision?: number;
+	learning_generation?: number;
 }
 
 interface UserSettings {
@@ -27,6 +34,9 @@ interface UserSettings {
 export function ProfileSettings() {
 	const [profileDialogOpen, setProfileDialogOpen] = useState(false);
 	const [editingProfile, setEditingProfile] = useState<TranscriptionProfile | null>(null);
+	const [learningProfile, setLearningProfile] = useState<TranscriptionProfile | null>(null);
+	const [presetsOpen, setPresetsOpen] = useState(false);
+	const [presetDraft, setPresetDraft] = useState<ReturnType<typeof createPresetDraft> | null>(null);
 	const [refreshTrigger, setRefreshTrigger] = useState(0);
 	const [profiles, setProfiles] = useState<TranscriptionProfile[]>([]);
 	const [defaultProfile, setDefaultProfile] = useState<TranscriptionProfile | null>(null);
@@ -160,13 +170,55 @@ export function ProfileSettings() {
 
 	const handleCreateProfile = useCallback(() => {
 		setEditingProfile(null);
+		const recommended = RECOMMENDED_PRESETS.find((preset) => preset.id === "cpu-qwen-pyannote")!;
+		setPresetDraft(createPresetDraft(recommended, profiles.map((profile) => profile.name)));
 		setProfileDialogOpen(true);
-	}, []);
+	}, [profiles]);
 
 	const handleEditProfile = useCallback((profile: TranscriptionProfile) => {
 		setEditingProfile(profile);
+		setPresetDraft(null);
 		setProfileDialogOpen(true);
 	}, []);
+
+	const handleSelectPreset = useCallback((preset: TranscriptionPreset) => {
+		setEditingProfile(null);
+		setPresetDraft(createPresetDraft(preset, profiles.map((profile) => profile.name)));
+		setPresetsOpen(false);
+		setProfileDialogOpen(true);
+	}, [profiles]);
+
+	const handleAddPresets = useCallback(async (presets: TranscriptionPreset[]) => {
+		// Recheck names at the user's add action so stale dialog data cannot
+		// overwrite a profile created elsewhere while the picker was open.
+		const currentResponse = await fetch("/api/v1/profiles", { headers: getAuthHeaders() });
+		if (!currentResponse.ok) throw new Error("Could not check existing profiles. Please try again.");
+		const currentProfiles: TranscriptionProfile[] = await currentResponse.json();
+		const usedNames = new Set(currentProfiles.map((profile) => profile.name.toLocaleLowerCase()));
+		let added = 0;
+		let skipped = 0;
+		let requestedName = "the selected preset";
+		try {
+			for (const preset of presets) {
+				if (usedNames.has(preset.name.toLocaleLowerCase())) { skipped++; continue; }
+				requestedName = preset.name;
+				const response = await fetch("/api/v1/profiles", {
+					method: "POST",
+					headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+					body: JSON.stringify({ name: preset.name, description: preset.description, parameters: preset.parameters }),
+				});
+				if (!response.ok) throw new Error(`Could not add ${preset.name}. ${added} profile${added === 1 ? " was" : "s were"} added before this error.`);
+				usedNames.add(preset.name.toLocaleLowerCase());
+				added++;
+			}
+			return { added, skipped };
+		} catch {
+			throw new Error(`Could not confirm adding ${requestedName}. ${added} profile${added === 1 ? " is" : "s are"} confirmed added. Check the refreshed list before retrying; existing names will be skipped.`);
+		} finally {
+			setRefreshTrigger((previous) => previous + 1);
+			await loadProfiles();
+		}
+	}, [getAuthHeaders, loadProfiles]);
 
 	const handleProfileSaved = useCallback(async (payload: WhisperXParams & { profileName?: string; profileDescription?: string }) => {
 		try {
@@ -194,6 +246,7 @@ export function ProfileSettings() {
 					body: JSON.stringify({
 						...body,
 						id: editingProfile.id,
+						expected_revision: editingProfile.revision,
 						is_default: editingProfile.is_default,
 					}),
 				});
@@ -214,6 +267,7 @@ export function ProfileSettings() {
 			setRefreshTrigger((prev) => prev + 1);
 			setProfileDialogOpen(false);
 			setEditingProfile(null);
+			setPresetDraft(null);
 		} catch (e) {
 			console.error("Failed to save profile", e);
 			alert("Failed to save profile");
@@ -277,6 +331,9 @@ export function ProfileSettings() {
 			</div>
 
 			{/* Transcription Profiles */}
+			<TranscriptionContextSettings />
+            <HuggingFaceTokenSettings />
+
 			<div className="bg-[var(--bg-main)]/50 border border-[var(--border-subtle)] rounded-[var(--radius-card)] p-4 sm:p-6 shadow-sm">
 				<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
 					<div>
@@ -287,12 +344,15 @@ export function ProfileSettings() {
 							Manage your saved transcription configurations for quick access.
 						</p>
 					</div>
+					<div className="flex flex-wrap gap-2">
+					<Button variant="outline" onClick={() => setPresetsOpen(true)}>Quick Add Presets</Button>
 					<Button
 						onClick={handleCreateProfile}
 						className="!bg-[var(--brand-gradient)] hover:!opacity-90 !text-black dark:!text-white shadow-lg shadow-orange-500/20 border-none"
 					>
 						Create New Profile
 					</Button>
+					</div>
 				</div>
 
 				{/* Default Profile Selection */}
@@ -344,22 +404,29 @@ export function ProfileSettings() {
 					onProfileChange={handleProfileChange}
 					onEditProfile={handleEditProfile}
 					onCreateProfile={handleCreateProfile}
+					onLearnProfile={setLearningProfile}
 				/>
 			</div>
 
+			<TranscriptionPresetsDialog open={presetsOpen} onOpenChange={setPresetsOpen} onSelect={handleSelectPreset} onAdd={handleAddPresets} existingNames={profiles.map((profile) => profile.name)} />
+			<ProfileLearningDialog profile={learningProfile} onClose={() => setLearningProfile(null)} onChanged={handleProfileChange} />
 			<TranscriptionConfigDialog
 				open={profileDialogOpen}
 				onOpenChange={(open) => {
 					setProfileDialogOpen(open);
 					if (!open) {
 						setEditingProfile(null);
+						setPresetDraft(null);
 					}
 				}}
 				onStartTranscription={handleProfileSaved}
 				isProfileMode={true}
-				initialParams={editingProfile?.parameters}
-				initialName={editingProfile?.name}
-				initialDescription={editingProfile?.description}
+				isExistingProfile={Boolean(editingProfile)}
+				initialParams={editingProfile?.parameters ?? presetDraft?.parameters}
+				initialName={editingProfile?.name ?? presetDraft?.name}
+				initialDescription={editingProfile?.description ?? presetDraft?.description}
+				title={presetDraft ? "Create New Profile" : undefined}
+				actionLabel={presetDraft ? "Save new profile" : undefined}
 			/>
 		</div>
 	);

@@ -69,7 +69,7 @@ type WhisperXParams struct {
 	ModelFamily string `json:"model_family" gorm:"type:varchar(20);default:'whisper'"`
 
 	// Model parameters
-	Model          string  `json:"model" gorm:"type:varchar(50);default:'small'"`
+	Model          string  `json:"model" gorm:"type:varchar(200);default:'small'"`
 	ModelCacheOnly bool    `json:"model_cache_only" gorm:"type:boolean;default:false"`
 	ModelDir       *string `json:"model_dir,omitempty" gorm:"type:text"`
 
@@ -79,6 +79,14 @@ type WhisperXParams struct {
 	BatchSize   int    `json:"batch_size" gorm:"type:int;default:8"`
 	ComputeType string `json:"compute_type" gorm:"type:varchar(20);default:'float32'"`
 	Threads     int    `json:"threads" gorm:"type:int;default:0"`
+
+	// Empty preserves the historical Auto GPU-to-CPU behavior. Explicit fixed
+	// and stage_management modes never change device, precision, or context.
+	RecoveryMode string `json:"recovery_mode,omitempty" gorm:"type:varchar(32)"`
+	// Nil means exact-compatible checkpoint reuse is enabled. False requests
+	// new artifacts; it never disables durable persistence.
+	ReuseCheckpoints *bool                    `json:"reuse_checkpoints,omitempty" gorm:"type:boolean"`
+	AdaptivePolicy   *AdaptiveExecutionPolicy `json:"adaptive_policy,omitempty" gorm:"serializer:json;type:text"`
 
 	// Output settings
 	OutputFormat string `json:"output_format" gorm:"type:varchar(20);default:'all'"`
@@ -108,14 +116,21 @@ type WhisperXParams struct {
 	SpeakerEmbeddings bool   `json:"speaker_embeddings" gorm:"type:boolean;default:false"`
 
 	// Transcription quality settings
-	Temperature                    float64 `json:"temperature" gorm:"type:real;default:0"`
-	BestOf                         int     `json:"best_of" gorm:"type:int;default:5"`
-	BeamSize                       int     `json:"beam_size" gorm:"type:int;default:5"`
-	Patience                       float64 `json:"patience" gorm:"type:real;default:1.0"`
-	LengthPenalty                  float64 `json:"length_penalty" gorm:"type:real;default:1.0"`
-	SuppressTokens                 *string `json:"suppress_tokens,omitempty" gorm:"type:text"`
-	SuppressNumerals               bool    `json:"suppress_numerals" gorm:"type:boolean;default:false"`
-	InitialPrompt                  *string `json:"initial_prompt,omitempty" gorm:"type:text"`
+	Temperature      float64 `json:"temperature" gorm:"type:real;default:0"`
+	BestOf           int     `json:"best_of" gorm:"type:int;default:5"`
+	BeamSize         int     `json:"beam_size" gorm:"type:int;default:5"`
+	Patience         float64 `json:"patience" gorm:"type:real;default:1.0"`
+	LengthPenalty    float64 `json:"length_penalty" gorm:"type:real;default:1.0"`
+	SuppressTokens   *string `json:"suppress_tokens,omitempty" gorm:"type:text"`
+	SuppressNumerals bool    `json:"suppress_numerals" gorm:"type:boolean;default:false"`
+	InitialPrompt    *string `json:"initial_prompt,omitempty" gorm:"type:text"`
+	// Nil context fields inherit the requesting user's defaults when a run is
+	// queued. A pointer to an empty string explicitly disables that default.
+	TranscriptionContext           *string `json:"transcription_context,omitempty" gorm:"type:text"`
+	TranscriptionContextTerms      *string `json:"transcription_context_terms,omitempty" gorm:"type:text"`
+	AudioChunkDuration             *int    `json:"audio_chunk_duration,omitempty" gorm:"type:int"`
+	DiarizationDevice              string  `json:"diarization_device" gorm:"type:varchar(20)"`
+	DiarizationCheckpoint          string  `json:"diarization_checkpoint,omitempty" gorm:"type:varchar(200)"`
 	ConditionOnPreviousText        bool    `json:"condition_on_previous_text" gorm:"type:boolean;default:false"`
 	Fp16                           bool    `json:"fp16" gorm:"type:boolean;default:true"`
 	TemperatureIncrementOnFallback float64 `json:"temperature_increment_on_fallback" gorm:"type:real;default:0.2"`
@@ -131,7 +146,11 @@ type WhisperXParams struct {
 
 	// Token and progress
 	HfToken       *string `json:"hf_token,omitempty" gorm:"type:text"`
-	PrintProgress bool    `json:"print_progress" gorm:"type:boolean;default:false"`
+	HFTokenSource string  `json:"hf_token_source,omitempty" gorm:"type:varchar(20)"`
+	// Admission may run twice while an upload is finalized. This in-memory flag
+	// prevents a settings change between those calls from replacing its snapshot.
+	HFTokenResolved bool `json:"-" gorm:"-"`
+	PrintProgress   bool `json:"print_progress" gorm:"type:boolean;default:false"`
 
 	// NVIDIA model-specific parameters
 	AttentionContextLeft  int     `json:"attention_context_left" gorm:"type:int;default:256"`
@@ -160,9 +179,25 @@ type WhisperXParams struct {
 // non-secret persistence. Jobs and profiles may still retain write-only
 // credentials needed for future runs.
 func (p WhisperXParams) WithoutSecrets() WhisperXParams {
+	p.HFTokenSource = p.EffectiveHFTokenSource()
 	p.HfToken = nil
 	p.APIKey = nil
 	return p
+}
+
+// EffectiveHFTokenSource preserves the meaning of profiles created before
+// explicit token sources existed, without filling inherited profile tokens.
+func (p WhisperXParams) EffectiveHFTokenSource() string {
+	if p.HFTokenSource != "" {
+		return p.HFTokenSource
+	}
+	if p.HfToken != nil {
+		if *p.HfToken == "" {
+			return "none"
+		}
+		return "custom"
+	}
+	return "default"
 }
 
 // MarshalJSON keeps provider credentials write-only wherever transcription
@@ -191,14 +226,17 @@ func (tj *TranscriptionJob) BeforeCreate(tx *gorm.DB) error {
 
 // User represents a user for authentication
 type User struct {
-	ID                       uint      `json:"id" gorm:"primaryKey"`
-	Username                 string    `json:"username" gorm:"uniqueIndex;not null;type:varchar(50)"`
-	Password                 string    `json:"-" gorm:"not null;type:varchar(255)"`
-	TokenVersion             uint64    `json:"-" gorm:"not null;default:0"`
-	DefaultProfileID         *string   `json:"default_profile_id,omitempty" gorm:"type:varchar(36)"`
-	AutoTranscriptionEnabled bool      `json:"auto_transcription_enabled" gorm:"not null;default:false"`
-	CreatedAt                time.Time `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt                time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+	ID                        uint      `json:"id" gorm:"primaryKey"`
+	Username                  string    `json:"username" gorm:"uniqueIndex;not null;type:varchar(50)"`
+	Password                  string    `json:"-" gorm:"not null;type:varchar(255)"`
+	TokenVersion              uint64    `json:"-" gorm:"not null;default:0"`
+	DefaultProfileID          *string   `json:"default_profile_id,omitempty" gorm:"type:varchar(36)"`
+	AutoTranscriptionEnabled  bool      `json:"auto_transcription_enabled" gorm:"not null;default:false"`
+	TranscriptionContext      string    `json:"transcription_context" gorm:"type:text"`
+	TranscriptionContextTerms string    `json:"transcription_context_terms" gorm:"type:text"`
+	HFToken                   string    `json:"-" gorm:"type:text"`
+	CreatedAt                 time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt                 time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
 // APIKey represents an API key for external authentication
@@ -225,13 +263,16 @@ func (ak *APIKey) BeforeCreate(tx *gorm.DB) error {
 
 // TranscriptionProfile represents a saved transcription configuration profile
 type TranscriptionProfile struct {
-	ID          string         `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	Name        string         `json:"name" gorm:"type:varchar(255);not null"`
-	Description *string        `json:"description,omitempty" gorm:"type:text"`
-	IsDefault   bool           `json:"is_default" gorm:"type:boolean;default:false"`
-	Parameters  WhisperXParams `json:"parameters" gorm:"embedded"`
-	CreatedAt   time.Time      `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt   time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
+	Revisions          []AdaptiveProfileRevision `json:"-" gorm:"foreignKey:ProfileID;constraint:OnDelete:CASCADE"`
+	Revision           int64                     `json:"revision" gorm:"not null;default:1"`
+	LearningGeneration int64                     `json:"learning_generation" gorm:"not null;default:1"`
+	ID                 string                    `json:"id" gorm:"primaryKey;type:varchar(36)"`
+	Name               string                    `json:"name" gorm:"type:varchar(255);not null"`
+	Description        *string                   `json:"description,omitempty" gorm:"type:text"`
+	IsDefault          bool                      `json:"is_default" gorm:"type:boolean;default:false"`
+	Parameters         WhisperXParams            `json:"parameters" gorm:"embedded"`
+	CreatedAt          time.Time                 `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt          time.Time                 `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
 // BeforeCreate sets the ID if not already set
@@ -343,8 +384,17 @@ type MultiTrackTiming struct {
 
 // TranscriptionJobExecution represents execution metadata for completed transcription jobs
 type TranscriptionJobExecution struct {
-	ID                 string `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	TranscriptionJobID string `json:"transcription_job_id" gorm:"type:varchar(36);not null;index"`
+	ID                  string     `json:"id" gorm:"primaryKey;type:varchar(36)"`
+	TranscriptionJobID  string     `json:"transcription_job_id" gorm:"type:varchar(36);not null;index"`
+	RecoveryVersion     int        `json:"recovery_version,omitempty"`
+	QueueItemID         *string    `json:"queue_item_id,omitempty" gorm:"type:varchar(36);index"`
+	OwnerGeneration     int64      `json:"owner_generation,omitempty"`
+	RecoveryState       string     `json:"recovery_state,omitempty" gorm:"type:varchar(20);index"`
+	DeadlineAt          *time.Time `json:"deadline_at,omitempty"`
+	CancelledAt         *time.Time `json:"cancelled_at,omitempty"`
+	ResumeOfExecutionID *string    `json:"resume_of_execution_id,omitempty" gorm:"type:varchar(36);index"`
+	PlanJSON            string     `json:"-" gorm:"type:text"`
+	CallbackClaimedAt   *time.Time `json:"-"`
 
 	// Execution timing
 	StartedAt          time.Time  `json:"started_at" gorm:"not null"`
@@ -361,10 +411,11 @@ type TranscriptionJobExecution struct {
 	ActualParameters WhisperXParams `json:"actual_parameters" gorm:"embedded;embeddedPrefix:actual_"`
 
 	// Execution results
-	Status       JobStatus `json:"status" gorm:"type:varchar(20);not null"`
-	ErrorMessage *string   `json:"error_message,omitempty" gorm:"type:text"`
-	Transcript   *string   `json:"transcript,omitempty" gorm:"type:text"`
-	LogPath      *string   `json:"log_path,omitempty" gorm:"type:text"`
+	Status                JobStatus `json:"status" gorm:"type:varchar(20);not null"`
+	ErrorMessage          *string   `json:"error_message,omitempty" gorm:"type:text"`
+	Transcript            *string   `json:"transcript,omitempty" gorm:"type:text"`
+	IndividualTranscripts *string   `json:"individual_transcripts,omitempty" gorm:"type:text"`
+	LogPath               *string   `json:"log_path,omitempty" gorm:"type:text"`
 
 	// Metadata
 	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`

@@ -113,6 +113,7 @@ func (h *TestHelper) ResetDB(t *testing.T) {
 		&models.TranscriptionQueueItem{},
 		&models.TranscriptionJob{},
 		&models.TranscriptionProfile{},
+		&models.AdaptiveProfileRevision{},
 		&models.SummaryTemplate{},
 		&models.LLMConfig{},
 		&models.APIKey{},

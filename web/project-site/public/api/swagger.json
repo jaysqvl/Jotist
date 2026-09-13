@@ -1537,6 +1537,210 @@
                 }
             }
         },
+        "/api/v1/profiles/{id}/adaptive-policy": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profiles"
+                ],
+                "summary": "Get profile learning state",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Profile ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optional exact scope fingerprint",
+                        "name": "scope_key",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/repository.AdaptivePolicySnapshot"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/profiles/{id}/freeze-adaptive": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profiles"
+                ],
+                "summary": "Freeze a measured plan as fixed profile settings",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Profile ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Selected plan ID and expected revision and generation",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.adaptiveProfileAction"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.TranscriptionProfile"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/profiles/{id}/reset-adaptive": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profiles"
+                ],
+                "summary": "Reset profile learned starting plans",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Profile ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Expected revision and generation",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.adaptiveProfileAction"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.TranscriptionProfile"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/profiles/{id}/restore-revision": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profiles"
+                ],
+                "summary": "Restore saved profile parameters in a new revision",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Profile ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Saved revision and expected current revision and generation",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.adaptiveProfileAction"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.TranscriptionProfile"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/profiles/{id}/set-default": {
             "post": {
                 "security": [
@@ -2261,7 +2465,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Submit an audio file for transcription with WhisperX",
+                "description": "Submit an audio file using a supported transcription model. Omitted context fields inherit the authenticated user's defaults; empty fields explicitly disable those hints.",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -2294,9 +2498,66 @@
                     },
                     {
                         "type": "string",
-                        "default": "base",
-                        "description": "Whisper model",
+                        "default": "whisper",
+                        "description": "Model family from /transcription/models",
+                        "name": "model_family",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Checkpoint or Whisper model size; defaults to base for Whisper and the family default for local models",
                         "name": "model",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Meeting context, at most 4000 characters; omitted inherits and empty disables",
+                        "name": "transcription_context",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Vocabulary, one term per line, at most 8000 characters; omitted inherits and empty disables",
+                        "name": "transcription_context_terms",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Audio chunk duration in seconds; omit for the model default, 0 requests full-recording context where supported",
+                        "name": "audio_chunk_duration",
+                        "in": "formData"
+                    },
+                    {
+                        "enum": [
+                            "pyannote",
+                            "nvidia_sortformer",
+                            "diarizen",
+                            "suplime",
+                            "native"
+                        ],
+                        "type": "string",
+                        "default": "pyannote",
+                        "description": "Speaker diarization model; native requires an integrated diarizer",
+                        "name": "diarize_model",
+                        "in": "formData"
+                    },
+                    {
+                        "enum": [
+                            "same",
+                            "cpu",
+                            "cuda",
+                            "auto"
+                        ],
+                        "type": "string",
+                        "default": "same",
+                        "description": "Device used for speaker diarization; same follows the transcription device",
+                        "name": "diarization_device",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optional research diarizer checkpoint, such as rewayai/suplime or rewayai/suplime-large",
+                        "name": "diarization_checkpoint",
                         "in": "formData"
                     },
                     {
@@ -2314,15 +2575,14 @@
                     },
                     {
                         "type": "string",
-                        "default": "float16",
-                        "description": "Compute type",
+                        "description": "Compute precision; Whisper defaults to int8, local ASR to float32, and BitNet uses fixed quantized weights",
                         "name": "compute_type",
                         "in": "formData"
                     },
                     {
                         "type": "string",
-                        "default": "auto",
-                        "description": "Device",
+                        "default": "cpu",
+                        "description": "Transcription device; supported choices depend on the model",
                         "name": "device",
                         "in": "formData"
                     },
@@ -3407,12 +3667,12 @@
                         "required": true
                     },
                     {
-                        "description": "Transcription parameters",
+                        "description": "Transcription parameters or authoritative saved profile ID",
                         "name": "parameters",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.WhisperXParams"
+                            "$ref": "#/definitions/api.ImmediateTranscriptionRequest"
                         }
                     }
                 ],
@@ -3700,6 +3960,126 @@
                 }
             }
         },
+        "/api/v1/transcription/{id}/runs/{run_id}/recovery": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Return saved stages, attempts, partial text and same-plan resume availability",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "transcription"
+                ],
+                "summary": "Get execution recovery details",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Recording ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Execution ID",
+                        "name": "run_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/transcription/{id}/runs/{run_id}/resume": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Resume the same execution within its original deadline and attempt budget; accepts no quality overrides",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "transcription"
+                ],
+                "summary": "Resume a saved execution",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Recording ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Execution ID",
+                        "name": "run_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/transcription/{id}/runs/{run_id}/transcript": {
             "get": {
                 "security": [
@@ -3937,12 +4317,12 @@
                         "required": true
                     },
                     {
-                        "description": "Transcription parameters",
+                        "description": "Transcription parameters or authoritative saved profile ID",
                         "name": "parameters",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.WhisperXParams"
+                            "$ref": "#/definitions/api.ImmediateTranscriptionRequest"
                         }
                     }
                 ],
@@ -4788,6 +5168,235 @@
                 }
             }
         },
+        "api.ImmediateTranscriptionRequest": {
+            "type": "object",
+            "properties": {
+                "adaptive_policy": {
+                    "$ref": "#/definitions/models.AdaptiveExecutionPolicy"
+                },
+                "align_model": {
+                    "description": "Alignment settings",
+                    "type": "string"
+                },
+                "api_key": {
+                    "description": "OpenAI settings",
+                    "type": "string"
+                },
+                "attention_context_left": {
+                    "description": "NVIDIA model-specific parameters",
+                    "type": "integer"
+                },
+                "attention_context_right": {
+                    "type": "integer"
+                },
+                "audio_chunk_duration": {
+                    "type": "integer"
+                },
+                "batch_size": {
+                    "type": "integer"
+                },
+                "beam_size": {
+                    "type": "integer"
+                },
+                "best_of": {
+                    "type": "integer"
+                },
+                "callback_url": {
+                    "description": "Webhook settings",
+                    "type": "string"
+                },
+                "chunk_size": {
+                    "type": "integer"
+                },
+                "compression_ratio_threshold": {
+                    "type": "number"
+                },
+                "compute_type": {
+                    "type": "string"
+                },
+                "condition_on_previous_text": {
+                    "type": "boolean"
+                },
+                "device": {
+                    "description": "Device and computation",
+                    "type": "string"
+                },
+                "device_index": {
+                    "type": "integer"
+                },
+                "diarization_checkpoint": {
+                    "type": "string"
+                },
+                "diarization_device": {
+                    "type": "string"
+                },
+                "diarize": {
+                    "description": "Diarization settings",
+                    "type": "boolean"
+                },
+                "diarize_model": {
+                    "description": "Options: 'pyannote', 'nvidia_sortformer'",
+                    "type": "string"
+                },
+                "fp16": {
+                    "type": "boolean"
+                },
+                "hf_token": {
+                    "description": "Token and progress",
+                    "type": "string"
+                },
+                "hf_token_source": {
+                    "type": "string"
+                },
+                "highlight_words": {
+                    "type": "boolean"
+                },
+                "initial_prompt": {
+                    "type": "string"
+                },
+                "interpolate_method": {
+                    "type": "string"
+                },
+                "is_multi_track_enabled": {
+                    "description": "Multi-track transcription settings",
+                    "type": "boolean"
+                },
+                "language": {
+                    "type": "string"
+                },
+                "length_penalty": {
+                    "type": "number"
+                },
+                "logprob_threshold": {
+                    "type": "number"
+                },
+                "max_line_count": {
+                    "type": "integer"
+                },
+                "max_line_width": {
+                    "description": "Output formatting",
+                    "type": "integer"
+                },
+                "max_new_tokens": {
+                    "description": "Voxtral settings",
+                    "type": "integer"
+                },
+                "max_speakers": {
+                    "type": "integer"
+                },
+                "min_speakers": {
+                    "type": "integer"
+                },
+                "model": {
+                    "description": "Model parameters",
+                    "type": "string"
+                },
+                "model_cache_only": {
+                    "type": "boolean"
+                },
+                "model_dir": {
+                    "type": "string"
+                },
+                "model_family": {
+                    "description": "Model family (whisper or nvidia)",
+                    "type": "string"
+                },
+                "no_align": {
+                    "type": "boolean"
+                },
+                "no_speech_threshold": {
+                    "type": "number"
+                },
+                "nvidia_chunk_duration": {
+                    "type": "integer"
+                },
+                "nvidia_precision": {
+                    "type": "string"
+                },
+                "nvidia_prompt": {
+                    "type": "string"
+                },
+                "nvidia_target_language": {
+                    "type": "string"
+                },
+                "nvidia_timestamps": {
+                    "type": "boolean"
+                },
+                "nvidia_use_chunking": {
+                    "type": "boolean"
+                },
+                "output_format": {
+                    "description": "Output settings",
+                    "type": "string"
+                },
+                "patience": {
+                    "type": "number"
+                },
+                "print_progress": {
+                    "type": "boolean"
+                },
+                "profile_id": {
+                    "type": "string"
+                },
+                "recovery_mode": {
+                    "description": "Empty preserves the historical Auto GPU-to-CPU behavior. Explicit fixed\nand stage_management modes never change device, precision, or context.",
+                    "type": "string"
+                },
+                "return_char_alignments": {
+                    "type": "boolean"
+                },
+                "reuse_checkpoints": {
+                    "description": "Nil means exact-compatible checkpoint reuse is enabled. False requests\nnew artifacts; it never disables durable persistence.",
+                    "type": "boolean"
+                },
+                "segment_resolution": {
+                    "type": "string"
+                },
+                "speaker_embeddings": {
+                    "type": "boolean"
+                },
+                "suppress_numerals": {
+                    "type": "boolean"
+                },
+                "suppress_tokens": {
+                    "type": "string"
+                },
+                "task": {
+                    "description": "Task and language",
+                    "type": "string"
+                },
+                "temperature": {
+                    "description": "Transcription quality settings",
+                    "type": "number"
+                },
+                "temperature_increment_on_fallback": {
+                    "type": "number"
+                },
+                "threads": {
+                    "type": "integer"
+                },
+                "transcription_context": {
+                    "description": "Nil context fields inherit the requesting user's defaults when a run is\nqueued. A pointer to an empty string explicitly disables that default.",
+                    "type": "string"
+                },
+                "transcription_context_terms": {
+                    "type": "string"
+                },
+                "vad_method": {
+                    "description": "VAD (Voice Activity Detection) settings",
+                    "type": "string"
+                },
+                "vad_offset": {
+                    "type": "number"
+                },
+                "vad_onset": {
+                    "type": "number"
+                },
+                "verbose": {
+                    "type": "boolean"
+                }
+            }
+        },
         "api.LLMConfigRequest": {
             "type": "object",
             "required": [
@@ -4939,6 +5548,9 @@
                 },
                 "profile_name": {
                     "type": "string"
+                },
+                "reuse_checkpoints": {
+                    "type": "boolean"
                 }
             }
         },
@@ -5149,6 +5761,16 @@
             "properties": {
                 "auto_transcription_enabled": {
                     "type": "boolean"
+                },
+                "hf_token": {
+                    "description": "Write-only: omitted/null preserves the saved token; an empty string clears it.",
+                    "type": "string"
+                },
+                "transcription_context": {
+                    "type": "string"
+                },
+                "transcription_context_terms": {
+                    "type": "string"
                 }
             }
         },
@@ -5159,6 +5781,15 @@
                     "type": "boolean"
                 },
                 "default_profile_id": {
+                    "type": "string"
+                },
+                "has_hf_token": {
+                    "type": "boolean"
+                },
+                "transcription_context": {
+                    "type": "string"
+                },
+                "transcription_context_terms": {
                     "type": "string"
                 }
             }
@@ -5188,11 +5819,388 @@
                 }
             }
         },
+        "api.adaptiveProfileAction": {
+            "type": "object",
+            "properties": {
+                "expected_generation": {
+                    "type": "integer"
+                },
+                "expected_revision": {
+                    "type": "integer"
+                },
+                "plan_id": {
+                    "type": "string"
+                },
+                "revision": {
+                    "type": "integer"
+                }
+            }
+        },
         "api.killJobRequest": {
             "type": "object",
             "properties": {
                 "queue_item_id": {
                     "type": "string"
+                }
+            }
+        },
+        "models.AdaptiveCapacityLimit": {
+            "type": "object",
+            "properties": {
+                "max_available_bytes": {
+                    "type": "integer"
+                },
+                "memory_capacity_bytes": {
+                    "type": "integer"
+                },
+                "memory_domain": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.AdaptiveExecutionPolicy": {
+            "type": "object",
+            "properties": {
+                "learn": {
+                    "type": "boolean"
+                },
+                "learned_plans": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.AdaptivePlanSnapshot"
+                    }
+                },
+                "learning_generation": {
+                    "type": "integer"
+                },
+                "profile_id": {
+                    "type": "string"
+                },
+                "profile_revision": {
+                    "type": "integer"
+                },
+                "snapshot_taken": {
+                    "type": "boolean"
+                },
+                "stages": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/models.AdaptiveStagePolicy"
+                    }
+                }
+            }
+        },
+        "models.AdaptiveLearnedPlan": {
+            "type": "object",
+            "properties": {
+                "candidate_hash": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "exhaustion_available_bytes": {
+                    "type": "integer"
+                },
+                "exhaustion_capacity_limits": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.AdaptiveCapacityLimit"
+                    }
+                },
+                "exhaustion_evidence_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "full_window_candidate_hashes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "learning_generation": {
+                    "type": "integer"
+                },
+                "mean_processing_milliseconds": {
+                    "type": "integer"
+                },
+                "minimum_reserve_bytes": {
+                    "type": "integer"
+                },
+                "observation_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "peak_memory_bytes": {
+                    "type": "integer"
+                },
+                "profile_id": {
+                    "type": "string"
+                },
+                "profile_revision": {
+                    "type": "integer"
+                },
+                "scope": {
+                    "$ref": "#/definitions/models.AdaptiveLearningScope"
+                },
+                "scope_key": {
+                    "type": "string"
+                },
+                "settings": {
+                    "$ref": "#/definitions/models.AdaptiveStageSettings"
+                }
+            }
+        },
+        "models.AdaptiveLearningScope": {
+            "type": "object",
+            "properties": {
+                "fixed_settings_hash": {
+                    "type": "string"
+                },
+                "hardware_fingerprint": {
+                    "type": "string"
+                },
+                "memory_capacity_bytes": {
+                    "type": "integer"
+                },
+                "memory_domain": {
+                    "type": "string"
+                },
+                "model_fingerprint": {
+                    "type": "string"
+                },
+                "original_window_seconds": {
+                    "type": "number"
+                },
+                "runtime_fingerprint": {
+                    "type": "string"
+                },
+                "stage_key": {
+                    "type": "string"
+                },
+                "workload_class": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.AdaptiveObservation": {
+            "type": "object",
+            "properties": {
+                "attempt_id": {
+                    "type": "string"
+                },
+                "available_before_bytes": {
+                    "type": "integer"
+                },
+                "cached": {
+                    "type": "boolean"
+                },
+                "candidate_hash": {
+                    "type": "string"
+                },
+                "channels": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "execution_id": {
+                    "type": "string"
+                },
+                "external_contention": {
+                    "type": "boolean"
+                },
+                "full_stage": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "learning_generation": {
+                    "type": "integer"
+                },
+                "loading_milliseconds": {
+                    "type": "integer"
+                },
+                "outcome": {
+                    "type": "string"
+                },
+                "owner_generation": {
+                    "type": "integer"
+                },
+                "peak_memory_bytes": {
+                    "type": "integer"
+                },
+                "processed_duration_seconds": {
+                    "type": "number"
+                },
+                "processing_milliseconds": {
+                    "type": "integer"
+                },
+                "profile_id": {
+                    "type": "string"
+                },
+                "profile_revision": {
+                    "type": "integer"
+                },
+                "qualified": {
+                    "type": "boolean"
+                },
+                "recording_id": {
+                    "type": "string"
+                },
+                "reserve_bytes": {
+                    "type": "integer"
+                },
+                "scope": {
+                    "$ref": "#/definitions/models.AdaptiveLearningScope"
+                },
+                "scope_key": {
+                    "type": "string"
+                },
+                "settings": {
+                    "$ref": "#/definitions/models.AdaptiveStageSettings"
+                },
+                "source_duration_seconds": {
+                    "type": "number"
+                },
+                "stage_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.AdaptivePlanSnapshot": {
+            "type": "object",
+            "properties": {
+                "candidate_hash": {
+                    "type": "string"
+                },
+                "learning_generation": {
+                    "type": "integer"
+                },
+                "plan_id": {
+                    "type": "string"
+                },
+                "profile_revision": {
+                    "type": "integer"
+                },
+                "scope_key": {
+                    "type": "string"
+                },
+                "settings": {
+                    "$ref": "#/definitions/models.AdaptiveStageSettings"
+                },
+                "stage_key": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.AdaptiveProfileRevision": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_default": {
+                    "type": "boolean"
+                },
+                "learning_generation": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parameters": {
+                    "$ref": "#/definitions/models.WhisperXParams"
+                },
+                "profile_id": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "revision": {
+                    "type": "integer"
+                },
+                "saved_at": {
+                    "type": "string"
+                },
+                "source_plan_id": {
+                    "type": "string"
+                },
+                "source_revision": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.AdaptiveStagePolicy": {
+            "type": "object",
+            "properties": {
+                "allow_cpu": {
+                    "type": "boolean"
+                },
+                "allow_shorter_windows": {
+                    "type": "boolean"
+                },
+                "cpu_precision": {
+                    "type": "string"
+                },
+                "device_locked": {
+                    "type": "boolean"
+                },
+                "fixed": {
+                    "$ref": "#/definitions/models.AdaptiveStageSettings"
+                },
+                "min_batch_size": {
+                    "type": "integer"
+                },
+                "min_window_seconds": {
+                    "type": "integer"
+                },
+                "overlap_seconds": {
+                    "type": "number"
+                },
+                "window_candidates": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "models.AdaptiveStageSettings": {
+            "type": "object",
+            "properties": {
+                "batch_size": {
+                    "type": "integer"
+                },
+                "concurrency": {
+                    "type": "integer"
+                },
+                "device": {
+                    "type": "string"
+                },
+                "overlap_seconds": {
+                    "type": "number"
+                },
+                "precision": {
+                    "type": "string"
+                },
+                "stitching_version": {
+                    "type": "string"
+                },
+                "window_seconds": {
+                    "type": "number"
                 }
             }
         },
@@ -5470,11 +6478,17 @@
                 "is_default": {
                     "type": "boolean"
                 },
+                "learning_generation": {
+                    "type": "integer"
+                },
                 "name": {
                     "type": "string"
                 },
                 "parameters": {
                     "$ref": "#/definitions/models.WhisperXParams"
+                },
+                "revision": {
+                    "type": "integer"
                 },
                 "updated_at": {
                     "type": "string"
@@ -5550,6 +6564,9 @@
         "models.WhisperXParams": {
             "type": "object",
             "properties": {
+                "adaptive_policy": {
+                    "$ref": "#/definitions/models.AdaptiveExecutionPolicy"
+                },
                 "align_model": {
                     "description": "Alignment settings",
                     "type": "string"
@@ -5563,6 +6580,9 @@
                     "type": "integer"
                 },
                 "attention_context_right": {
+                    "type": "integer"
+                },
+                "audio_chunk_duration": {
                     "type": "integer"
                 },
                 "batch_size": {
@@ -5597,6 +6617,12 @@
                 "device_index": {
                     "type": "integer"
                 },
+                "diarization_checkpoint": {
+                    "type": "string"
+                },
+                "diarization_device": {
+                    "type": "string"
+                },
                 "diarize": {
                     "description": "Diarization settings",
                     "type": "boolean"
@@ -5610,6 +6636,9 @@
                 },
                 "hf_token": {
                     "description": "Token and progress",
+                    "type": "string"
+                },
+                "hf_token_source": {
                     "type": "string"
                 },
                 "highlight_words": {
@@ -5699,7 +6728,15 @@
                 "print_progress": {
                     "type": "boolean"
                 },
+                "recovery_mode": {
+                    "description": "Empty preserves the historical Auto GPU-to-CPU behavior. Explicit fixed\nand stage_management modes never change device, precision, or context.",
+                    "type": "string"
+                },
                 "return_char_alignments": {
+                    "type": "boolean"
+                },
+                "reuse_checkpoints": {
+                    "description": "Nil means exact-compatible checkpoint reuse is enabled. False requests\nnew artifacts; it never disables durable persistence.",
                     "type": "boolean"
                 },
                 "segment_resolution": {
@@ -5728,6 +6765,13 @@
                 "threads": {
                     "type": "integer"
                 },
+                "transcription_context": {
+                    "description": "Nil context fields inherit the requesting user's defaults when a run is\nqueued. A pointer to an empty string explicitly disables that default.",
+                    "type": "string"
+                },
+                "transcription_context_terms": {
+                    "type": "string"
+                },
                 "vad_method": {
                     "description": "VAD (Voice Activity Detection) settings",
                     "type": "string"
@@ -5740,6 +6784,50 @@
                 },
                 "verbose": {
                     "type": "boolean"
+                }
+            }
+        },
+        "repository.AdaptivePolicySnapshot": {
+            "type": "object",
+            "properties": {
+                "learning_generation": {
+                    "type": "integer"
+                },
+                "observations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.AdaptiveObservation"
+                    }
+                },
+                "plans": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.AdaptiveLearnedPlan"
+                    }
+                },
+                "profile_id": {
+                    "type": "string"
+                },
+                "profile_revision": {
+                    "type": "integer"
+                },
+                "revisions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.AdaptiveProfileRevision"
+                    }
+                },
+                "selected_plan_id": {
+                    "type": "string"
+                },
+                "selected_plan_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "status": {
+                    "type": "string"
                 }
             }
         },

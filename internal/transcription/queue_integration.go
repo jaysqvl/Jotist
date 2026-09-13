@@ -31,6 +31,16 @@ func (u *UnifiedJobProcessor) ProcessJob(ctx context.Context, jobID string) erro
 	return u.unifiedService.ProcessJob(ctx, jobID)
 }
 
+func (u *UnifiedJobProcessor) RecoverExecutions(ctx context.Context) ([]string, error) {
+	return u.unifiedService.RecoverExecutions(ctx)
+}
+func (u *UnifiedJobProcessor) PrepareExecutionResume(ctx context.Context, jobID, executionID string) error {
+	return u.unifiedService.PrepareExecutionResume(ctx, jobID, executionID)
+}
+func (u *UnifiedJobProcessor) CancelExecution(ctx context.Context, jobID, executionID, reason string) error {
+	return u.unifiedService.CancelExecution(ctx, jobID, executionID, reason)
+}
+
 // ProcessJobWithProcess implements the enhanced JobProcessor interface with process registration
 func (u *UnifiedJobProcessor) ProcessJobWithProcess(ctx context.Context, jobID string, registerProcess func(*exec.Cmd)) error {
 	// Note: The new adapter architecture doesn't expose the underlying process in the same way
@@ -66,6 +76,7 @@ func (u *UnifiedJobProcessor) GetSupportedModels() map[string]interface{} {
 			"languages":    cap.SupportedLanguages,
 			"formats":      cap.SupportedFormats,
 			"features":     cap.Features,
+			"metadata":     cap.Metadata,
 			"memory_mb":    cap.MemoryRequirement,
 			"requires_gpu": cap.RequiresGPU,
 		}

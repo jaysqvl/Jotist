@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	executioncontext "scriberr/internal/execution"
 	"scriberr/internal/models"
 	"scriberr/internal/repository"
 	"scriberr/pkg/logger"
@@ -74,6 +75,9 @@ func (p *cancellationAuditProcessor) ProcessJobWithProcess(ctx context.Context, 
 		Status:             models.StatusProcessing,
 	}
 	if err := p.repo.CreateExecution(context.Background(), execution); err != nil {
+		return err
+	}
+	if err := executioncontext.RegisterExecution(ctx, jobID, execution.ID); err != nil {
 		return err
 	}
 	p.executionID <- execution.ID
@@ -199,7 +203,9 @@ func TestTimedOutSequentialRunAdvancesToNext(t *testing.T) {
 	tq, _, runRepo, _, jobID, processor := newSequentialQueueTest(t, models.StatusCompleted, func(repo repository.JobRepository) JobProcessor {
 		return &sequentialRecordingProcessor{repo: repo, blockModel: "times-out", started: make(chan string, 2)}
 	})
-	tq.SetJobTimeout(25 * time.Millisecond)
+	// The blocked first processor always reaches its deadline. Leave enough
+	// time for the successful successor's database claim under race instrumentation.
+	tq.SetJobTimeout(500 * time.Millisecond)
 	tq.Start()
 	defer tq.Stop()
 	_, err := tq.AddSequentialRuns(context.Background(), jobID, []models.TranscriptionQueueItem{
@@ -458,7 +464,7 @@ func TestStoppedRunLinksExecutionOnlyAfterProcessorCleanup(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, models.QueueStatusProcessing, active.Status)
 	require.Nil(t, active.CompletedAt)
-	require.Nil(t, active.ExecutionID)
+	require.Equal(t, &executionID, active.ExecutionID, "execution is bound before inference; terminalization still waits for cleanup")
 
 	cleanupReleasedAt := time.Now()
 	close(processor.releaseCleanup)

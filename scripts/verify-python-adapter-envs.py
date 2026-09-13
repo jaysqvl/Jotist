@@ -8,7 +8,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import textwrap
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
@@ -41,6 +40,7 @@ class AdapterSpec:
     requires_python: str
     package_ranges: tuple[PackageRange, ...] = ()
     expected_sources: tuple[SourceExpectation, ...] = ()
+    torch_companions: tuple[str, ...] = ()
     pair_import_packages: tuple[str, ...] = ()
     pair_import_code: str | None = None
 
@@ -53,13 +53,13 @@ ADAPTERS: tuple[AdapterSpec, ...] = (
         import_code="import nemo.collections.asr",
         requires_python=">=3.11,<3.13",
         package_ranges=(
-            PackageRange("torch", min_inclusive="2.6", max_exclusive="2.8"),
-            PackageRange("torchaudio", min_inclusive="2.6", max_exclusive="2.8"),
-            PackageRange("ml-dtypes", min_inclusive="0.3.1", max_exclusive="0.5.0"),
-            PackageRange("onnx", min_inclusive="1.15.0", max_exclusive="1.18.0"),
+            PackageRange("torch", exact="2.8.0"),
+            PackageRange("torchaudio", exact="2.8.0"),
+            PackageRange("ml-dtypes", min_inclusive="0.5.0", max_exclusive="0.6.0"),
+            PackageRange("onnx", min_inclusive="1.18.0", max_exclusive="1.20.0"),
         ),
         expected_sources=(
-            SourceExpectation("nemo-toolkit", "tag", "v2.5.3"),
+            SourceExpectation("nemo-toolkit", "tag", "v2.7.3"),
         ),
         pair_import_packages=("onnx", "ml-dtypes"),
         pair_import_code=(
@@ -74,16 +74,16 @@ ADAPTERS: tuple[AdapterSpec, ...] = (
         import_code="from nemo.collections.speechlm2.models import SALM",
         requires_python=">=3.11,<3.13",
         package_ranges=(
-            PackageRange("torch", min_inclusive="2.6", max_exclusive="2.8"),
-            PackageRange("torchaudio", min_inclusive="2.6", max_exclusive="2.8"),
+            PackageRange("torch", exact="2.8.0"),
+            PackageRange("torchaudio", exact="2.8.0"),
             PackageRange("ml-dtypes", min_inclusive="0.5.0", max_exclusive="0.6.0"),
             PackageRange("onnx", min_inclusive="1.18.0", max_exclusive="1.20.0"),
         ),
         expected_sources=(
             SourceExpectation(
                 "nemo-toolkit",
-                "rev",
-                "b366d85e6619092257e7f3063e3838cdea34c054",
+                "tag",
+                "v2.7.3",
             ),
         ),
         pair_import_packages=("onnx", "ml-dtypes"),
@@ -101,29 +101,35 @@ ADAPTERS: tuple[AdapterSpec, ...] = (
         import_code="from pyannote.audio import Pipeline",
         requires_python=">=3.10,<3.13",
         package_ranges=(
-            PackageRange("pyannote.audio", exact="4.0.2"),
+            PackageRange("pyannote.audio", exact="4.0.7"),
         ),
     ),
     AdapterSpec(
-        key="voxtral",
-        label="Voxtral adapter",
-        pyproject=ROOT / "internal/transcription/adapters/py/voxtral/pyproject.toml",
-        import_code=textwrap.dedent(
-            """
-            import librosa
-            import soundfile
-            import torch
-            import torchaudio
-            import mistral_common
-            from transformers import AutoProcessor, VoxtralForConditionalGeneration
-            """
-        ).strip(),
-        requires_python=">=3.11,<3.13",
-        package_ranges=(
-            PackageRange("torch", min_inclusive="2.6", max_exclusive="2.8"),
-            PackageRange("torchaudio", min_inclusive="2.6", max_exclusive="2.8"),
-            PackageRange("transformers", min_inclusive="4.45.0"),
-        ),
+        key="whisperx", label="WhisperX", pyproject=ROOT / "internal/transcription/adapters/py/whisperx/pyproject.toml",
+        import_code=(
+            "from whisperx.alignment import load_align_model; "
+            "from whisperx.asr import load_model; "
+            "from whisperx.transcribe import transcribe_task; "
+            "from whisperx.diarize import DiarizationPipeline"
+        ), requires_python=">=3.11,<3.13",
+        package_ranges=(PackageRange("whisperx", exact="3.8.6"), PackageRange("torch", exact="2.8.0"), PackageRange("torchaudio", exact="2.8.0"), PackageRange("torchvision", exact="0.23.0"), PackageRange("torchcodec", exact="0.7.0")),
+        torch_companions=("torchaudio", "torchvision"),
+    ),
+    AdapterSpec(
+        key="suplime", label="SUPlime research diarization", pyproject=ROOT / "internal/transcription/adapters/py/suplime/pyproject.toml",
+        import_code="import suplime; from pyannote.audio import Pipeline", requires_python=">=3.11,<3.13",
+        package_ranges=(PackageRange("suplime", exact="0.2.0"), PackageRange("pyannote.audio", exact="4.0.7"), PackageRange("torch", exact="2.8.0")),
+    ),
+    AdapterSpec(
+        key="diarizen", label="DiariZen research diarization", pyproject=ROOT / "internal/transcription/adapters/py/diarizen/pyproject.toml",
+        import_code="from diarizen.pipelines.inference import DiariZenPipeline", requires_python=">=3.11,<3.13",
+        package_ranges=(PackageRange("torch", exact="2.5.1"), PackageRange("torchaudio", exact="2.5.1"), PackageRange("numpy", exact="1.26.4")),
+        expected_sources=(SourceExpectation("diarizen", "rev", "844f5555b0a98acd0931511fc641a8c5b8ba92c7"), SourceExpectation("pyannote.audio", "subdirectory", "pyannote-audio")),
+    ),
+    AdapterSpec(
+        key="local-asr", label="Modern local ASR", pyproject=ROOT / "internal/transcription/adapters/py/local_asr/pyproject.toml",
+        import_code="import torch, torchaudio; from transformers import AutoProcessor, AutoModelForSpeechSeq2Seq", requires_python=">=3.11,<3.13",
+        package_ranges=(PackageRange("transformers", exact="5.17.0"), PackageRange("torch", exact="2.11.0"), PackageRange("torchaudio", exact="2.11.0")),
     ),
 )
 
@@ -207,6 +213,13 @@ def validate_pyproject(spec: AdapterSpec) -> None:
         )
 
     sources = pyproject.get("tool", {}).get("uv", {}).get("sources", {})
+    for companion in spec.torch_companions:
+        # Exact public versions alone allow a PyPI CUDA vision wheel beside a
+        # +cpu Torch wheel. Every platform must use the same selected index.
+        if not sources.get("torch") or sources.get(companion) != sources["torch"]:
+            raise CheckError(
+                f"{spec.key}: {companion} must use the same platform-specific wheel sources as torch"
+            )
     for expected in spec.expected_sources:
         source = sources.get(expected.package)
         if not isinstance(source, dict):
@@ -224,7 +237,7 @@ def copy_pyproject(spec: AdapterSpec, temp_root: Path, torch_index: str) -> Path
     pyproject_content = spec.pyproject.read_text()
     if torch_index == "cpu":
         pyproject_content = pyproject_content.replace(
-            'url = "https://download.pytorch.org/whl/cu126"',
+            'url = "https://download.pytorch.org/whl/cu124"' if spec.key == "diarizen" else 'url = "https://download.pytorch.org/whl/cu126"',
             'url = "https://download.pytorch.org/whl/cpu"',
             1,
         )
@@ -279,7 +292,8 @@ def check_package_ranges(spec: AdapterSpec, packages: dict[str, list[str]]) -> N
             raise CheckError(f"{spec.key}: {package_range.name} was not present in uv.lock")
 
         for version in versions:
-            if package_range.exact is not None and version != package_range.exact:
+            # PEP 440 "==2.8.0" also selects 2.8.0+cpu / +cu126 wheels.
+            if package_range.exact is not None and version.split("+", 1)[0] != package_range.exact:
                 raise CheckError(
                     f"{spec.key}: {package_range.name} resolved to {version}; "
                     f"expected {package_range.exact}"
@@ -361,6 +375,7 @@ def run_adapter_import_check(
             "--locked",
             "--system-certs",
             "python",
+            "-I",
             "-c",
             spec.import_code,
         ],

@@ -7,6 +7,14 @@ import argparse
 import json
 import os
 import sys
+
+# Fence explicit CPU jobs before NeMo/PyTorch checkpoint loading can select CUDA.
+if "--device=cpu" in sys.argv or any(
+    arg == "--device" and next_arg == "cpu"
+    for arg, next_arg in zip(sys.argv, sys.argv[1:])
+):
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""
+
 import tempfile
 import traceback
 from typing import Dict, Iterable, List, Optional, Tuple
@@ -15,6 +23,18 @@ import librosa
 import nemo.collections.asr as nemo_asr
 import soundfile as sf
 import torch
+
+
+# Load the bundled helper by path, including under Python isolated mode.
+import importlib.util as _runtime_import
+from pathlib import Path as _RuntimePath
+_runtime_path = _RuntimePath(__file__).resolve().with_name("runtime_failure.py")
+if not _runtime_path.exists():
+    _runtime_path = _RuntimePath(__file__).resolve().parent.parent / "runtime_failure.py"
+_runtime_spec = _runtime_import.spec_from_file_location("scriberr_runtime_failure", _runtime_path)
+_runtime_helper = _runtime_import.module_from_spec(_runtime_spec)
+_runtime_spec.loader.exec_module(_runtime_helper)
+gpu_execution = _runtime_helper.gpu_execution
 
 
 def log(message: str) -> None:
@@ -270,13 +290,16 @@ def transcribe_audio(
 
     configure_torch()
     torch_device = resolve_device(device)
+    if device == "auto" and torch_device.type == "cpu":
+        precision = "float32"
     cuda_memory_snapshot("before model restore")
 
     asr_model = restore_model(model_path)
     log(f"Model restored: {type(asr_model).__name__}")
     log(f"Model device after restore: {model_device(asr_model)}")
     cuda_memory_snapshot("after model restore")
-    asr_model = configure_model(asr_model, torch_device, precision)
+    with gpu_execution(torch_device):
+        asr_model = configure_model(asr_model, torch_device, precision)
     empty_cuda_cache("after model setup cache clear")
 
     full_text = []
@@ -288,7 +311,7 @@ def transcribe_audio(
         log("Using native full-file Canary transcription")
         cuda_memory_snapshot("before native transcription")
         try:
-            with torch.inference_mode():
+            with gpu_execution(torch_device), torch.inference_mode():
                 result_data = transcribe_one(asr_model, audio_path, source_lang, target_lang, timestamps, batch_size)
         except torch.cuda.OutOfMemoryError:
             log("CUDA out of memory during native full-file transcription")
@@ -322,7 +345,7 @@ def transcribe_audio(
                 cuda_memory_snapshot(f"before chunk {index}")
 
                 try:
-                    with torch.inference_mode():
+                    with gpu_execution(torch_device), torch.inference_mode():
                         result_data = transcribe_one(
                             asr_model,
                             chunk["path"],
@@ -369,6 +392,7 @@ def transcribe_audio(
         "chunk_duration_secs": chunk_duration_secs if chunking else None,
         "num_chunks": len(full_text),
         "device": str(torch_device),
+        "resolved_device": str(torch_device),
         "precision": precision,
     }
     if include_confidence and confidence:

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -24,7 +23,9 @@ var nvidiaScripts embed.FS
 // CanaryAdapter implements the TranscriptionAdapter interface for NVIDIA Canary
 type CanaryAdapter struct {
 	*BaseAdapter
-	envPath string
+	envPath           string
+	verifiedModelSize int64
+	verifiedModelTime time.Time
 }
 
 // NewCanaryAdapter creates a new Canary adapter
@@ -193,6 +194,9 @@ func NewCanaryAdapter(envPath string) *CanaryAdapter {
 		BaseAdapter: baseAdapter,
 		envPath:     envPath,
 	}
+	stages, _ := json.Marshal(adapter.Stages())
+	adapter.capabilities.Metadata["adaptive_stages"] = string(stages)
+	adapter.capabilities.Metadata["revision"] = canaryModelRevision
 
 	return adapter
 }
@@ -204,6 +208,14 @@ func (c *CanaryAdapter) GetSupportedModels() []string {
 
 // PrepareEnvironment sets up the Canary environment (shared with Parakeet)
 func (c *CanaryAdapter) PrepareEnvironment(ctx context.Context) error {
+	release, err := lockPythonPreparation(ctx, c.envPath)
+	if err != nil {
+		return err
+	}
+	defer release()
+	if err := refreshPythonProject(nvidiaScripts, "py/nvidia/pyproject.toml", c.envPath); err != nil {
+		return fmt.Errorf("refresh Python environment: %w", err)
+	}
 	logger.Info("Preparing NVIDIA Canary environment", "env_path", c.envPath)
 
 	// Copy transcription script
@@ -212,9 +224,12 @@ func (c *CanaryAdapter) PrepareEnvironment(ctx context.Context) error {
 	}
 
 	// Check if environment is already ready (using cache to speed up repeated checks)
-	if CheckEnvironmentReady(c.envPath, "import nemo.collections.asr") {
+	if checkPythonEnvironmentReady(ctx, c.envPath, "import nemo.collections.asr") {
 		modelPath := filepath.Join(c.envPath, "canary-1b-v2.nemo")
 		if stat, err := os.Stat(modelPath); err == nil && stat.Size() > 1024*1024 {
+			if err := c.verifyCanaryModel(ctx); err != nil {
+				return err
+			}
 			logger.Info("Canary environment already ready")
 			c.initialized = true
 			return nil
@@ -222,13 +237,16 @@ func (c *CanaryAdapter) PrepareEnvironment(ctx context.Context) error {
 	}
 
 	// Setup environment (reuse Parakeet setup since they share the same environment)
-	if err := c.setupCanaryEnvironment(); err != nil {
+	if err := c.setupCanaryEnvironment(ctx); err != nil {
 		return fmt.Errorf("failed to setup Canary environment: %w", err)
 	}
 
 	// Download model
-	if err := c.downloadCanaryModel(); err != nil {
+	if err := c.downloadCanaryModel(ctx); err != nil {
 		return fmt.Errorf("failed to download Canary model: %w", err)
+	}
+	if err := c.verifyCanaryModel(ctx); err != nil {
+		return err
 	}
 
 	c.initialized = true
@@ -237,16 +255,9 @@ func (c *CanaryAdapter) PrepareEnvironment(ctx context.Context) error {
 }
 
 // setupCanaryEnvironment creates the Python environment (shared with Parakeet)
-func (c *CanaryAdapter) setupCanaryEnvironment() error {
+func (c *CanaryAdapter) setupCanaryEnvironment(ctx context.Context) error {
 	if err := os.MkdirAll(c.envPath, 0755); err != nil {
 		return fmt.Errorf("failed to create canary directory: %w", err)
-	}
-
-	// Check if pyproject.toml already exists from Parakeet setup
-	pyprojectPath := filepath.Join(c.envPath, "pyproject.toml")
-	if _, err := os.Stat(pyprojectPath); err == nil {
-		logger.Info("Environment already configured by Parakeet")
-		return nil
 	}
 
 	// Read pyproject.toml
@@ -264,14 +275,14 @@ func (c *CanaryAdapter) setupCanaryEnvironment() error {
 		1,
 	)
 
-	pyprojectPath = filepath.Join(c.envPath, "pyproject.toml")
-	if err := os.WriteFile(pyprojectPath, []byte(contentStr), 0644); err != nil {
+	pyprojectPath := filepath.Join(c.envPath, "pyproject.toml")
+	if err := writePythonProject(pyprojectPath, []byte(contentStr)); err != nil {
 		return fmt.Errorf("failed to write pyproject.toml: %w", err)
 	}
 
 	// Run uv sync
 	logger.Info("Installing Canary dependencies")
-	cmd := exec.Command("uv", "sync", "--system-certs")
+	cmd := processutil.CommandContext(ctx, "uv", "sync", "--system-certs")
 	cmd.Dir = c.envPath
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -282,7 +293,7 @@ func (c *CanaryAdapter) setupCanaryEnvironment() error {
 }
 
 // downloadCanaryModel downloads the Canary model file
-func (c *CanaryAdapter) downloadCanaryModel() error {
+func (c *CanaryAdapter) downloadCanaryModel(ctx context.Context) error {
 	modelFileName := "canary-1b-v2.nemo"
 	modelPath := filepath.Join(c.envPath, modelFileName)
 
@@ -294,9 +305,9 @@ func (c *CanaryAdapter) downloadCanaryModel() error {
 
 	logger.Info("Downloading Canary model", "path", modelPath)
 
-	modelURL := "https://huggingface.co/nvidia/canary-1b-v2/resolve/main/canary-1b-v2.nemo?download=true"
+	modelURL := "https://huggingface.co/nvidia/canary-1b-v2/resolve/" + canaryModelRevision + "/canary-1b-v2.nemo?download=true"
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 	defer cancel()
 
 	if err := downloader.DownloadFile(ctx, modelURL, modelPath); err != nil {
@@ -328,8 +339,15 @@ func (c *CanaryAdapter) copyTranscriptionScript() error {
 	}
 
 	scriptPath := filepath.Join(c.envPath, "canary_transcribe.py")
-	if err := os.WriteFile(scriptPath, scriptContent, 0755); err != nil {
+	if err := writeRuntimeScript(scriptPath, scriptContent, 0755); err != nil {
 		return fmt.Errorf("failed to write transcription script: %w", err)
+	}
+	stageContent, err := nvidiaScripts.ReadFile("py/nvidia/canary_stages.py")
+	if err != nil {
+		return err
+	}
+	if err := writePythonProject(filepath.Join(c.envPath, "canary_stages.py"), stageContent); err != nil {
+		return err
 	}
 
 	return nil
@@ -382,6 +400,7 @@ func (c *CanaryAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 	cmd.Env = append(os.Environ(),
 		"PYTHONUNBUFFERED=1",
 		"PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True")
+	cmd.Env = withRequestedDevice(cmd.Env, c.GetStringParameter(params, "device"))
 
 	// Setup log file
 	logFile, err := os.OpenFile(filepath.Join(procCtx.OutputDirectory, "transcription.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -419,7 +438,7 @@ func (c *CanaryAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 
 	result.ProcessingTime = time.Since(startTime)
 	result.ModelUsed = "canary-1b-v2"
-	result.Metadata = c.CreateDefaultMetadata(params)
+	result.Metadata = mergeRuntimeMetadata(c.CreateDefaultMetadata(params), readRuntimeMetadata(tempDir))
 
 	logger.Info("Canary transcription completed",
 		"segments", len(result.Segments),

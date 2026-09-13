@@ -150,6 +150,11 @@ func (r *ModelRegistry) GetAllCapabilities() map[string]interfaces.ModelCapabili
 	// Create a copy to avoid concurrent access issues
 	result := make(map[string]interfaces.ModelCapabilities)
 	for id, cap := range r.capabilities {
+		metadata := make(map[string]string, len(cap.Metadata))
+		for key, value := range cap.Metadata {
+			metadata[key] = value
+		}
+		cap.Metadata = metadata
 		result[id] = cap
 	}
 	return result
@@ -419,18 +424,27 @@ func (r *ModelRegistry) InitializeModels(ctx context.Context) error {
 
 	// Initialize transcription adapters
 	for modelID, adapter := range r.transcriptionAdapters {
+		if isOptionalModel(adapter.GetCapabilities()) {
+			continue
+		}
 		wg.Add(1)
 		go initAdapter(modelID, adapter, "transcription")
 	}
 
 	// Initialize diarization adapters
 	for modelID, adapter := range r.diarizationAdapters {
+		if isOptionalModel(adapter.GetCapabilities()) {
+			continue
+		}
 		wg.Add(1)
 		go initAdapter(modelID, adapter, "diarization")
 	}
 
 	// Initialize composite adapters
 	for modelID, adapter := range r.compositeAdapters {
+		if isOptionalModel(adapter.GetCapabilities()) {
+			continue
+		}
 		wg.Add(1)
 		go initAdapter(modelID, adapter, "composite")
 	}
@@ -455,6 +469,10 @@ func (r *ModelRegistry) InitializeModels(ctx context.Context) error {
 	r.initialized = true
 	logger.Info("Model initialization completed")
 	return nil
+}
+
+func isOptionalModel(capability interfaces.ModelCapabilities) bool {
+	return capability.Metadata["lazy_init"] == "true" || capability.Metadata["optional_install"] == "true"
 }
 
 // GetModelStatus returns the status of all registered models

@@ -41,6 +41,7 @@ export interface AddTranscriptionQueueItemInput<TParameters = unknown> {
     parameters: TParameters;
     profile_id?: string;
     profile_name?: string;
+    reuse_checkpoints?: boolean;
 }
 
 export interface RunArtifactRefreshSnapshot {
@@ -60,7 +61,16 @@ export function buildQueueRequest<TParameters>(input: AddTranscriptionQueueItemI
         parameters: input.parameters,
         ...(input.profile_id ? { profile_id: input.profile_id } : {}),
         ...(input.profile_name ? { profile_name: input.profile_name } : {}),
+        ...(input.reuse_checkpoints === undefined ? {} : { reuse_checkpoints: input.reuse_checkpoints }),
     };
+}
+
+export function buildImmediateRunRequest<TParameters>(parameters: TParameters, profileId?: string, options?: { reuse_checkpoints?: boolean }) {
+    // A saved profile's write-only credentials can only be recovered server-side.
+    // Advanced requests retain the existing flat parameter representation.
+    const reuse = options?.reuse_checkpoints;
+    if (profileId !== undefined) return { profile_id: profileId, ...(reuse === undefined ? {} : { reuse_checkpoints: reuse }) };
+    return reuse === undefined ? parameters : { ...parameters, reuse_checkpoints: reuse };
 }
 
 export function sanitizeQueueData(data: TranscriptionQueueData): TranscriptionQueueData {

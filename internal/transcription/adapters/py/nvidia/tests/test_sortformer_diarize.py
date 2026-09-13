@@ -55,7 +55,7 @@ def test_sortformer_diarization_output():
             data = json.load(f)
 
         # Assertions based on the provided sample output
-        assert data["model"] == "nvidia/diar_streaming_sortformer_4spk-v2"
+        assert data["model"] == "nvidia/diar_streaming_sortformer_4spk-v2.1"
         assert "segments" in data
         assert len(data["segments"]) > 0
 

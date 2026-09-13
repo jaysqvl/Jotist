@@ -32,6 +32,12 @@ func (h *Handler) preserveCurrentRunSnapshot(ctx context.Context, job *models.Tr
 
 	execution, err := h.jobRepo.FindLatestExecution(ctx, job.ID)
 	if err == nil {
+		// Versioned executions publish their own exact result transactionally.
+		// The job may still hold an older successful result after this run fails;
+		// legacy backfill must never attach it to the new execution.
+		if execution.RecoveryVersion > 0 {
+			return nil
+		}
 		if execution.Status == models.StatusPending || execution.Status == models.StatusProcessing {
 			return nil
 		}

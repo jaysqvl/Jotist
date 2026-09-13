@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"scriberr/internal/execution"
 	"scriberr/internal/models"
 	"scriberr/internal/repository"
 	"scriberr/pkg/logger"
@@ -26,6 +27,7 @@ type RunningJob struct {
 	Cancel      context.CancelFunc
 	Process     *exec.Cmd
 	QueueItemID string
+	ExecutionID string
 	Finishing   bool
 }
 
@@ -34,6 +36,7 @@ type RunningJob struct {
 type queuedTask struct {
 	JobID       string
 	QueueItemID string
+	ExecutionID string
 }
 
 var (
@@ -63,6 +66,8 @@ type TaskQueue struct {
 	runQueueRepo   repository.TranscriptionQueueRepository
 	jobTimeout     time.Duration
 	reconcileEvery time.Duration
+	protectedJobs  map[string]struct{}
+	startupError   error
 }
 
 // JobProcessor defines the interface for processing jobs
@@ -132,6 +137,7 @@ func NewTaskQueue(legacyWorkers int, processor JobProcessor, jobRepo repository.
 		processor:      processor,
 		runningJobs:    make(map[string]*RunningJob),
 		deletingJobs:   make(map[string]struct{}),
+		protectedJobs:  make(map[string]struct{}),
 		scheduledTasks: make(map[queuedTask]struct{}),
 		autoScale:      autoScale,
 		lastScaleTime:  time.Now(),
@@ -156,7 +162,7 @@ func (tq *TaskQueue) SetJobTimeout(timeout time.Duration) {
 }
 
 // Start starts the task queue workers
-func (tq *TaskQueue) Start() {
+func (tq *TaskQueue) Start() error {
 	workers := int(atomic.LoadInt64(&tq.currentWorkers))
 	logger.Debug("Starting task queue",
 		"workers", workers,
@@ -164,6 +170,18 @@ func (tq *TaskQueue) Start() {
 		"max_workers", tq.maxWorkers,
 		"auto_scale", tq.autoScale)
 
+	// Recovery owns these recordings before any legacy terminalization, credential
+	// scrub or successor promotion is allowed to run.
+	if recovery, ok := tq.processor.(ExecutionRecoveryProcessor); ok {
+		protected, err := recovery.RecoverExecutions(tq.ctx)
+		if err != nil {
+			tq.startupError = err
+			return fmt.Errorf("execution recovery barrier failed: %w", err)
+		}
+		for _, id := range protected {
+			tq.protectedJobs[id] = struct{}{}
+		}
+	}
 	// Reset any zombie jobs from previous runs synchronously before starting workers
 	tq.ResetZombieJobs()
 
@@ -191,6 +209,7 @@ func (tq *TaskQueue) Start() {
 		tq.wg.Add(1)
 		go tq.sequentialReconciler()
 	}
+	return nil
 }
 
 // Stop stops the task queue
@@ -222,6 +241,9 @@ func (tq *TaskQueue) enqueueSequentialJob(jobID, queueItemID string) error {
 }
 
 func (tq *TaskQueue) enqueueTask(task queuedTask, waitForCapacity bool) error {
+	if tq.startupError != nil {
+		return fmt.Errorf("transcription dispatch is blocked: %w", tq.startupError)
+	}
 	// Check if queue is already shut down
 	select {
 	case <-tq.ctx.Done():
@@ -287,6 +309,9 @@ func (tq *TaskQueue) AddSequentialRuns(ctx context.Context, jobID string, items 
 // transcript snapshot immediately before an idle promotion clears mutable job
 // results, without racing job deletion or an immediate rerun.
 func (tq *TaskQueue) AddSequentialRunsWithPreparation(ctx context.Context, jobID string, items []models.TranscriptionQueueItem, prepare func() error) ([]models.TranscriptionQueueItem, error) {
+	if tq.startupError != nil {
+		return nil, tq.startupError
+	}
 	if tq.runQueueRepo == nil {
 		return nil, fmt.Errorf("sequential queue repository is not configured")
 	}
@@ -312,11 +337,17 @@ func (tq *TaskQueue) AddSequentialRunsWithPreparation(ctx context.Context, jobID
 // StartImmediateRun preserves the legacy one-off start behavior while making
 // admission atomic with sequential queue additions and worker ownership.
 func (tq *TaskQueue) StartImmediateRun(ctx context.Context, updatedJob *models.TranscriptionJob) error {
+	if tq.startupError != nil {
+		return tq.startupError
+	}
 	if updatedJob == nil {
 		return ErrJobStateChanged
 	}
 	tq.jobsMutex.Lock()
 	defer tq.jobsMutex.Unlock()
+	if _, protected := tq.protectedJobs[updatedJob.ID]; protected {
+		return ErrJobStateChanged
+	}
 	if _, deleting := tq.deletingJobs[updatedJob.ID]; deleting {
 		return ErrJobStateChanged
 	}
@@ -419,8 +450,14 @@ func (tq *TaskQueue) DeleteSequentialRuns(ctx context.Context, jobID string) err
 // must invoke the returned release function after all file and database
 // cleanup has finished.
 func (tq *TaskQueue) ReserveJobDeletion(ctx context.Context, jobID string) (*models.TranscriptionJob, func(), error) {
+	if tq.startupError != nil {
+		return nil, nil, tq.startupError
+	}
 	tq.jobsMutex.Lock()
 	defer tq.jobsMutex.Unlock()
+	if _, protected := tq.protectedJobs[jobID]; protected {
+		return nil, nil, ErrJobStateChanged
+	}
 
 	if _, deleting := tq.deletingJobs[jobID]; deleting {
 		return nil, nil, ErrJobStateChanged
@@ -459,6 +496,12 @@ func (tq *TaskQueue) ReserveJobDeletion(ctx context.Context, jobID string) (*mod
 }
 
 func (tq *TaskQueue) promoteNext(ctx context.Context, jobID string, enqueue bool) (*models.TranscriptionQueueItem, error) {
+	if tq.startupError != nil {
+		return nil, tq.startupError
+	}
+	if _, protected := tq.protectedJobs[jobID]; protected {
+		return nil, nil
+	}
 	// Every runtime caller holds jobsMutex (startup recovery runs before workers
 	// exist). Database status can become terminal slightly before a processor
 	// returns, especially for multi-track work, so in-memory ownership is the
@@ -512,10 +555,17 @@ func (tq *TaskQueue) worker(id int) {
 			// takes the same lock, so it can never misclassify the narrow
 			// claim-to-running-map window as a zombie and promote overlapping work.
 			jobCtx, jobCancel := context.WithTimeout(tq.ctx, tq.jobTimeout)
+			if task.ExecutionID != "" {
+				if saved, findErr := tq.jobRepo.FindExecution(tq.ctx, jobID, task.ExecutionID); findErr == nil && saved.DeadlineAt != nil {
+					jobCancel()
+					jobCtx, jobCancel = context.WithDeadline(tq.ctx, *saved.DeadlineAt)
+				}
+			}
 			runningJob := &RunningJob{
 				Cancel:      jobCancel,
 				Process:     nil, // Will be set by registerProcess callback
 				QueueItemID: task.QueueItemID,
+				ExecutionID: task.ExecutionID,
 			}
 			tq.jobsMutex.Lock()
 			if _, deleting := tq.deletingJobs[jobID]; deleting {
@@ -562,6 +612,27 @@ func (tq *TaskQueue) worker(id int) {
 			}
 
 			// Process the job with process registration
+			deadline, _ := jobCtx.Deadline()
+			jobCtx = execution.WithBinding(jobCtx, execution.Binding{JobID: jobID, QueueItemID: task.QueueItemID, ExecutionID: task.ExecutionID, Deadline: deadline, BindExecution: func(ctx context.Context, id string) error {
+				tq.jobsMutex.Lock()
+				defer tq.jobsMutex.Unlock()
+				if err := ctx.Err(); err != nil {
+					return err
+				}
+				if tq.runningJobs[jobID] != runningJob || runningJob.Finishing {
+					return repository.ErrExecutionOwnership
+				}
+				if runningJob.ExecutionID != "" && runningJob.ExecutionID != id {
+					return repository.ErrExecutionOwnership
+				}
+				if task.QueueItemID != "" {
+					if err := tq.runQueueRepo.BindExecution(ctx, jobID, task.QueueItemID, id); err != nil {
+						return err
+					}
+				}
+				runningJob.ExecutionID = id
+				return nil
+			}})
 			err = tq.processor.ProcessJobWithProcess(jobCtx, jobID, registerProcess)
 			tq.jobsMutex.Lock()
 			if active := tq.runningJobs[jobID]; active == runningJob {
@@ -572,9 +643,33 @@ func (tq *TaskQueue) worker(id int) {
 
 			queueStatus := models.QueueStatusCompleted
 			queueError := ""
+			published := false
+			if runningJob.ExecutionID != "" {
+				// A durable fenced outcome wins over a cancellation/deadline
+				// observed after publication but before processor cleanup returned.
+				// Legacy processors still use the context/status path below.
+				if saved, readErr := tq.jobRepo.FindExecution(context.Background(), jobID, runningJob.ExecutionID); readErr == nil && saved.RecoveryVersion > 0 {
+					switch saved.RecoveryState {
+					case "completed":
+						published = saved.Status == models.StatusCompleted
+					case "failed", "cancelled":
+						published = saved.Status == models.StatusFailed
+						queueStatus = models.QueueStatusFailed
+						if saved.RecoveryState == "cancelled" {
+							queueStatus = models.QueueStatusCancelled
+						}
+						if saved.ErrorMessage != nil {
+							queueError = *saved.ErrorMessage
+						}
+					}
+				}
+			}
 
-			// Context cancellation takes precedence even when a processor returns nil.
-			if jobContextErr == context.Canceled {
+			// Context cancellation takes precedence unless a versioned execution
+			// already durably published its terminal outcome.
+			if published {
+				logger.Debug("Using committed execution outcome", "job_id", jobID, "execution_id", runningJob.ExecutionID, "status", queueStatus)
+			} else if jobContextErr == context.Canceled {
 				queueError = "Job was cancelled by user"
 				queueStatus = models.QueueStatusCancelled
 				if tq.ctx.Err() != nil {
@@ -636,6 +731,9 @@ type processingExecutionFinalizer interface {
 }
 
 func (tq *TaskQueue) claimTask(ctx context.Context, task queuedTask, job *models.TranscriptionJob) (bool, error) {
+	if _, protected := tq.protectedJobs[task.JobID]; protected {
+		return false, nil
+	}
 	if task.QueueItemID != "" {
 		if tq.runQueueRepo == nil {
 			return false, fmt.Errorf("sequential queue repository is not configured")
@@ -674,11 +772,8 @@ func (tq *TaskQueue) claimTask(ctx context.Context, task queuedTask, job *models
 func (tq *TaskQueue) finalizeAndAdvance(jobID, queueItemID string, status models.TranscriptionQueueStatus, errorMessage string, owner *RunningJob) {
 	if tq.runQueueRepo != nil {
 		var executionID *string
-		if queueItemID != "" {
-			item, itemErr := tq.runQueueRepo.FindByID(context.Background(), jobID, queueItemID)
-			if itemErr == nil {
-				executionID = tq.matchingExecutionID(context.Background(), item)
-			}
+		if owner.ExecutionID != "" {
+			executionID = &owner.ExecutionID
 		}
 		if err := tq.runQueueRepo.Finalize(context.Background(), jobID, queueItemID, status, errorMessage, executionID); err != nil {
 			logger.Error("Failed to finalize sequential queue item", "job_id", jobID, "queue_item_id", queueItemID, "error", err)
@@ -739,6 +834,21 @@ func (tq *TaskQueue) killJob(jobID, expectedQueueItemID string, enforceTarget bo
 			}
 		}
 
+		fenced, err := tq.cancelPersistedExecution(context.Background(), jobID, "Job cancelled by user")
+		if err != nil {
+			return err
+		}
+		if fenced {
+			if err := tq.updateJobStatus(jobID, models.StatusFailed); err != nil {
+				return err
+			}
+			if err := tq.updateJobError(jobID, "Job cancelled by user"); err != nil {
+				return err
+			}
+			tq.cancelPersistedActiveAndAdvance(jobID, "Job cancelled by user")
+			return nil
+		}
+
 		if job.Status == models.StatusProcessing {
 			logger.Info("Found zombie job in DB, marking as failed", "job_id", jobID)
 			if err := tq.updateJobStatus(jobID, models.StatusFailed); err != nil {
@@ -775,6 +885,12 @@ func (tq *TaskQueue) killJob(jobID, expectedQueueItemID string, enforceTarget bo
 	}
 	runningProcess := runningJob.Process
 	runningCancel := runningJob.Cancel
+	if recovery, ok := tq.processor.(ExecutionRecoveryProcessor); ok && runningJob.ExecutionID != "" {
+		if err := recovery.CancelExecution(context.Background(), jobID, runningJob.ExecutionID, "Job cancelled by user"); err != nil {
+			tq.jobsMutex.Unlock()
+			return err
+		}
+	}
 	// Cancellation is linearized while holding the same lock the worker needs
 	// to declare itself finishing. Whichever side acquires the lock first owns
 	// the outcome: a stop request or normal completion, never both.
@@ -953,6 +1069,9 @@ func (tq *TaskQueue) ResetZombieJobs() {
 	logger.Info("Found zombie jobs from previous run", "count", len(zombieJobs))
 
 	for _, job := range zombieJobs {
+		if _, protected := tq.protectedJobs[job.ID]; protected {
+			continue
+		}
 		logger.Info("Resetting zombie job", "job_id", job.ID)
 
 		// Mark as failed
@@ -980,7 +1099,11 @@ func (tq *TaskQueue) recoverSequentialRuns() {
 	tq.jobsMutex.Lock()
 	defer tq.jobsMutex.Unlock()
 
-	if _, err := tq.runQueueRepo.FailInterrupted(context.Background(), "Run interrupted by server restart"); err != nil {
+	protected := make([]string, 0, len(tq.protectedJobs))
+	for id := range tq.protectedJobs {
+		protected = append(protected, id)
+	}
+	if _, err := tq.runQueueRepo.FailInterruptedExcept(context.Background(), "Run interrupted by server restart", protected); err != nil {
 		logger.Error("Failed to repair interrupted sequential runs", "error", err)
 		return
 	}
@@ -1013,15 +1136,13 @@ func (tq *TaskQueue) recoverPendingJobs() {
 	logger.Info("Recovering pending jobs from previous server run", "count", len(pendingJobs))
 
 	for _, job := range pendingJobs {
-		task := queuedTask{JobID: job.ID}
-		if tq.runQueueRepo != nil {
-			pending, findErr := tq.runQueueRepo.FindPending(context.Background(), job.ID)
-			if findErr == nil {
-				task.QueueItemID = pending.ID
-			} else if !errors.Is(findErr, gorm.ErrRecordNotFound) {
-				logger.Error("Failed to resolve pending sequential run during startup", "job_id", job.ID, "error", findErr)
-				continue
-			}
+		if _, protected := tq.protectedJobs[job.ID]; protected {
+			continue
+		}
+		task, findErr := tq.pendingTask(context.Background(), job.ID)
+		if findErr != nil {
+			logger.Error("Failed to resolve exact pending execution", "job_id", job.ID, "error", findErr)
+			continue
 		}
 		if err := tq.enqueueTask(task, false); err != nil {
 			// Startup must not wait behind long-running recovered work. Pending
@@ -1066,6 +1187,9 @@ func (tq *TaskQueue) reconcileSequentialRuns() {
 		return
 	}
 	for _, item := range processing {
+		if _, protected := tq.protectedJobs[item.TranscriptionJobID]; protected {
+			continue
+		}
 		if _, running := tq.runningJobs[item.TranscriptionJobID]; running {
 			continue
 		}
@@ -1077,7 +1201,28 @@ func (tq *TaskQueue) reconcileSequentialRuns() {
 
 		reason := "Sequential run lost worker ownership"
 		queueStatus := models.QueueStatusFailed
-		if job.Status == models.StatusCompleted {
+		if item.ExecutionID != nil {
+			exact, executionErr := tq.jobRepo.FindExecution(ctx, item.TranscriptionJobID, *item.ExecutionID)
+			if executionErr != nil {
+				logger.Error("Failed to read bound execution during reconciliation", "queue_item_id", item.ID, "error", executionErr)
+				continue
+			}
+			if exact.RecoveryVersion > 0 && (exact.Status == models.StatusProcessing || exact.Status == models.StatusPending) {
+				// No in-memory owner is not proof that an interrupted stage can be
+				// discarded. Leave recovery records to the recovery controller.
+				tq.protectedJobs[item.TranscriptionJobID] = struct{}{}
+				continue
+			}
+			if exact.Status == models.StatusCompleted {
+				queueStatus = models.QueueStatusCompleted
+				reason = ""
+			} else if exact.ErrorMessage != nil {
+				reason = *exact.ErrorMessage
+			}
+			if exact.CancelledAt != nil || exact.RecoveryState == "cancelled" {
+				queueStatus = models.QueueStatusCancelled
+			}
+		} else if job.Status == models.StatusCompleted {
 			queueStatus = models.QueueStatusCompleted
 			reason = ""
 		} else if job.ErrorMessage != nil && *job.ErrorMessage != "" {
@@ -1094,7 +1239,7 @@ func (tq *TaskQueue) reconcileSequentialRuns() {
 			}
 		}
 
-		executionID := tq.matchingExecutionID(ctx, &item)
+		executionID := item.ExecutionID
 		if finalizeErr := tq.runQueueRepo.Finalize(ctx, item.TranscriptionJobID, item.ID, queueStatus, reason, executionID); finalizeErr != nil {
 			logger.Error("Failed to reconcile sequential run", "job_id", item.TranscriptionJobID, "queue_item_id", item.ID, "error", finalizeErr)
 		}
@@ -1111,6 +1256,9 @@ func (tq *TaskQueue) reconcileSequentialRuns() {
 		return
 	}
 	for _, jobID := range queueJobIDs {
+		if _, protected := tq.protectedJobs[jobID]; protected {
+			continue
+		}
 		if _, running := tq.runningJobs[jobID]; running {
 			continue
 		}
@@ -1157,26 +1305,16 @@ func (tq *TaskQueue) reconcileSequentialRuns() {
 		return
 	}
 	for _, job := range pendingJobs {
+		if _, protected := tq.protectedJobs[job.ID]; protected {
+			continue
+		}
 		if _, running := tq.runningJobs[job.ID]; running {
 			continue
 		}
-		task := queuedTask{JobID: job.ID}
-		if pending, findErr := tq.runQueueRepo.FindPending(ctx, job.ID); findErr == nil {
-			task.QueueItemID = pending.ID
-		} else if !errors.Is(findErr, gorm.ErrRecordNotFound) {
+		task, findErr := tq.pendingTask(ctx, job.ID)
+		if findErr != nil {
 			continue
 		}
 		_ = tq.enqueueTask(task, false)
 	}
-}
-
-func (tq *TaskQueue) matchingExecutionID(ctx context.Context, item *models.TranscriptionQueueItem) *string {
-	if item == nil || item.StartedAt == nil {
-		return nil
-	}
-	execution, err := tq.jobRepo.FindLatestExecution(ctx, item.TranscriptionJobID)
-	if err != nil || execution.StartedAt.Before(*item.StartedAt) {
-		return nil
-	}
-	return &execution.ID
 }

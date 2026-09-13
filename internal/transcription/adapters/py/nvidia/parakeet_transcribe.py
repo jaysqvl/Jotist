@@ -7,9 +7,29 @@ import argparse
 import json
 import sys
 import os
+
+# Fence explicit CPU jobs before NeMo/PyTorch checkpoint loading can select CUDA.
+if "--device=cpu" in sys.argv or any(
+    arg == "--device" and next_arg == "cpu"
+    for arg, next_arg in zip(sys.argv, sys.argv[1:])
+):
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""
+
 from pathlib import Path
 import nemo.collections.asr as nemo_asr
 import torch
+
+
+# Load the bundled helper by path, including under Python isolated mode.
+import importlib.util as _runtime_import
+from pathlib import Path as _RuntimePath
+_runtime_path = _RuntimePath(__file__).resolve().with_name("runtime_failure.py")
+if not _runtime_path.exists():
+    _runtime_path = _RuntimePath(__file__).resolve().parent.parent / "runtime_failure.py"
+_runtime_spec = _runtime_import.spec_from_file_location("scriberr_runtime_failure", _runtime_path)
+_runtime_helper = _runtime_import.module_from_spec(_runtime_spec)
+_runtime_spec.loader.exec_module(_runtime_helper)
+gpu_execution = _runtime_helper.gpu_execution
 
 
 def transcribe_audio(
@@ -20,6 +40,7 @@ def transcribe_audio(
     context_right: int = 256,
     include_confidence: bool = True,
     batch_size: int = 1,
+    device: str = "auto",
 ):
     """
     Transcribe audio using NVIDIA Parakeet model.
@@ -42,9 +63,15 @@ def transcribe_audio(
         sys.exit(1)
 
     print(f"Loading NVIDIA Parakeet model from: {model_path}")
-    asr_model = nemo_asr.models.ASRModel.restore_from(model_path)
+    if device == "cuda" and not torch.cuda.is_available():
+        raise RuntimeError("CUDA was requested but is not available")
+    resolved_device = ("cuda" if torch.cuda.is_available() else "cpu") if device == "auto" else device
+    asr_model = nemo_asr.models.ASRModel.restore_from(model_path, map_location="cpu")
+    with gpu_execution(resolved_device):
+        asr_model = asr_model.to(torch.device(resolved_device))
+    print(f"Using device: {resolved_device}")
 
-    if torch.cuda.is_available():
+    if resolved_device == "cuda":
         torch.backends.cuda.matmul.allow_tf32 = True
         torch.backends.cudnn.allow_tf32 = True
 
@@ -60,7 +87,8 @@ def transcribe_audio(
         dec_cfg.greedy['use_cuda_graph_decoder'] = False
 
     # Apply the new decoding strategy (this rebuilds the decoder with our config)
-    asr_model.change_decoding_strategy(dec_cfg)
+    with gpu_execution(resolved_device):
+        asr_model.change_decoding_strategy(dec_cfg)
     print("✓ CUDA graphs disabled successfully")
 
     asr_model.eval()
@@ -83,7 +111,7 @@ def transcribe_audio(
     print(f"Transcribing: {audio_path}")
     print(f"Batch size: {batch_size}")
 
-    with torch.inference_mode():
+    with gpu_execution(resolved_device), torch.inference_mode():
         if timestamps:
             output = asr_model.transcribe([audio_path], timestamps=True, batch_size=batch_size)
 
@@ -103,6 +131,7 @@ def transcribe_audio(
                 "segment_timestamps": segment_timestamps,
                 "audio_file": audio_path,
                 "model": "parakeet-tdt-0.6b-v3",
+                "resolved_device": resolved_device,
                 "batch_size": batch_size,
                 "context": {
                     "left": context_left,
@@ -133,6 +162,7 @@ def transcribe_audio(
                 "language": "en",
                 "audio_file": audio_path,
                 "model": "parakeet-tdt-0.6b-v3",
+                "resolved_device": resolved_device,
                 "batch_size": batch_size,
             }
 
@@ -181,6 +211,7 @@ def main():
         help="Batch size for NeMo transcription (default: 1)"
     )
 
+    parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
     args = parser.parse_args()
 
     # Validate input file
@@ -191,6 +222,7 @@ def main():
     try:
         transcribe_audio(
             audio_path=args.audio_file,
+        device=args.device,
             timestamps=args.timestamps,
             output_file=args.output,
             context_left=args.context_left,

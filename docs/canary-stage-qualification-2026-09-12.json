@@ -1,0 +1,291 @@
+{
+  "date": "2026-09-12",
+  "scope": "isolated adapter workers, public fixtures; no production deployment or meeting WER evaluation",
+  "nemo_commit": "1d4ee423806d461f9146ae982f9da8eb32495ae7",
+  "model_revision": "d455706339a6b32e1aa40f82c713a482a0c938e2",
+  "model_sha256": "ae5ef1bf06812a95a1594a8f5f0ee9c51f35418e5ba96939fa6b98ab00431094",
+  "ctc_sha256": "2155f5642f9d27d73bd0c41693ddbb2420a95b32acc11576c9b36638f7ece795",
+  "source_sha256": "7f5e523e922377568fbdd1979c2f574b938a17113eb97e5e0faba32fdd668f12",
+  "boundary_fixture_sha256": "dc2cd1b603dba053a566632dd0b798f1f7fe95369bfd75efe34167033eb34859",
+  "boundary_fixture_seconds": 77.5,
+  "boundary_fixture_construction": "Five repetitions of the public 15s source, each followed by 0.5s silence",
+  "hardware": {
+    "cpu": "AMD Ryzen 7 5700G",
+    "gpu": "NVIDIA RTX 3060",
+    "container_cpus": 6,
+    "container_memory_gib": 32,
+    "pytorch_cpu": "2.8.0+cpu",
+    "pytorch_gpu": "2.8.0+cu126"
+  },
+  "comparisons": [
+    {
+      "baseline": "baseline-short",
+      "candidate": "alignment-short",
+      "text_equal": true,
+      "word_surfaces_equal": true,
+      "word_timestamps_equal": true,
+      "segment_timestamps_equal": true,
+      "word_count": 37,
+      "max_word_boundary_shift_seconds": 0.0,
+      "mean_word_boundary_shift_seconds": 0.0,
+      "changed_word_boundaries": 0
+    },
+    {
+      "baseline": "baseline-boundary",
+      "candidate": "alignment-boundary-native",
+      "text_equal": true,
+      "word_surfaces_equal": true,
+      "word_timestamps_equal": true,
+      "segment_timestamps_equal": true,
+      "word_count": 196,
+      "max_word_boundary_shift_seconds": 0.0,
+      "mean_word_boundary_shift_seconds": 0.0,
+      "changed_word_boundaries": 0
+    },
+    {
+      "baseline": "alignment-boundary-native",
+      "candidate": "alignment-boundary-batch1",
+      "text_equal": true,
+      "word_surfaces_equal": true,
+      "word_timestamps_equal": true,
+      "segment_timestamps_equal": true,
+      "word_count": 196,
+      "max_word_boundary_shift_seconds": 0.0,
+      "mean_word_boundary_shift_seconds": 0.0,
+      "changed_word_boundaries": 0
+    },
+    {
+      "baseline": "alignment-boundary-native",
+      "candidate": "alignment-boundary-window20",
+      "text_equal": true,
+      "word_surfaces_equal": true,
+      "word_timestamps_equal": false,
+      "segment_timestamps_equal": false,
+      "word_count": 196,
+      "max_word_boundary_shift_seconds": 0.24,
+      "mean_word_boundary_shift_seconds": 0.025918,
+      "changed_word_boundaries": 109
+    },
+    {
+      "baseline": "alignment-boundary-native",
+      "candidate": "alignment-boundary-window10",
+      "text_equal": true,
+      "word_surfaces_equal": true,
+      "word_timestamps_equal": false,
+      "segment_timestamps_equal": false,
+      "word_count": 196,
+      "max_word_boundary_shift_seconds": 0.24,
+      "mean_word_boundary_shift_seconds": 0.022857,
+      "changed_word_boundaries": 98
+    },
+    {
+      "baseline": "baseline-boundary-gpu",
+      "candidate": "alignment-boundary-gpu-native",
+      "text_equal": true,
+      "word_surfaces_equal": true,
+      "word_timestamps_equal": true,
+      "segment_timestamps_equal": true,
+      "word_count": 198,
+      "max_word_boundary_shift_seconds": 0.0,
+      "mean_word_boundary_shift_seconds": 0.0,
+      "changed_word_boundaries": 0
+    },
+    {
+      "baseline": "alignment-boundary-gpu-native",
+      "candidate": "alignment-boundary-gpu-batch1",
+      "text_equal": true,
+      "word_surfaces_equal": true,
+      "word_timestamps_equal": true,
+      "segment_timestamps_equal": true,
+      "word_count": 198,
+      "max_word_boundary_shift_seconds": 0.0,
+      "mean_word_boundary_shift_seconds": 0.0,
+      "changed_word_boundaries": 0
+    },
+    {
+      "baseline": "alignment-boundary-gpu-native",
+      "candidate": "alignment-boundary-gpu-window20",
+      "text_equal": true,
+      "word_surfaces_equal": true,
+      "word_timestamps_equal": false,
+      "segment_timestamps_equal": false,
+      "word_count": 198,
+      "max_word_boundary_shift_seconds": 0.24,
+      "mean_word_boundary_shift_seconds": 0.026061,
+      "changed_word_boundaries": 111
+    },
+    {
+      "baseline": "alignment-boundary-gpu-native",
+      "candidate": "alignment-boundary-gpu-window10",
+      "text_equal": true,
+      "word_surfaces_equal": true,
+      "word_timestamps_equal": false,
+      "segment_timestamps_equal": false,
+      "word_count": 198,
+      "max_word_boundary_shift_seconds": 0.24,
+      "mean_word_boundary_shift_seconds": 0.022626,
+      "changed_word_boundaries": 98
+    },
+    {
+      "baseline": "alignment-boundary-gpu-native",
+      "candidate": "alignment-gpu-recognition-cpu-resume",
+      "text_equal": true,
+      "word_surfaces_equal": true,
+      "word_timestamps_equal": true,
+      "segment_timestamps_equal": true,
+      "word_count": 198,
+      "max_word_boundary_shift_seconds": 0.0,
+      "mean_word_boundary_shift_seconds": 0.0,
+      "changed_word_boundaries": 0
+    }
+  ],
+  "measurements": {
+    "alignment-boundary-native": {
+      "scope": "stage_worker_self",
+      "process_peak_rss_bytes": 5880356864,
+      "elapsed_seconds": 27.78168345382437,
+      "device": "cpu",
+      "precision": "float32"
+    },
+    "recognition-boundary-gpu": {
+      "scope": "stage_worker_self",
+      "process_peak_rss_bytes": 8702042112,
+      "elapsed_seconds": 39.55162165290676,
+      "device": "cuda",
+      "precision": "float16",
+      "torch_peak_allocated_bytes": 2226083328,
+      "torch_peak_reserved_bytes": 2279604224
+    },
+    "alignment-boundary-gpu-oom": {
+      "scope": "stage_worker_self",
+      "process_peak_rss_bytes": 6295769088,
+      "elapsed_seconds": 19.782583069987595,
+      "device": "cuda",
+      "precision": "float32",
+      "torch_peak_allocated_bytes": 1230836224,
+      "torch_peak_reserved_bytes": 1231028224
+    },
+    "recognition-subsecond": {
+      "scope": "stage_worker_self",
+      "process_peak_rss_bytes": 8437915648,
+      "elapsed_seconds": 25.301173734944314,
+      "device": "cpu",
+      "precision": "float32"
+    },
+    "alignment-boundary-gpu-batch1": {
+      "scope": "stage_worker_self",
+      "process_peak_rss_bytes": 6299033600,
+      "elapsed_seconds": 22.360611864132807,
+      "device": "cuda",
+      "precision": "float32",
+      "torch_peak_allocated_bytes": 2822868992,
+      "torch_peak_reserved_bytes": 2856321024
+    },
+    "alignment-boundary-window20": {
+      "scope": "stage_worker_self",
+      "process_peak_rss_bytes": 5877719040,
+      "elapsed_seconds": 28.541076507186517,
+      "device": "cpu",
+      "precision": "float32"
+    },
+    "alignment-boundary-gpu-window20": {
+      "scope": "stage_worker_self",
+      "process_peak_rss_bytes": 6164099072,
+      "elapsed_seconds": 30.001052758889273,
+      "device": "cuda",
+      "precision": "float32",
+      "torch_peak_allocated_bytes": 2687842816,
+      "torch_peak_reserved_bytes": 2837446656
+    },
+    "baseline-boundary-gpu": {
+      "scope": "combined_worker_self",
+      "process_peak_rss_bytes": 9055973376,
+      "elapsed_seconds": 38.935322744073346,
+      "torch_peak_allocated_bytes": 5048025088,
+      "torch_peak_reserved_bytes": 5114953728
+    },
+    "alignment-boundary-gpu-window10": {
+      "scope": "stage_worker_self",
+      "process_peak_rss_bytes": 6297657344,
+      "elapsed_seconds": 35.19191377516836,
+      "device": "cuda",
+      "precision": "float32",
+      "torch_peak_allocated_bytes": 2621896704,
+      "torch_peak_reserved_bytes": 2703228928
+    },
+    "alignment-subsecond": {
+      "scope": "stage_worker_self",
+      "process_peak_rss_bytes": 5877936128,
+      "elapsed_seconds": 20.183339214185253,
+      "device": "cpu",
+      "precision": "float32"
+    },
+    "alignment-boundary-window10": {
+      "scope": "stage_worker_self",
+      "process_peak_rss_bytes": 5877829632,
+      "elapsed_seconds": 33.5663273781538,
+      "device": "cpu",
+      "precision": "float32"
+    },
+    "alignment-gpu-recognition-cpu-resume": {
+      "scope": "stage_worker_self",
+      "process_peak_rss_bytes": 5878788096,
+      "elapsed_seconds": 25.47979092504829,
+      "device": "cpu",
+      "precision": "float32"
+    },
+    "alignment-boundary-batch1": {
+      "scope": "stage_worker_self",
+      "process_peak_rss_bytes": 5880311808,
+      "elapsed_seconds": 25.5933256552089,
+      "device": "cpu",
+      "precision": "float32"
+    },
+    "recognition-boundary": {
+      "scope": "stage_worker_self",
+      "process_peak_rss_bytes": 8469049344,
+      "elapsed_seconds": 64.91642205393873,
+      "device": "cpu",
+      "precision": "float32"
+    },
+    "alignment-subsecond-fixed": {
+      "scope": "stage_worker_self",
+      "process_peak_rss_bytes": 5879214080,
+      "elapsed_seconds": 22.637464456958696,
+      "device": "cpu",
+      "precision": "float32"
+    },
+    "alignment-boundary-gpu-native": {
+      "scope": "stage_worker_self",
+      "process_peak_rss_bytes": 6298144768,
+      "elapsed_seconds": 24.657049464061856,
+      "device": "cuda",
+      "precision": "float32",
+      "torch_peak_allocated_bytes": 3088298496,
+      "torch_peak_reserved_bytes": 3149922304
+    }
+  },
+  "result_sha256": {
+    "baseline-short": "fd091a99635368a6388c17c66727072a394fa4efc3a4bcd805b73454a4b1e6f4",
+    "alignment-short": "852e491f6d7fcd381d46f6569fb0f63190045ea0e298d4a5af386fdfd02fdc22",
+    "baseline-boundary": "bc667d9199e9d2c265451aaadf59c6ef767a86b922efd2a45938a5a3a91c68f9",
+    "alignment-boundary-native": "a5198d9846ded306ac49ef083ff618f039b118e539d4b1a263983641d6a357c0",
+    "alignment-boundary-batch1": "089d0dd9189020cb5d6c5728dfa26baa016a9906c992e02814a66d6763431f97",
+    "alignment-boundary-window20": "030c6a36f8b2178e414e834a20e0f2ec7cd36b36d66311cc1c089971ca933411",
+    "alignment-boundary-window10": "4785d7115b795f27be4851469f0313049b0cd0c0a62149e9b91ea289f58ad511",
+    "baseline-boundary-gpu": "2c441fadb06a670ba8c1a5269c4b0673ce7b0014c903eac03586ce65f3f8a959",
+    "alignment-boundary-gpu-native": "7c4138caa3bd53eb953aeb947742f35d07fa19391781952b50cc93282983f932",
+    "alignment-boundary-gpu-batch1": "541f4489eca11b47fa67d57fe2fcc5bcbed52d969761cb25453181394df3cc6c",
+    "alignment-boundary-gpu-window20": "61757bb75f8452c1e2029bc8d8338b893ff4a8898e923b9fce270e5663b4e0fb",
+    "alignment-boundary-gpu-window10": "77794724c4ed0303f8ef57a50e6020f6968eced160af599929fc751708781497",
+    "alignment-gpu-recognition-cpu-resume": "a639bdaffcf48412f1d4a5d1e75dcafe8b16667011dde25901615fe3c6651346"
+  },
+  "failure_test": {
+    "injected_limit": "torch.cuda.set_per_process_memory_fraction(0.10) in an isolated stage worker",
+    "failure_kind": "cuda_out_of_memory",
+    "structured_marker": true,
+    "failed_alignment_output_created": false,
+    "recognition_checkpoint_retained": true,
+    "cpu_alignment_resumed_without_recognizer": true
+  }
+}

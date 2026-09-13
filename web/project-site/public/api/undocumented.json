@@ -95,7 +95,7 @@
       "method": "POST",
       "path": "/api/v1/transcription/submit",
       "summary": "Submit a transcription job",
-      "description": "Submit an audio file for transcription with WhisperX",
+      "description": "Submit an audio file using a supported transcription model. Omitted context fields inherit the authenticated user's defaults; empty fields explicitly disable those hints.",
       "tag": "transcription"
     },
     {

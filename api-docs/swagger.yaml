@@ -174,6 +174,171 @@ definitions:
       error:
         type: string
     type: object
+  api.ImmediateTranscriptionRequest:
+    properties:
+      adaptive_policy:
+        $ref: '#/definitions/models.AdaptiveExecutionPolicy'
+      align_model:
+        description: Alignment settings
+        type: string
+      api_key:
+        description: OpenAI settings
+        type: string
+      attention_context_left:
+        description: NVIDIA model-specific parameters
+        type: integer
+      attention_context_right:
+        type: integer
+      audio_chunk_duration:
+        type: integer
+      batch_size:
+        type: integer
+      beam_size:
+        type: integer
+      best_of:
+        type: integer
+      callback_url:
+        description: Webhook settings
+        type: string
+      chunk_size:
+        type: integer
+      compression_ratio_threshold:
+        type: number
+      compute_type:
+        type: string
+      condition_on_previous_text:
+        type: boolean
+      device:
+        description: Device and computation
+        type: string
+      device_index:
+        type: integer
+      diarization_checkpoint:
+        type: string
+      diarization_device:
+        type: string
+      diarize:
+        description: Diarization settings
+        type: boolean
+      diarize_model:
+        description: 'Options: ''pyannote'', ''nvidia_sortformer'''
+        type: string
+      fp16:
+        type: boolean
+      hf_token:
+        description: Token and progress
+        type: string
+      hf_token_source:
+        type: string
+      highlight_words:
+        type: boolean
+      initial_prompt:
+        type: string
+      interpolate_method:
+        type: string
+      is_multi_track_enabled:
+        description: Multi-track transcription settings
+        type: boolean
+      language:
+        type: string
+      length_penalty:
+        type: number
+      logprob_threshold:
+        type: number
+      max_line_count:
+        type: integer
+      max_line_width:
+        description: Output formatting
+        type: integer
+      max_new_tokens:
+        description: Voxtral settings
+        type: integer
+      max_speakers:
+        type: integer
+      min_speakers:
+        type: integer
+      model:
+        description: Model parameters
+        type: string
+      model_cache_only:
+        type: boolean
+      model_dir:
+        type: string
+      model_family:
+        description: Model family (whisper or nvidia)
+        type: string
+      no_align:
+        type: boolean
+      no_speech_threshold:
+        type: number
+      nvidia_chunk_duration:
+        type: integer
+      nvidia_precision:
+        type: string
+      nvidia_prompt:
+        type: string
+      nvidia_target_language:
+        type: string
+      nvidia_timestamps:
+        type: boolean
+      nvidia_use_chunking:
+        type: boolean
+      output_format:
+        description: Output settings
+        type: string
+      patience:
+        type: number
+      print_progress:
+        type: boolean
+      profile_id:
+        type: string
+      recovery_mode:
+        description: |-
+          Empty preserves the historical Auto GPU-to-CPU behavior. Explicit fixed
+          and stage_management modes never change device, precision, or context.
+        type: string
+      return_char_alignments:
+        type: boolean
+      reuse_checkpoints:
+        description: |-
+          Nil means exact-compatible checkpoint reuse is enabled. False requests
+          new artifacts; it never disables durable persistence.
+        type: boolean
+      segment_resolution:
+        type: string
+      speaker_embeddings:
+        type: boolean
+      suppress_numerals:
+        type: boolean
+      suppress_tokens:
+        type: string
+      task:
+        description: Task and language
+        type: string
+      temperature:
+        description: Transcription quality settings
+        type: number
+      temperature_increment_on_fallback:
+        type: number
+      threads:
+        type: integer
+      transcription_context:
+        description: |-
+          Nil context fields inherit the requesting user's defaults when a run is
+          queued. A pointer to an empty string explicitly disables that default.
+        type: string
+      transcription_context_terms:
+        type: string
+      vad_method:
+        description: VAD (Voice Activity Detection) settings
+        type: string
+      vad_offset:
+        type: number
+      vad_onset:
+        type: number
+      verbose:
+        type: boolean
+    type: object
   api.LLMConfigRequest:
     properties:
       api_key:
@@ -279,6 +444,8 @@ definitions:
         type: string
       profile_name:
         type: string
+      reuse_checkpoints:
+        type: boolean
     type: object
   api.RefreshTokenResponse:
     properties:
@@ -420,12 +587,26 @@ definitions:
     properties:
       auto_transcription_enabled:
         type: boolean
+      hf_token:
+        description: 'Write-only: omitted/null preserves the saved token; an empty
+          string clears it.'
+        type: string
+      transcription_context:
+        type: string
+      transcription_context_terms:
+        type: string
     type: object
   api.UserSettingsResponse:
     properties:
       auto_transcription_enabled:
         type: boolean
       default_profile_id:
+        type: string
+      has_hf_token:
+        type: boolean
+      transcription_context:
+        type: string
+      transcription_context_terms:
         type: string
     type: object
   api.ValidateOpenAIKeyRequest:
@@ -445,10 +626,258 @@ definitions:
     required:
     - url
     type: object
+  api.adaptiveProfileAction:
+    properties:
+      expected_generation:
+        type: integer
+      expected_revision:
+        type: integer
+      plan_id:
+        type: string
+      revision:
+        type: integer
+    type: object
   api.killJobRequest:
     properties:
       queue_item_id:
         type: string
+    type: object
+  models.AdaptiveCapacityLimit:
+    properties:
+      max_available_bytes:
+        type: integer
+      memory_capacity_bytes:
+        type: integer
+      memory_domain:
+        type: string
+    type: object
+  models.AdaptiveExecutionPolicy:
+    properties:
+      learn:
+        type: boolean
+      learned_plans:
+        items:
+          $ref: '#/definitions/models.AdaptivePlanSnapshot'
+        type: array
+      learning_generation:
+        type: integer
+      profile_id:
+        type: string
+      profile_revision:
+        type: integer
+      snapshot_taken:
+        type: boolean
+      stages:
+        additionalProperties:
+          $ref: '#/definitions/models.AdaptiveStagePolicy'
+        type: object
+    type: object
+  models.AdaptiveLearnedPlan:
+    properties:
+      candidate_hash:
+        type: string
+      created_at:
+        type: string
+      exhaustion_available_bytes:
+        type: integer
+      exhaustion_capacity_limits:
+        items:
+          $ref: '#/definitions/models.AdaptiveCapacityLimit'
+        type: array
+      exhaustion_evidence_ids:
+        items:
+          type: string
+        type: array
+      full_window_candidate_hashes:
+        items:
+          type: string
+        type: array
+      id:
+        type: string
+      learning_generation:
+        type: integer
+      mean_processing_milliseconds:
+        type: integer
+      minimum_reserve_bytes:
+        type: integer
+      observation_ids:
+        items:
+          type: string
+        type: array
+      peak_memory_bytes:
+        type: integer
+      profile_id:
+        type: string
+      profile_revision:
+        type: integer
+      scope:
+        $ref: '#/definitions/models.AdaptiveLearningScope'
+      scope_key:
+        type: string
+      settings:
+        $ref: '#/definitions/models.AdaptiveStageSettings'
+    type: object
+  models.AdaptiveLearningScope:
+    properties:
+      fixed_settings_hash:
+        type: string
+      hardware_fingerprint:
+        type: string
+      memory_capacity_bytes:
+        type: integer
+      memory_domain:
+        type: string
+      model_fingerprint:
+        type: string
+      original_window_seconds:
+        type: number
+      runtime_fingerprint:
+        type: string
+      stage_key:
+        type: string
+      workload_class:
+        type: string
+    type: object
+  models.AdaptiveObservation:
+    properties:
+      attempt_id:
+        type: string
+      available_before_bytes:
+        type: integer
+      cached:
+        type: boolean
+      candidate_hash:
+        type: string
+      channels:
+        type: integer
+      created_at:
+        type: string
+      execution_id:
+        type: string
+      external_contention:
+        type: boolean
+      full_stage:
+        type: boolean
+      id:
+        type: string
+      learning_generation:
+        type: integer
+      loading_milliseconds:
+        type: integer
+      outcome:
+        type: string
+      owner_generation:
+        type: integer
+      peak_memory_bytes:
+        type: integer
+      processed_duration_seconds:
+        type: number
+      processing_milliseconds:
+        type: integer
+      profile_id:
+        type: string
+      profile_revision:
+        type: integer
+      qualified:
+        type: boolean
+      recording_id:
+        type: string
+      reserve_bytes:
+        type: integer
+      scope:
+        $ref: '#/definitions/models.AdaptiveLearningScope'
+      scope_key:
+        type: string
+      settings:
+        $ref: '#/definitions/models.AdaptiveStageSettings'
+      source_duration_seconds:
+        type: number
+      stage_id:
+        type: string
+    type: object
+  models.AdaptivePlanSnapshot:
+    properties:
+      candidate_hash:
+        type: string
+      learning_generation:
+        type: integer
+      plan_id:
+        type: string
+      profile_revision:
+        type: integer
+      scope_key:
+        type: string
+      settings:
+        $ref: '#/definitions/models.AdaptiveStageSettings'
+      stage_key:
+        type: string
+    type: object
+  models.AdaptiveProfileRevision:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+      is_default:
+        type: boolean
+      learning_generation:
+        type: integer
+      name:
+        type: string
+      parameters:
+        $ref: '#/definitions/models.WhisperXParams'
+      profile_id:
+        type: string
+      reason:
+        type: string
+      revision:
+        type: integer
+      saved_at:
+        type: string
+      source_plan_id:
+        type: string
+      source_revision:
+        type: integer
+    type: object
+  models.AdaptiveStagePolicy:
+    properties:
+      allow_cpu:
+        type: boolean
+      allow_shorter_windows:
+        type: boolean
+      cpu_precision:
+        type: string
+      device_locked:
+        type: boolean
+      fixed:
+        $ref: '#/definitions/models.AdaptiveStageSettings'
+      min_batch_size:
+        type: integer
+      min_window_seconds:
+        type: integer
+      overlap_seconds:
+        type: number
+      window_candidates:
+        items:
+          type: integer
+        type: array
+    type: object
+  models.AdaptiveStageSettings:
+    properties:
+      batch_size:
+        type: integer
+      concurrency:
+        type: integer
+      device:
+        type: string
+      overlap_seconds:
+        type: number
+      precision:
+        type: string
+      stitching_version:
+        type: string
+      window_seconds:
+        type: number
     type: object
   models.JobStatus:
     enum:
@@ -633,10 +1062,14 @@ definitions:
         type: string
       is_default:
         type: boolean
+      learning_generation:
+        type: integer
       name:
         type: string
       parameters:
         $ref: '#/definitions/models.WhisperXParams'
+      revision:
+        type: integer
       updated_at:
         type: string
     type: object
@@ -689,6 +1122,8 @@ definitions:
     - QueueStatusCancelled
   models.WhisperXParams:
     properties:
+      adaptive_policy:
+        $ref: '#/definitions/models.AdaptiveExecutionPolicy'
       align_model:
         description: Alignment settings
         type: string
@@ -699,6 +1134,8 @@ definitions:
         description: NVIDIA model-specific parameters
         type: integer
       attention_context_right:
+        type: integer
+      audio_chunk_duration:
         type: integer
       batch_size:
         type: integer
@@ -722,6 +1159,10 @@ definitions:
         type: string
       device_index:
         type: integer
+      diarization_checkpoint:
+        type: string
+      diarization_device:
+        type: string
       diarize:
         description: Diarization settings
         type: boolean
@@ -732,6 +1173,8 @@ definitions:
         type: boolean
       hf_token:
         description: Token and progress
+        type: string
+      hf_token_source:
         type: string
       highlight_words:
         type: boolean
@@ -793,7 +1236,17 @@ definitions:
         type: number
       print_progress:
         type: boolean
+      recovery_mode:
+        description: |-
+          Empty preserves the historical Auto GPU-to-CPU behavior. Explicit fixed
+          and stage_management modes never change device, precision, or context.
+        type: string
       return_char_alignments:
+        type: boolean
+      reuse_checkpoints:
+        description: |-
+          Nil means exact-compatible checkpoint reuse is enabled. False requests
+          new artifacts; it never disables durable persistence.
         type: boolean
       segment_resolution:
         type: string
@@ -813,6 +1266,13 @@ definitions:
         type: number
       threads:
         type: integer
+      transcription_context:
+        description: |-
+          Nil context fields inherit the requesting user's defaults when a run is
+          queued. A pointer to an empty string explicitly disables that default.
+        type: string
+      transcription_context_terms:
+        type: string
       vad_method:
         description: VAD (Voice Activity Detection) settings
         type: string
@@ -822,6 +1282,35 @@ definitions:
         type: number
       verbose:
         type: boolean
+    type: object
+  repository.AdaptivePolicySnapshot:
+    properties:
+      learning_generation:
+        type: integer
+      observations:
+        items:
+          $ref: '#/definitions/models.AdaptiveObservation'
+        type: array
+      plans:
+        items:
+          $ref: '#/definitions/models.AdaptiveLearnedPlan'
+        type: array
+      profile_id:
+        type: string
+      profile_revision:
+        type: integer
+      revisions:
+        items:
+          $ref: '#/definitions/models.AdaptiveProfileRevision'
+        type: array
+      selected_plan_id:
+        type: string
+      selected_plan_ids:
+        items:
+          type: string
+        type: array
+      status:
+        type: string
     type: object
   transcription.QuickTranscriptionJob:
     properties:
@@ -1811,6 +2300,130 @@ paths:
       summary: Update transcription profile
       tags:
       - profiles
+  /api/v1/profiles/{id}/adaptive-policy:
+    get:
+      parameters:
+      - description: Profile ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Optional exact scope fingerprint
+        in: query
+        name: scope_key
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/repository.AdaptivePolicySnapshot'
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Get profile learning state
+      tags:
+      - profiles
+  /api/v1/profiles/{id}/freeze-adaptive:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Profile ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Selected plan ID and expected revision and generation
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.adaptiveProfileAction'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.TranscriptionProfile'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Freeze a measured plan as fixed profile settings
+      tags:
+      - profiles
+  /api/v1/profiles/{id}/reset-adaptive:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Profile ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Expected revision and generation
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.adaptiveProfileAction'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.TranscriptionProfile'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Reset profile learned starting plans
+      tags:
+      - profiles
+  /api/v1/profiles/{id}/restore-revision:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Profile ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Saved revision and expected current revision and generation
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.adaptiveProfileAction'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.TranscriptionProfile'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Restore saved profile parameters in a new revision
+      tags:
+      - profiles
   /api/v1/profiles/{id}/set-default:
     post:
       description: Mark the specified profile as the default profile
@@ -2586,12 +3199,12 @@ paths:
         name: id
         required: true
         type: string
-      - description: Transcription parameters
+      - description: Transcription parameters or authoritative saved profile ID
         in: body
         name: parameters
         required: true
         schema:
-          $ref: '#/definitions/models.WhisperXParams'
+          $ref: '#/definitions/api.ImmediateTranscriptionRequest'
       produces:
       - application/json
       responses:
@@ -2744,6 +3357,84 @@ paths:
       - ApiKeyAuth: []
       - BearerAuth: []
       summary: Get run logs
+      tags:
+      - transcription
+  /api/v1/transcription/{id}/runs/{run_id}/recovery:
+    get:
+      description: Return saved stages, attempts, partial text and same-plan resume
+        availability
+      parameters:
+      - description: Recording ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Execution ID
+        in: path
+        name: run_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Get execution recovery details
+      tags:
+      - transcription
+  /api/v1/transcription/{id}/runs/{run_id}/resume:
+    post:
+      description: Resume the same execution within its original deadline and attempt
+        budget; accepts no quality overrides
+      parameters:
+      - description: Recording ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Execution ID
+        in: path
+        name: run_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Resume a saved execution
       tags:
       - transcription
   /api/v1/transcription/{id}/runs/{run_id}/transcript:
@@ -2925,12 +3616,12 @@ paths:
         name: id
         required: true
         type: string
-      - description: Transcription parameters
+      - description: Transcription parameters or authoritative saved profile ID
         in: body
         name: parameters
         required: true
         schema:
-          $ref: '#/definitions/models.WhisperXParams'
+          $ref: '#/definitions/api.ImmediateTranscriptionRequest'
       produces:
       - application/json
       responses:
@@ -3283,7 +3974,9 @@ paths:
     post:
       consumes:
       - multipart/form-data
-      description: Submit an audio file for transcription with WhisperX
+      description: Submit an audio file using a supported transcription model. Omitted
+        context fields inherit the authenticated user's defaults; empty fields explicitly
+        disable those hints.
       parameters:
       - description: Audio file
         in: formData
@@ -3298,10 +3991,57 @@ paths:
         in: formData
         name: diarization
         type: boolean
-      - default: base
-        description: Whisper model
+      - default: whisper
+        description: Model family from /transcription/models
+        in: formData
+        name: model_family
+        type: string
+      - description: Checkpoint or Whisper model size; defaults to base for Whisper
+          and the family default for local models
         in: formData
         name: model
+        type: string
+      - description: Meeting context, at most 4000 characters; omitted inherits and
+          empty disables
+        in: formData
+        name: transcription_context
+        type: string
+      - description: Vocabulary, one term per line, at most 8000 characters; omitted
+          inherits and empty disables
+        in: formData
+        name: transcription_context_terms
+        type: string
+      - description: Audio chunk duration in seconds; omit for the model default,
+          0 requests full-recording context where supported
+        in: formData
+        name: audio_chunk_duration
+        type: integer
+      - default: pyannote
+        description: Speaker diarization model; native requires an integrated diarizer
+        enum:
+        - pyannote
+        - nvidia_sortformer
+        - diarizen
+        - suplime
+        - native
+        in: formData
+        name: diarize_model
+        type: string
+      - default: same
+        description: Device used for speaker diarization; same follows the transcription
+          device
+        enum:
+        - same
+        - cpu
+        - cuda
+        - auto
+        in: formData
+        name: diarization_device
+        type: string
+      - description: Optional research diarizer checkpoint, such as rewayai/suplime
+          or rewayai/suplime-large
+        in: formData
+        name: diarization_checkpoint
         type: string
       - description: Language code
         in: formData
@@ -3312,13 +4052,13 @@ paths:
         in: formData
         name: batch_size
         type: integer
-      - default: float16
-        description: Compute type
+      - description: Compute precision; Whisper defaults to int8, local ASR to float32,
+          and BitNet uses fixed quantized weights
         in: formData
         name: compute_type
         type: string
-      - default: auto
-        description: Device
+      - default: cpu
+        description: Transcription device; supported choices depend on the model
         in: formData
         name: device
         type: string

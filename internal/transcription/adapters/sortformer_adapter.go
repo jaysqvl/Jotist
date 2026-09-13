@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -28,9 +28,9 @@ func NewSortformerAdapter(envPath string) *SortformerAdapter {
 	capabilities := interfaces.ModelCapabilities{
 		ModelID:            "sortformer",
 		ModelFamily:        "nvidia_sortformer",
-		DisplayName:        "NVIDIA Sortformer 4-Speaker v2",
+		DisplayName:        "NVIDIA Sortformer 4-Speaker v2.1",
 		Description:        "NVIDIA's streaming Sortformer model optimized for 4-speaker diarization",
-		Version:            "2.0.0",
+		Version:            "2.1.0",
 		SupportedLanguages: []string{"*"}, // Language-agnostic
 		SupportedFormats:   []string{"wav", "flac"},
 		RequiresGPU:        false, // Optional GPU support
@@ -45,7 +45,7 @@ func NewSortformerAdapter(envPath string) *SortformerAdapter {
 		Metadata: map[string]string{
 			"engine":       "nvidia_nemo",
 			"framework":    "nemo_toolkit",
-			"license":      "CC-BY-4.0",
+			"license":      "NVIDIA-Open-Model-License",
 			"optimization": "4_speakers",
 			"sample_rate":  "16000",
 			"format":       "16khz_mono_wav",
@@ -61,8 +61,8 @@ func NewSortformerAdapter(envPath string) *SortformerAdapter {
 			Required:    false,
 			Default:     4,
 			Min:         &[]float64{1}[0],
-			Max:         &[]float64{8}[0],
-			Description: "Maximum number of speakers (optimized for 4)",
+			Max:         &[]float64{4}[0],
+			Description: "Maximum number of speakers (model supports at most 4)",
 			Group:       "basic",
 		},
 		{
@@ -141,7 +141,7 @@ func NewSortformerAdapter(envPath string) *SortformerAdapter {
 
 // GetMaxSpeakers returns the maximum number of speakers Sortformer can handle
 func (s *SortformerAdapter) GetMaxSpeakers() int {
-	return 8 // Can handle more but optimized for 4
+	return 4 // Fixed four-speaker output head
 }
 
 // GetMinSpeakers returns the minimum number of speakers Sortformer requires
@@ -151,6 +151,14 @@ func (s *SortformerAdapter) GetMinSpeakers() int {
 
 // PrepareEnvironment sets up the Sortformer environment (shared with NVIDIA models)
 func (s *SortformerAdapter) PrepareEnvironment(ctx context.Context) error {
+	release, err := lockPythonPreparation(ctx, s.envPath)
+	if err != nil {
+		return err
+	}
+	defer release()
+	if err := refreshPythonProject(nvidiaScripts, "py/nvidia/pyproject.toml", s.envPath); err != nil {
+		return fmt.Errorf("refresh Python environment: %w", err)
+	}
 	logger.Info("Preparing NVIDIA Sortformer environment", "env_path", s.envPath)
 
 	// Copy diarization script
@@ -159,8 +167,8 @@ func (s *SortformerAdapter) PrepareEnvironment(ctx context.Context) error {
 	}
 
 	// Check if environment is already ready (using cache to speed up repeated checks)
-	if CheckEnvironmentReady(s.envPath, "from nemo.collections.asr.models import SortformerEncLabelModel") {
-		modelPath := filepath.Join(s.envPath, "diar_streaming_sortformer_4spk-v2.nemo")
+	if checkPythonEnvironmentReady(ctx, s.envPath, "from nemo.collections.asr.models import SortformerEncLabelModel") {
+		modelPath := filepath.Join(s.envPath, "diar_streaming_sortformer_4spk-v2.1.nemo")
 		if stat, err := os.Stat(modelPath); err == nil && stat.Size() > 1024*1024 {
 			scriptPath := filepath.Join(s.envPath, "sortformer_diarize.py")
 			if _, err := os.Stat(scriptPath); err == nil {
@@ -171,17 +179,12 @@ func (s *SortformerAdapter) PrepareEnvironment(ctx context.Context) error {
 		}
 	}
 
-	// Check if the shared environment exists (created by other NVIDIA adapters)
-	pyprojectPath := filepath.Join(s.envPath, "pyproject.toml")
-	if _, err := os.Stat(pyprojectPath); err != nil {
-		// Create environment if it doesn't exist
-		if err := s.setupSortformerEnvironment(); err != nil {
-			return fmt.Errorf("failed to setup Sortformer environment: %w", err)
-		}
+	if err := s.setupSortformerEnvironment(ctx); err != nil {
+		return fmt.Errorf("failed to setup Sortformer environment: %w", err)
 	}
 
 	// Download model
-	if err := s.downloadSortformerModel(); err != nil {
+	if err := s.downloadSortformerModel(ctx); err != nil {
 		return fmt.Errorf("failed to download Sortformer model: %w", err)
 	}
 
@@ -191,7 +194,7 @@ func (s *SortformerAdapter) PrepareEnvironment(ctx context.Context) error {
 }
 
 // setupSortformerEnvironment creates the Python environment if it doesn't exist
-func (s *SortformerAdapter) setupSortformerEnvironment() error {
+func (s *SortformerAdapter) setupSortformerEnvironment(ctx context.Context) error {
 	if err := os.MkdirAll(s.envPath, 0755); err != nil {
 		return fmt.Errorf("failed to create sortformer directory: %w", err)
 	}
@@ -212,13 +215,13 @@ func (s *SortformerAdapter) setupSortformerEnvironment() error {
 	)
 
 	pyprojectPath := filepath.Join(s.envPath, "pyproject.toml")
-	if err := os.WriteFile(pyprojectPath, []byte(contentStr), 0644); err != nil {
+	if err := writePythonProject(pyprojectPath, []byte(contentStr)); err != nil {
 		return fmt.Errorf("failed to write pyproject.toml: %w", err)
 	}
 
 	// Run uv sync
 	logger.Info("Installing Sortformer dependencies")
-	cmd := exec.Command("uv", "sync", "--system-certs")
+	cmd := processutil.CommandContext(ctx, "uv", "sync", "--system-certs")
 	cmd.Dir = s.envPath
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -229,8 +232,8 @@ func (s *SortformerAdapter) setupSortformerEnvironment() error {
 }
 
 // downloadSortformerModel downloads the Sortformer model file
-func (s *SortformerAdapter) downloadSortformerModel() error {
-	modelFileName := "diar_streaming_sortformer_4spk-v2.nemo"
+func (s *SortformerAdapter) downloadSortformerModel(ctx context.Context) error {
+	modelFileName := "diar_streaming_sortformer_4spk-v2.1.nemo"
 	modelPath := filepath.Join(s.envPath, modelFileName)
 
 	// Check if model already exists
@@ -241,9 +244,9 @@ func (s *SortformerAdapter) downloadSortformerModel() error {
 
 	logger.Info("Downloading Sortformer model", "path", modelPath)
 
-	modelURL := "https://huggingface.co/nvidia/diar_streaming_sortformer_4spk-v2/resolve/main/diar_streaming_sortformer_4spk-v2.nemo?download=true"
+	modelURL := "https://huggingface.co/nvidia/diar_streaming_sortformer_4spk-v2.1/resolve/main/diar_streaming_sortformer_4spk-v2.1.nemo?download=true"
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 	defer cancel()
 
 	if err := downloader.DownloadFile(ctx, modelURL, modelPath); err != nil {
@@ -275,7 +278,7 @@ func (s *SortformerAdapter) copyDiarizationScript() error {
 	}
 
 	scriptPath := filepath.Join(s.envPath, "sortformer_diarize.py")
-	if err := os.WriteFile(scriptPath, scriptContent, 0755); err != nil {
+	if err := writeRuntimeScript(scriptPath, scriptContent, 0755); err != nil {
 		return fmt.Errorf("failed to write diarization script: %w", err)
 	}
 
@@ -327,6 +330,7 @@ func (s *SortformerAdapter) Diarize(ctx context.Context, input interfaces.AudioI
 	// Execute Sortformer
 	cmd := processutil.CommandContext(ctx, "uv", args...)
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
+	cmd.Env = withRequestedDevice(cmd.Env, s.GetStringParameter(params, "device"))
 
 	// Setup log file
 	logFile, err := os.OpenFile(filepath.Join(procCtx.OutputDirectory, "transcription.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -363,8 +367,8 @@ func (s *SortformerAdapter) Diarize(ctx context.Context, input interfaces.AudioI
 	}
 
 	result.ProcessingTime = time.Since(startTime)
-	result.ModelUsed = "diar_streaming_sortformer_4spk-v2"
-	result.Metadata = s.CreateDefaultMetadata(params)
+	result.ModelUsed = "diar_streaming_sortformer_4spk-v2.1"
+	result.Metadata = mergeRuntimeMetadata(s.CreateDefaultMetadata(params), readRuntimeMetadata(tempDir))
 
 	logger.Info("Sortformer diarization completed",
 		"segments", len(result.Segments),
@@ -423,11 +427,46 @@ func (s *SortformerAdapter) buildSortformerArgs(input interfaces.AudioInput, par
 // parseResult parses the Sortformer output
 func (s *SortformerAdapter) parseResult(tempDir string, input interfaces.AudioInput, params map[string]interface{}) (*interfaces.DiarizationResult, error) {
 	outputFormat := s.GetStringParameter(params, "output_format")
-
+	var result *interfaces.DiarizationResult
+	var err error
 	if outputFormat == OutputFormatJSON {
-		return s.parseJSONResult(tempDir)
+		result, err = s.parseJSONResult(tempDir)
+	} else {
+		result, err = s.parseRTTMResult(tempDir, input)
 	}
-	return s.parseRTTMResult(tempDir, input)
+	if err != nil {
+		return nil, err
+	}
+	return boundSortformerResult(result, input.Duration)
+}
+
+// Sortformer can label its padded final frame past the physical audio end.
+// Intersect annotations with the source timeline before publication/checkpoint
+// validation; preserve overlapping turns and their existing speaker identities.
+func boundSortformerResult(result *interfaces.DiarizationResult, duration time.Duration) (*interfaces.DiarizationResult, error) {
+	segments := make([]interfaces.DiarizationSegment, 0, len(result.Segments))
+	speakers := make([]string, 0, len(result.Speakers))
+	seen := map[string]bool{}
+	for _, segment := range result.Segments {
+		if math.IsNaN(segment.Start) || math.IsInf(segment.Start, 0) || math.IsNaN(segment.End) || math.IsInf(segment.End, 0) || segment.End < segment.Start || strings.TrimSpace(segment.Speaker) == "" {
+			return nil, fmt.Errorf("invalid Sortformer speaker interval")
+		}
+		if duration > 0 {
+			segment.Start = math.Max(0, segment.Start)
+			segment.End = math.Min(duration.Seconds(), segment.End)
+			// Padded-only or zero-length turns contain no source audio.
+			if segment.End <= segment.Start {
+				continue
+			}
+		}
+		segments = append(segments, segment)
+		if !seen[segment.Speaker] {
+			seen[segment.Speaker] = true
+			speakers = append(speakers, segment.Speaker)
+		}
+	}
+	result.Segments, result.Speakers, result.SpeakerCount = segments, speakers, len(speakers)
+	return result, nil
 }
 
 // parseJSONResult parses JSON format output

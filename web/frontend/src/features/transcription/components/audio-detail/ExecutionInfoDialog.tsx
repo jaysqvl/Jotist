@@ -23,9 +23,12 @@ import {
     useRunTranscript,
     type ExecutionRun,
     type MultiTrackTiming,
+    type Transcript,
 } from "@/features/transcription/hooks/useAudioDetail";
 import type { WhisperXParams } from "@/components/TranscriptionConfigDialog";
 import { cn } from "@/lib/utils";
+import { transcriptionModelLabel as modelLabel } from "@/features/transcription/hooks/modelCapabilities";
+import { executionEvidenceRows, requestedExecutionPrecision } from "@/features/transcription/hooks/executionPresentation";
 
 interface ExecutionInfoDialogProps {
     audioId: string;
@@ -180,7 +183,7 @@ function RunDetails({
     logsLoading,
 }: {
     run: ExecutionRun;
-    transcript?: { text: string } | null;
+    transcript?: Transcript | null;
     transcriptLoading: boolean;
     logs: string;
     logsAvailable: boolean;
@@ -244,6 +247,19 @@ function RunDetails({
                 </TabsList>
 
                 <TabsContent value="settings">
+                    <Panel title="Devices used">
+                        <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                            <div><span className="text-[var(--text-secondary)]">Transcription: </span><span className="font-medium text-[var(--text-primary)]">{transcript?.metadata?.resolved_device || "Not recorded"}</span></div>
+                            {params.diarize && <div><span className="text-[var(--text-secondary)]">Diarization: </span><span className="font-medium text-[var(--text-primary)]">{transcript?.metadata?.diarization_device || "Not recorded"}</span></div>}
+                        </div>
+                        {transcript?.metadata?.asr_device_fallback === "cuda_to_cpu" && <p className="mt-3 text-sm text-[var(--text-secondary)]">Auto recovered from a GPU processing failure and completed transcription on CPU.</p>}
+                        {transcript?.metadata?.diarization_device_fallback === "cuda_to_cpu" && <p className="mt-3 text-sm text-[var(--text-secondary)]">Auto recovered from a GPU processing failure and completed speaker identification on CPU.</p>}
+                    </Panel>
+                    <Panel title="Execution policy and timing">
+                        <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                            {executionEvidenceRows(params, transcript?.metadata).map((row) => <div key={row.label}><span className="text-[var(--text-secondary)]">{row.label}: </span><span className="font-medium text-[var(--text-primary)]">{row.value}</span></div>)}
+                        </div>
+                    </Panel>
                     <Panel title="Configuration Parameters">
                         <CuratedParamsDisplay params={params} />
                     </Panel>
@@ -386,6 +402,10 @@ function CuratedParamsDisplay({ params }: { params: any }) {
         "device",
         "batch_size",
         "diarize",
+        "diarization_device",
+        "diarization_checkpoint",
+        "transcription_context",
+        "transcription_context_terms",
     ];
 
     let specificKeys: string[] = [];
@@ -404,7 +424,6 @@ function CuratedParamsDisplay({ params }: { params: any }) {
             "attention_context_right",
             "nvidia_chunk_duration",
             "nvidia_timestamps",
-            "nvidia_precision",
             ...(params.diarize ? ["diarize_model"] : []),
         ];
     } else if (params.model_family === "openai") {
@@ -427,6 +446,8 @@ function CuratedParamsDisplay({ params }: { params: any }) {
             "nvidia_prompt",
             ...(params.diarize ? ["diarize_model"] : []),
         ];
+    } else {
+        specificKeys = ["model", "compute_type", "audio_chunk_duration", "max_new_tokens", "no_align", ...(params.diarize ? ["diarize_model"] : [])];
     }
 
     const entries = [...commonKeys, ...specificKeys]
@@ -454,7 +475,7 @@ function CuratedParamsDisplay({ params }: { params: any }) {
 function runChips(run: ExecutionRun): string[] {
     const params = (run.actual_parameters || {}) as Partial<WhisperXParams>;
     const modelFamily = params.model_family || "";
-    const precision = modelFamily.startsWith("nvidia_") ? params.nvidia_precision : params.compute_type;
+    const precision = requestedExecutionPrecision(params);
     const chips = [
         params.device || "auto",
         precision,
@@ -470,15 +491,6 @@ function runChips(run: ExecutionRun): string[] {
     }
 
     return chips;
-}
-
-function modelLabel(modelFamily?: string, model?: string) {
-    if (modelFamily === "nvidia_canary") return "NVIDIA Canary 1B";
-    if (modelFamily === "nvidia_canary_qwen") return "NVIDIA Canary-Qwen 2.5B";
-    if (modelFamily === "nvidia_parakeet") return "NVIDIA Parakeet";
-    if (modelFamily === "openai") return `OpenAI ${model || "Whisper"}`;
-    if (modelFamily === "whisper") return `Whisper ${model || ""}`.trim();
-    return modelFamily || "Transcription";
 }
 
 function formatParamKey(key: string): string {

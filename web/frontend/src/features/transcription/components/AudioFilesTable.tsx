@@ -38,6 +38,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useAudioListInfinite, type AudioFile } from "@/features/transcription/hooks/useAudioFiles";
 import { useTranscriptionEvents } from "@/features/transcription/hooks/useTranscriptionEvents";
+import type { RunSubmissionOptions } from "@/features/transcription/hooks/recoveryPolicy";
+import { buildImmediateRunRequest } from "@/features/transcription/hooks/transcriptionQueue";
 
 const JobStatusMonitor = memo(function JobStatusMonitor({ jobId }: { jobId: string }) {
 	useTranscriptionEvents(jobId);
@@ -358,7 +360,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 	}, [selectedJobId, refetch, onTranscribe, data, getAuthHeaders]);
 
 	// Handle actual transcription start with profile parameters
-	const handleStartTranscriptionWithProfile = useCallback(async (params: WhisperXParams) => {
+	const handleStartTranscriptionWithProfile = useCallback(async (params: WhisperXParams, profileId?: string, options?: RunSubmissionOptions) => {
 		if (!selectedJobId) return;
 
 		// Validate multi-track compatibility
@@ -382,7 +384,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					...getAuthHeaders(),
 					"Content-Type": "application/json",
 				},
-				body: JSON.stringify(params),
+				body: JSON.stringify(buildImmediateRunRequest(params, profileId, options)),
 			});
 
 			if (response.ok) {
@@ -472,7 +474,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 	}, [selectedFile, getAuthHeaders, refetch]);
 
 	// Bulk Actions Handlers
-	const handleBulkTranscribe = useCallback(async (params: WhisperXParams) => {
+	const handleBulkTranscribe = useCallback(async (params: WhisperXParams, profileId?: string, options?: RunSubmissionOptions) => {
 		const selectedIds = Object.keys(rowSelection);
 		if (selectedIds.length === 0) return;
 
@@ -487,14 +489,15 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 				if (job.is_multi_track && !params.is_multi_track_enabled) continue;
 				if (!job.is_multi_track && params.is_multi_track_enabled) continue;
 
-				await fetch(`/api/v1/transcription/${id}/start`, {
+				const response = await fetch(`/api/v1/transcription/${id}/start`, {
 					method: "POST",
 					headers: {
 						...getAuthHeaders(),
 						"Content-Type": "application/json",
 					},
-					body: JSON.stringify(params),
+					body: JSON.stringify(buildImmediateRunRequest(params, profileId, options)),
 				});
+				if (!response.ok) throw new Error("Failed to start transcription for a selected recording");
 			}
 
 			// Clear selection and refresh
@@ -549,11 +552,11 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 		}
 	};
 
-	const onStartTranscribeWithProfile = (params: WhisperXParams) => {
+	const onStartTranscribeWithProfile = (params: WhisperXParams, profileId?: string, _profileName?: string, options?: RunSubmissionOptions) => {
 		if (Object.keys(rowSelection).length > 0) {
-			handleBulkTranscribe(params);
+			handleBulkTranscribe(params, profileId, options);
 		} else {
-			handleStartTranscriptionWithProfile(params);
+			handleStartTranscriptionWithProfile(params, profileId, options);
 		}
 	};
 

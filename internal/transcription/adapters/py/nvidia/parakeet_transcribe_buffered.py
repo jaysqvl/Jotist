@@ -8,12 +8,33 @@ import argparse
 import json
 import sys
 import os
+
+# Fence explicit CPU jobs before NeMo/PyTorch checkpoint loading can select CUDA.
+if "--device=cpu" in sys.argv or any(
+    arg == "--device" and next_arg == "cpu"
+    for arg, next_arg in zip(sys.argv, sys.argv[1:])
+):
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""
+
+import tempfile
 import librosa
 import soundfile as sf
 import numpy as np
 from pathlib import Path
 import nemo.collections.asr as nemo_asr
 import torch
+
+
+# Load the bundled helper by path, including under Python isolated mode.
+import importlib.util as _runtime_import
+from pathlib import Path as _RuntimePath
+_runtime_path = _RuntimePath(__file__).resolve().with_name("runtime_failure.py")
+if not _runtime_path.exists():
+    _runtime_path = _RuntimePath(__file__).resolve().parent.parent / "runtime_failure.py"
+_runtime_spec = _runtime_import.spec_from_file_location("scriberr_runtime_failure", _runtime_path)
+_runtime_helper = _runtime_import.module_from_spec(_runtime_spec)
+_runtime_spec.loader.exec_module(_runtime_helper)
+gpu_execution = _runtime_helper.gpu_execution
 
 
 def split_audio_file(audio_path, chunk_duration_secs=300):
@@ -40,6 +61,7 @@ def transcribe_buffered(
     audio_path: str,
     output_file: str = None,
     chunk_duration_secs: float = 300,  # 5 minutes default
+    device: str = "auto",
 ):
     """
     Transcribe long audio by splitting into chunks and merging results.
@@ -63,9 +85,15 @@ def transcribe_buffered(
 
     print(f"Loading NVIDIA Parakeet model from: {model_path}")
 
-    asr_model = nemo_asr.models.ASRModel.restore_from(model_path)
+    if device == "cuda" and not torch.cuda.is_available():
+        raise RuntimeError("CUDA was requested but is not available")
+    resolved_device = ("cuda" if torch.cuda.is_available() else "cpu") if device == "auto" else device
+    asr_model = nemo_asr.models.ASRModel.restore_from(model_path, map_location="cpu")
+    with gpu_execution(resolved_device):
+        asr_model = asr_model.to(torch.device(resolved_device))
+    print(f"Using device: {resolved_device}")
 
-    if torch.cuda.is_available():
+    if resolved_device == "cuda":
         torch.backends.cuda.matmul.allow_tf32 = True
         torch.backends.cudnn.allow_tf32 = True
 
@@ -81,7 +109,8 @@ def transcribe_buffered(
         dec_cfg.greedy['use_cuda_graph_decoder'] = False
 
     # Apply the new decoding strategy (this rebuilds the decoder with our config)
-    asr_model.change_decoding_strategy(dec_cfg)
+    with gpu_execution(resolved_device):
+        asr_model.change_decoding_strategy(dec_cfg)
     print("✓ CUDA graphs disabled successfully")
 
     asr_model.eval()
@@ -100,12 +129,12 @@ def transcribe_buffered(
         print(f"Transcribing chunk {i+1}/{len(chunks)} (duration: {chunk_info['duration']:.1f}s)...")
 
         # Save chunk to temporary file
-        chunk_path = f"/tmp/chunk_{i}.wav"
-        sf.write(chunk_path, chunk_info['audio'], sr)
-
+        with tempfile.NamedTemporaryFile(prefix="scriberr-parakeet-", suffix=".wav", delete=False) as chunk_file:
+            chunk_path = chunk_file.name
         try:
+            sf.write(chunk_path, chunk_info['audio'], sr)
             # Transcribe chunk
-            with torch.inference_mode():
+            with gpu_execution(resolved_device), torch.inference_mode():
                 output = asr_model.transcribe(
                     [chunk_path],
                     batch_size=1,
@@ -151,6 +180,7 @@ def transcribe_buffered(
         "segment_timestamps": all_segments,
         "audio_file": audio_path,
         "model": "parakeet-tdt-0.6b-v3",
+        "resolved_device": resolved_device,
         "buffered": True,
         "chunk_duration_secs": chunk_duration_secs,
         "num_chunks": len(chunks),
@@ -175,6 +205,7 @@ def main():
         help="Chunk duration in seconds (default: 300 = 5 minutes)"
     )
 
+    parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
     args = parser.parse_args()
 
     if not os.path.exists(args.audio_file):
@@ -183,6 +214,7 @@ def main():
 
     transcribe_buffered(
         audio_path=args.audio_file,
+        device=args.device,
         output_file=args.output,
         chunk_duration_secs=args.chunk_len,
     )

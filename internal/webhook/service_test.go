@@ -55,6 +55,7 @@ func TestSendWebhook(t *testing.T) {
 		// Mock server that fails twice then succeeds
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			attempts++
+			assert.Equal(t, "scriberr-execution-run-retry", r.Header.Get("Idempotency-Key"))
 			if attempts < 3 {
 				w.WriteHeader(http.StatusInternalServerError)
 				return
@@ -65,8 +66,9 @@ func TestSendWebhook(t *testing.T) {
 		service := newServiceWithClient(server.Client())
 
 		payload := WebhookPayload{
-			JobID:  "job-retry",
-			Status: models.StatusFailed,
+			JobID:    "job-retry",
+			Status:   models.StatusFailed,
+			Metadata: map[string]interface{}{"execution_id": "run-retry"},
 		}
 
 		// Execute

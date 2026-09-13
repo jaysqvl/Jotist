@@ -24,10 +24,25 @@ Full adapter import checks are available when you want to materialize the Python
 python3 scripts/verify-python-adapter-envs.py --mode import --torch-index cpu --adapter canary-qwen --python 3.12
 python3 scripts/verify-python-adapter-envs.py --mode import --torch-index cpu --adapter nvidia-asr --python 3.12
 python3 scripts/verify-python-adapter-envs.py --mode import --torch-index cpu --adapter pyannote --python 3.12
-python3 scripts/verify-python-adapter-envs.py --mode import --torch-index cpu --adapter voxtral --python 3.12
+python3 scripts/verify-python-adapter-envs.py --mode import --torch-index cpu --adapter whisperx --python 3.12
+python3 scripts/verify-python-adapter-envs.py --mode import --torch-index cpu --adapter local-asr --python 3.12
 ```
 
 Import mode can be slow because it installs NeMo, Torch, and the adapter stack, but it does not require a GPU. Use `--torch-index project` when you specifically want to materialize the CUDA wheel selection used by the Docker runtime.
+
+WhisperX checks import its alignment, ASR, transcription and diarization modules, since the package-level imports are lazy. Torch, TorchAudio and TorchVision must use matching versions and the same CPU or CUDA wheel index; a matching public version alone does not guarantee a compatible binary build.
+
+### Whisper context
+
+WhisperX 3.8.6 applies meeting context through `initial_prompt` and vocabulary through `hotwords`. Its [batched decoder](https://github.com/m-bain/whisperX/blob/v3.8.6/whisperx/asr.py) does not condition on previously transcribed chunks. The legacy `condition_on_previous_text` profile field remains accepted for compatibility, but it is not forwarded or advertised as an active runtime setting.
+
+### Local ASR word-alignment limits
+
+The local ASR catalog's recognition languages do not imply word-alignment support. The shared [Qwen3 forced aligner](https://github.com/huggingface/transformers/blob/v5.17.0/src/transformers/models/qwen3_asr/processing_qwen3_asr.py) supports English, Chinese, Cantonese, French, German, Italian, Japanese, Korean, Portuguese, Russian and Spanish. Japanese and Korean additionally require `nagisa` and `soynlp`, respectively; these tokenizer packages are not included in the bundled runtime. Other ASR languages, such as Arabic and Hindi, require word alignment to be disabled.
+
+Qwen ASR can pass its detected language to alignment. Other local backends and BitNet require an explicit supported language when alignment is enabled. The runner rejects an unresolved `auto` hint rather than assuming English. Disabling alignment allows ASR-only output, but external diarization requires usable native timestamps or supported forced alignment. MOSS native segments and Granite Plus native word times remain usable without Qwen alignment.
+
+Alignment supplies timing while the original recognition spelling and punctuation remain in display/export words. The runner rejects incomplete text-to-alignment matches instead of guessing missing words.
 
 ### Prerequisites
 

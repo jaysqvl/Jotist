@@ -1,13 +1,21 @@
 #!/usr/bin/env python3
 """
 NVIDIA Sortformer speaker diarization script.
-Uses diar_streaming_sortformer_4spk-v2 for optimized 4-speaker diarization.
+Uses diar_streaming_sortformer_4spk-v2.1 for optimized 4-speaker diarization.
 """
 
 import argparse
 import json
 import sys
 import os
+
+# Fence explicit CPU jobs before NeMo/PyTorch checkpoint loading can select CUDA.
+if "--device=cpu" in sys.argv or any(
+    arg == "--device" and next_arg == "cpu"
+    for arg, next_arg in zip(sys.argv, sys.argv[1:])
+):
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""
+
 from pathlib import Path
 import torch
 
@@ -16,6 +24,18 @@ try:
 except ImportError:
     print("Error: NeMo not found. Please install nemo_toolkit[asr]")
     sys.exit(1)
+
+
+# Load the bundled helper by path, including under Python isolated mode.
+import importlib.util as _runtime_import
+from pathlib import Path as _RuntimePath
+_runtime_path = _RuntimePath(__file__).resolve().with_name("runtime_failure.py")
+if not _runtime_path.exists():
+    _runtime_path = _RuntimePath(__file__).resolve().parent.parent / "runtime_failure.py"
+_runtime_spec = _runtime_import.spec_from_file_location("scriberr_runtime_failure", _runtime_path)
+_runtime_helper = _runtime_import.module_from_spec(_runtime_spec)
+_runtime_spec.loader.exec_module(_runtime_helper)
+gpu_execution = _runtime_helper.gpu_execution
 
 
 def diarize_audio(
@@ -38,11 +58,15 @@ def diarize_audio(
         else:
             device = "cpu"
 
+    if device == "cuda" and not torch.cuda.is_available():
+        raise RuntimeError("CUDA was requested but is not available")
+    if not 1 <= max_speakers <= 4:
+        raise ValueError("Sortformer v2.1 supports at most four speakers")
     print(f"Using device: {device}")
     print(f"Loading NVIDIA Sortformer diarization model...")
 
     # Determine model path
-    model_filename = "diar_streaming_sortformer_4spk-v2.nemo"
+    model_filename = "diar_streaming_sortformer_4spk-v2.1.nemo"
     model_path = None
 
     # Locate project root: derived from VIRTUAL_ENV, which is set by `uv run` to path/.venv
@@ -61,14 +85,27 @@ def diarize_audio(
 
         # Load from local file
         print(f"Loading model from path: {model_path}")
-        diar_model = SortformerEncLabelModel.restore_from(
-            restore_path=model_path,
-            map_location=device,
-            strict=False,
-        )
+        with gpu_execution(device):
+            diar_model = SortformerEncLabelModel.restore_from(
+                restore_path=model_path,
+                map_location=device,
+                strict=False,
+            )
 
         # Switch to inference mode
         diar_model.eval()
+        # NVIDIA's documented 30.4-second lookahead preset for offline quality.
+        modules = diar_model.sortformer_modules
+        modules.chunk_len = 340
+        modules.chunk_right_context = 40
+        modules.fifo_len = 40
+        modules.spkcache_update_period = 300
+        modules.spkcache_len = 188
+        if streaming_mode:
+            # Requested chunk duration affects streaming buffering, in 80ms frames.
+            modules.chunk_len = max(1, round(chunk_length_s / 0.08))
+            modules.spkcache_update_period = modules.chunk_len
+        modules._check_streaming_parameters()
         print("Model loaded successfully")
 
     except Exception as e:
@@ -86,18 +123,15 @@ def diarize_audio(
         # Run diarization
         print(f"Running diarization with batch_size={batch_size}, max_speakers={max_speakers}")
 
-        if streaming_mode:
-            print(f"Using streaming mode with chunk_length_s={chunk_length_s}")
-            # Note: Streaming mode implementation would go here
-            # For now, use standard diarization
-            predicted_segments = diar_model.diarize(audio=audio_path, batch_size=batch_size)
-        else:
+        with gpu_execution(device), torch.inference_mode():
             predicted_segments = diar_model.diarize(audio=audio_path, batch_size=batch_size)
 
         print(f"Diarization completed. Found segments: {len(predicted_segments)}")
 
         # Process and save results
         save_results(predicted_segments, output_file, audio_path, output_format)
+        with open(str(Path(output_file).parent / "runtime.json"), "w") as metadata_file:
+            json.dump({"resolved_device": device}, metadata_file)
 
     except Exception as e:
         print(f"Error during diarization: {e}")
@@ -121,7 +155,7 @@ def save_json_format(segments, output_file: str, audio_path: str):
     """Save results in JSON format."""
     results = {
         "audio_file": audio_path,
-        "model": "nvidia/diar_streaming_sortformer_4spk-v2",
+        "model": "nvidia/diar_streaming_sortformer_4spk-v2.1",
         "segments": [],
     }
 
@@ -283,7 +317,7 @@ Examples:
     # Specify device and batch size
     python sortformer_diarize.py --device cuda --batch-size 2 samples/sample.wav output.json
 
-Note: This script requires diar_streaming_sortformer_4spk-v2.nemo to be in the same directory.
+Note: This script requires diar_streaming_sortformer_4spk-v2.1.nemo to be in the same directory.
         """,
     )
 

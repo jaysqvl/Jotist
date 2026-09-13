@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -35,6 +34,7 @@ func NewCanaryQwenAdapter(envPath string) *CanaryQwenAdapter {
 		RequiresGPU:        false,
 		MemoryRequirement:  12288,
 		Features: map[string]bool{
+			"context":         true,
 			"timestamps":      false,
 			"word_level":      false,
 			"english_only":    true,
@@ -149,6 +149,8 @@ func NewCanaryQwenAdapter(envPath string) *CanaryQwenAdapter {
 		},
 	}
 
+	schema = append(schema, contextParameters()...)
+
 	baseAdapter := NewBaseAdapter("canary_qwen", envPath, capabilities, schema)
 
 	return &CanaryQwenAdapter{
@@ -164,19 +166,27 @@ func (c *CanaryQwenAdapter) GetSupportedModels() []string {
 
 // PrepareEnvironment sets up the Canary-Qwen environment.
 func (c *CanaryQwenAdapter) PrepareEnvironment(ctx context.Context) error {
+	release, err := lockPythonPreparation(ctx, c.envPath)
+	if err != nil {
+		return err
+	}
+	defer release()
+	if err := refreshPythonProject(nvidiaScripts, "py/nvidia/canary_qwen_pyproject.toml", c.envPath); err != nil {
+		return fmt.Errorf("refresh Python environment: %w", err)
+	}
 	logger.Info("Preparing NVIDIA Canary-Qwen environment", "env_path", c.envPath)
 
 	if err := c.copyTranscriptionScript(); err != nil {
 		return fmt.Errorf("failed to copy transcription script: %w", err)
 	}
 
-	if CheckEnvironmentReady(c.envPath, "from nemo.collections.speechlm2.models import SALM") {
+	if checkPythonEnvironmentReady(ctx, c.envPath, "from nemo.collections.speechlm2.models import SALM") {
 		logger.Info("Canary-Qwen environment already ready")
 		c.initialized = true
 		return nil
 	}
 
-	if err := c.setupCanaryQwenEnvironment(); err != nil {
+	if err := c.setupCanaryQwenEnvironment(ctx); err != nil {
 		return fmt.Errorf("failed to setup Canary-Qwen environment: %w", err)
 	}
 
@@ -185,7 +195,7 @@ func (c *CanaryQwenAdapter) PrepareEnvironment(ctx context.Context) error {
 	return nil
 }
 
-func (c *CanaryQwenAdapter) setupCanaryQwenEnvironment() error {
+func (c *CanaryQwenAdapter) setupCanaryQwenEnvironment(ctx context.Context) error {
 	if err := os.MkdirAll(c.envPath, 0755); err != nil {
 		return fmt.Errorf("failed to create canary-qwen directory: %w", err)
 	}
@@ -203,12 +213,12 @@ func (c *CanaryQwenAdapter) setupCanaryQwenEnvironment() error {
 	)
 
 	pyprojectPath := filepath.Join(c.envPath, "pyproject.toml")
-	if err := os.WriteFile(pyprojectPath, []byte(contentStr), 0644); err != nil {
+	if err := writePythonProject(pyprojectPath, []byte(contentStr)); err != nil {
 		return fmt.Errorf("failed to write pyproject.toml: %w", err)
 	}
 
 	logger.Info("Installing Canary-Qwen dependencies")
-	cmd := exec.Command("uv", "sync", "--system-certs")
+	cmd := processutil.CommandContext(ctx, "uv", "sync", "--system-certs")
 	cmd.Dir = c.envPath
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -229,7 +239,7 @@ func (c *CanaryQwenAdapter) copyTranscriptionScript() error {
 	}
 
 	scriptPath := filepath.Join(c.envPath, "canary_qwen_transcribe.py")
-	if err := os.WriteFile(scriptPath, scriptContent, 0755); err != nil {
+	if err := writeRuntimeScript(scriptPath, scriptContent, 0755); err != nil {
 		return fmt.Errorf("failed to write transcription script: %w", err)
 	}
 
@@ -277,6 +287,7 @@ func (c *CanaryQwenAdapter) Transcribe(ctx context.Context, input interfaces.Aud
 	cmd.Env = append(os.Environ(),
 		"PYTHONUNBUFFERED=1",
 		"PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True")
+	cmd.Env = withRequestedDevice(cmd.Env, c.GetStringParameter(params, "device"))
 
 	logFile, err := os.OpenFile(filepath.Join(procCtx.OutputDirectory, "transcription.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -311,7 +322,7 @@ func (c *CanaryQwenAdapter) Transcribe(ctx context.Context, input interfaces.Aud
 
 	result.ProcessingTime = time.Since(startTime)
 	result.ModelUsed = "nvidia/canary-qwen-2.5b"
-	result.Metadata = c.CreateDefaultMetadata(params)
+	result.Metadata = mergeRuntimeMetadata(c.CreateDefaultMetadata(params), readRuntimeMetadata(tempDir))
 
 	logger.Info("Canary-Qwen transcription completed",
 		"segments", len(result.Segments),
@@ -346,6 +357,10 @@ func (c *CanaryQwenAdapter) buildCanaryQwenArgs(input interfaces.AudioInput, par
 
 	if prompt := c.GetStringParameter(params, "prompt"); prompt != "" {
 		args = append(args, "--prompt", prompt)
+	}
+
+	if guidance := recognitionContext(params); guidance != "" {
+		args = append(args, "--context", guidance)
 	}
 
 	return args, nil

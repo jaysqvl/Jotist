@@ -1,0 +1,33 @@
+[project]
+name = "scriberr-local-asr"
+version = "0.1.0"
+description = "Isolated modern Transformers speech recognition and forced alignment"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "transformers==5.17.0",
+    "torch==2.11.0",
+    "torchaudio==2.11.0",
+    "accelerate>=1.10,<2",
+    "numpy>=1.26,<3",
+    "librosa>=0.11,<1.1",
+    "soundfile>=0.13,<0.15",
+    "sentencepiece>=0.2,<0.3",
+    "protobuf>=5,<7",
+    "einops>=0.8,<0.9",
+    "mistral-common[audio]>=1.9,<2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10"]
+
+# CPU is the installation default as well as the inference default. CUDA is an
+# explicit operator choice via the standard PYTORCH_CUDA_VERSION setting when
+# this environment is prepared. No NeMo or GPU-only attention package is used.
+[tool.uv.sources]
+torch = [{index = "pytorch", marker = "sys_platform != 'darwin'"}]
+torchaudio = [{index = "pytorch", marker = "sys_platform != 'darwin'"}]
+
+[[tool.uv.index]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true

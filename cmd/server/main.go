@@ -18,6 +18,7 @@ import (
 	"scriberr/internal/processing"
 	"scriberr/internal/queue"
 	"scriberr/internal/repository"
+	"scriberr/internal/serverlock"
 	"scriberr/internal/service"
 	"scriberr/internal/sse"
 	"scriberr/internal/transcription"
@@ -70,6 +71,15 @@ func main() {
 	// Load configuration
 	logger.Startup("config", "Loading configuration")
 	cfg := config.Load()
+	serverLease, err := serverlock.Acquire(cfg.DatabasePath)
+	if err != nil {
+		logger.Error("Cannot acquire exclusive server ownership", "error", err)
+		os.Exit(1)
+	}
+	defer serverLease.Close()
+	if !serverLease.PreviousShutdownClean {
+		logger.Warn("Previous server shutdown was unclean; interrupted worker ownership requires verification before resume")
+	}
 
 	// Register adapters with config-based paths
 	registerAdapters(cfg)
@@ -115,10 +125,14 @@ func main() {
 	unifiedProcessor.GetUnifiedService().SetBroadcaster(broadcaster)
 
 	// Bootstrap embedded Python environment (for all adapters)
-	logger.Startup("python", "Preparing Python environment")
-	if err := unifiedProcessor.InitEmbeddedPythonEnv(); err != nil {
-		logger.Error("Failed to prepare Python environment", "error", err)
-		os.Exit(1)
+	if _, recoveryErr := unifiedProcessor.RecoverExecutions(context.Background()); recoveryErr != nil {
+		logger.Error("Recovery preflight blocked model initialization", "error", recoveryErr)
+	} else {
+		logger.Startup("python", "Preparing Python environment")
+		if err := unifiedProcessor.InitEmbeddedPythonEnv(); err != nil {
+			logger.Error("Failed to prepare Python environment", "error", err)
+			os.Exit(1)
+		}
 	}
 
 	// Initialize quick transcription service
@@ -134,7 +148,10 @@ func main() {
 	taskQueue := queue.NewTaskQueue(2, unifiedProcessor, jobRepo) // 2 workers
 	taskQueue.SetTranscriptionQueueRepository(transcriptionQueueRepo)
 	taskQueue.SetJobTimeout(time.Duration(cfg.MediaTimeoutMinutes) * time.Minute)
-	taskQueue.Start()
+	if err := taskQueue.Start(); err != nil {
+		logger.Error("Cannot start task queue", "error", err)
+		logger.Warn("Transcription dispatch is blocked; the interface remains available for recovery inspection")
+	}
 	defer taskQueue.Stop()
 
 	// Initialize multi-track processor
@@ -212,6 +229,11 @@ func main() {
 		logger.Error("Server forced to shutdown", "error", err)
 		os.Exit(1)
 	}
+	taskQueue.Stop()
+	quickTranscriptionService.Close()
+	if err := serverLease.MarkWorkersStopped(); err != nil {
+		logger.Error("Failed to record clean worker shutdown", "error", err)
+	}
 
 	logger.Info("Server stopped")
 }
@@ -245,12 +267,25 @@ func registerAdapters(cfg *config.Config) {
 		adapters.NewVoxtralAdapter(voxtralEnvPath))
 	registry.RegisterTranscriptionAdapter("openai_whisper",
 		adapters.NewOpenAIAdapter(cfg.OpenAIAPIKey))
+	registry.RegisterTranscriptionAdapter("vibevoice-bitnet",
+		adapters.NewVibeVoiceBitNetAdapter(filepath.Join(cfg.WhisperXEnv, "vibevoice-bitnet")))
+	// Optional runtimes and checkpoints are installed only when selected.
+	for _, model := range adapters.LocalASRModels() {
+		adapter, err := adapters.NewLocalASRAdapter(filepath.Join(cfg.WhisperXEnv, "local-asr"), model.ID)
+		if err != nil {
+			logger.Error("Failed to register local ASR model", "model_id", model.ID, "error", err)
+			continue
+		}
+		registry.RegisterTranscriptionAdapter(model.ID, adapter)
+	}
 
 	// Register diarization adapters
 	registry.RegisterDiarizationAdapter("pyannote",
 		adapters.NewPyAnnoteAdapter(pyannoteEnvPath)) // Dedicated environment
 	registry.RegisterDiarizationAdapter("sortformer",
 		adapters.NewSortformerAdapter(nvidiaEnvPath)) // Shares with Parakeet
+	registry.RegisterDiarizationAdapter("diarizen", adapters.NewDiariZenAdapter(filepath.Join(cfg.WhisperXEnv, "diarizen")))
+	registry.RegisterDiarizationAdapter("suplime", adapters.NewSUPlimeAdapter(filepath.Join(cfg.WhisperXEnv, "suplime")))
 
 	logger.Info("Adapter registration complete")
 }

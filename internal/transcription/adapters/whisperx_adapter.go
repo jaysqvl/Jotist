@@ -2,10 +2,10 @@ package adapters
 
 import (
 	"context"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -15,6 +15,9 @@ import (
 	"scriberr/internal/transcription/interfaces"
 	"scriberr/pkg/logger"
 )
+
+//go:embed py/whisperx/*
+var whisperxScripts embed.FS
 
 // WhisperXAdapter implements the TranscriptionAdapter interface for WhisperX
 type WhisperXAdapter struct {
@@ -28,8 +31,8 @@ func NewWhisperXAdapter(envPath string) *WhisperXAdapter {
 		ModelID:     "whisperx",
 		ModelFamily: "whisper",
 		DisplayName: "WhisperX",
-		Description: "OpenAI Whisper with speaker diarization and word-level timestamps",
-		Version:     "3.0.0",
+		Description: "Downloadable OpenAI Whisper running locally with speaker diarization and word-level timestamps",
+		Version:     "3.8.6",
 		SupportedLanguages: []string{
 			"en", "zh", "de", "es", "ru", "ko", "fr", "ja", "pt", "tr", "pl", "ca", "nl",
 			"ar", "sv", "it", "id", "hi", "fi", "vi", "he", "uk", "el", "ms", "cs", "ro",
@@ -44,6 +47,7 @@ func NewWhisperXAdapter(envPath string) *WhisperXAdapter {
 		RequiresGPU:       false, // Optional GPU support
 		MemoryRequirement: 2048,  // 2GB base requirement
 		Features: map[string]bool{
+			"context":            true,
 			"timestamps":         true,
 			"word_level":         true,
 			"diarization":        true,
@@ -52,8 +56,8 @@ func NewWhisperXAdapter(envPath string) *WhisperXAdapter {
 			"vad":                true,
 		},
 		Metadata: map[string]string{
-			"engine":     "openai_whisper",
-			"framework":  "transformers",
+			"engine":     "faster-whisper",
+			"framework":  "whisperx",
 			"license":    "MIT",
 			"python_env": "whisperx",
 		},
@@ -77,7 +81,7 @@ func NewWhisperXAdapter(envPath string) *WhisperXAdapter {
 			Type:        "string",
 			Required:    false,
 			Default:     "cpu",
-			Options:     []string{"cpu", "cuda"},
+			Options:     []string{"auto", "cpu", "cuda"},
 			Description: "Device to use for computation",
 			Group:       "basic",
 		},
@@ -153,8 +157,8 @@ func NewWhisperXAdapter(envPath string) *WhisperXAdapter {
 			Name:        "diarize_model",
 			Type:        "string",
 			Required:    false,
-			Default:     "pyannote/speaker-diarization-3.1",
-			Options:     []string{"pyannote/speaker-diarization-3.1", "pyannote"},
+			Default:     "pyannote/speaker-diarization-community-1",
+			Options:     []string{"pyannote/speaker-diarization-community-1", "pyannote/speaker-diarization-3.1", "pyannote"},
 			Description: "Diarization model to use",
 			Group:       "advanced",
 		},
@@ -271,6 +275,11 @@ func NewWhisperXAdapter(envPath string) *WhisperXAdapter {
 		},
 	}
 
+	schema = append(schema,
+		interfaces.ParameterSchema{Name: "initial_prompt", Type: "string", Default: "", Description: "Legacy Whisper recognition prompt; combined with meeting context", Group: "advanced"},
+	)
+	schema = append(schema, contextParameters()...)
+
 	baseAdapter := NewBaseAdapter("whisperx", filepath.Join(envPath, "WhisperX"), capabilities, schema)
 
 	adapter := &WhisperXAdapter{
@@ -294,96 +303,35 @@ func (w *WhisperXAdapter) GetSupportedModels() []string {
 
 // PrepareEnvironment sets up the WhisperX environment
 func (w *WhisperXAdapter) PrepareEnvironment(ctx context.Context) error {
-	logger.Info("Preparing WhisperX environment", "env_path", w.envPath)
-
 	whisperxPath := filepath.Join(w.envPath, "WhisperX")
-
-	// Check if WhisperX is already set up and working (using cache to speed up repeated checks)
-	if CheckEnvironmentReady(whisperxPath, "import whisperx") {
-		logger.Info("WhisperX environment already ready")
-		w.initialized = true
-		return nil
+	release, err := lockPythonPreparation(ctx, whisperxPath)
+	if err != nil {
+		return err
 	}
-
-	// Ensure base directory exists
-	if err := os.MkdirAll(w.envPath, 0755); err != nil {
-		return fmt.Errorf("failed to create environment directory: %w", err)
+	defer release()
+	if err := refreshPythonProject(whisperxScripts, "py/whisperx/pyproject.toml", whisperxPath); err != nil {
+		return err
 	}
-
-	// Clone WhisperX
-	if err := w.cloneWhisperX(); err != nil {
-		return fmt.Errorf("failed to clone WhisperX: %w", err)
+	script, err := whisperxScripts.ReadFile("py/whisperx/whisperx_run.py")
+	if err != nil {
+		return err
 	}
-
-	// Update dependencies
-	if err := w.updateWhisperXDependencies(whisperxPath); err != nil {
-		return fmt.Errorf("failed to update WhisperX dependencies: %w", err)
+	if err := writeRuntimeScript(filepath.Join(whisperxPath, "whisperx_run.py"), script, 0644); err != nil {
+		return err
 	}
-
-	// Install dependencies
-	if err := w.uvSyncWhisperX(whisperxPath); err != nil {
-		return fmt.Errorf("failed to sync WhisperX: %w", err)
+	cmd := processutil.CommandContext(ctx, "uv", "sync", "--system-certs", "--project", whisperxPath)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("WhisperX environment setup failed: %w: %s", err, output)
 	}
-
+	// WhisperX's package-level functions import lazily. Import the actual CLI
+	// modules to catch incompatible Torch/TorchVision wheels before job execution.
+	cmd = processutil.CommandContext(ctx, "uv", "run", "--no-sync", "--project", whisperxPath, "python", "-I", "-c",
+		"from whisperx.alignment import load_align_model; from whisperx.asr import load_model; from whisperx.transcribe import transcribe_task; from whisperx.diarize import DiarizationPipeline")
+	if output, err := cmd.CombinedOutput(); err != nil {
+		w.initialized = false
+		return fmt.Errorf("WhisperX runtime import check failed: %w: %s", err, output)
+	}
 	w.initialized = true
-	logger.Info("WhisperX environment prepared successfully")
-	return nil
-}
-
-// cloneWhisperX clones the WhisperX repository
-func (w *WhisperXAdapter) cloneWhisperX() error {
-	cmd := exec.Command("git", "clone", "https://github.com/m-bain/WhisperX.git")
-	cmd.Dir = w.envPath
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("git clone failed: %w: %s", err, strings.TrimSpace(string(out)))
-	}
-	return nil
-}
-
-// updateWhisperXDependencies modifies WhisperX pyproject.toml
-func (w *WhisperXAdapter) updateWhisperXDependencies(whisperxPath string) error {
-	pyprojectPath := filepath.Join(whisperxPath, "pyproject.toml")
-
-	data, err := os.ReadFile(pyprojectPath)
-	if err != nil {
-		return fmt.Errorf("failed to read pyproject.toml: %w", err)
-	}
-
-	content := string(data)
-	content = strings.ReplaceAll(content, "ctranslate2<4.5.0", "ctranslate2==4.6.0")
-
-	// torchcodec>=0.6.0 (upstream default) resolves to 0.10.0+ which requires PyTorch 2.9.
-	// Pin to 0.7.x which is compatible with the PyTorch 2.8.x used here.
-	content = strings.ReplaceAll(content, "torchcodec>=0.6.0", "torchcodec~=0.7.0")
-
-	if !strings.Contains(content, "yt-dlp") {
-		content = strings.ReplaceAll(content,
-			`"transformers>=4.48.0",`,
-			`"transformers>=4.48.0",
-    "yt-dlp[default]",`)
-	}
-
-	// Set PyTorch CUDA version based on environment configuration
-	// The repo already has the correct [tool.uv.sources] configuration, we just need to update the CUDA version
-	// This allows using cu126 for legacy GPUs (GTX 10-series through RTX 40-series) or cu128 for Blackwell (RTX 50-series)
-	content = strings.ReplaceAll(content, "https://download.pytorch.org/whl/cu128", GetPyTorchWheelURL())
-
-	if err := os.WriteFile(pyprojectPath, []byte(content), 0644); err != nil {
-		return fmt.Errorf("failed to write pyproject.toml: %w", err)
-	}
-
-	return nil
-}
-
-// uvSyncWhisperX runs uv sync for WhisperX
-func (w *WhisperXAdapter) uvSyncWhisperX(whisperxPath string) error {
-	cmd := exec.Command("uv", "sync", "--all-extras", "--dev", "--system-certs")
-	cmd.Dir = whisperxPath
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("uv sync failed: %w: %s", err, strings.TrimSpace(string(out)))
-	}
 	return nil
 }
 
@@ -450,6 +398,7 @@ func (w *WhisperXAdapter) Transcribe(ctx context.Context, input interfaces.Audio
 		hfToken = os.Getenv("HF_TOKEN")
 	}
 	cmd.Env = append(env, "PYTHONUNBUFFERED=1")
+	cmd.Env = withRequestedDevice(cmd.Env, w.GetStringParameter(params, "device"))
 	if hfToken != "" {
 		cmd.Env = withEnvironmentValue(cmd.Env, "HF_TOKEN", hfToken)
 	}
@@ -490,7 +439,7 @@ func (w *WhisperXAdapter) Transcribe(ctx context.Context, input interfaces.Audio
 
 	result.ProcessingTime = time.Since(startTime)
 	result.ModelUsed = w.GetStringParameter(params, "model")
-	result.Metadata = w.CreateDefaultMetadata(params)
+	result.Metadata = mergeRuntimeMetadata(w.CreateDefaultMetadata(params), result.Metadata)
 
 	logger.Info("WhisperX transcription completed",
 		"segments", len(result.Segments),
@@ -505,7 +454,7 @@ func (w *WhisperXAdapter) buildWhisperXArgs(input interfaces.AudioInput, params 
 	whisperxPath := filepath.Join(w.envPath, "WhisperX")
 
 	args := []string{
-		"run", "--system-certs", "--project", whisperxPath, "python", "-m", "whisperx",
+		"run", "--system-certs", "--project", whisperxPath, "python", "-I", filepath.Join(whisperxPath, "whisperx_run.py"),
 		input.FilePath,
 		"--output_dir", outputDir,
 	}
@@ -527,7 +476,7 @@ func (w *WhisperXAdapter) buildWhisperXArgs(input interfaces.AudioInput, params 
 
 	// Task and language
 	args = append(args, "--task", w.GetStringParameter(params, "task"))
-	if language := w.GetStringParameter(params, "language"); language != "" {
+	if language := w.GetStringParameter(params, "language"); language != "" && language != "auto" {
 		args = append(args, "--language", language)
 	}
 
@@ -547,7 +496,7 @@ func (w *WhisperXAdapter) buildWhisperXArgs(input interfaces.AudioInput, params 
 
 		diarizeModel := w.GetStringParameter(params, "diarize_model")
 		if diarizeModel == "pyannote" {
-			diarizeModel = "pyannote/speaker-diarization-3.1"
+			diarizeModel = "pyannote/speaker-diarization-community-1"
 		}
 		args = append(args, "--diarize_model", diarizeModel)
 
@@ -557,6 +506,20 @@ func (w *WhisperXAdapter) buildWhisperXArgs(input interfaces.AudioInput, params 
 		if maxSpeakers := w.GetIntParameter(params, "max_speakers"); maxSpeakers > 0 {
 			args = append(args, "--max_speakers", strconv.Itoa(maxSpeakers))
 		}
+	}
+
+	prompt := strings.TrimSpace(w.GetStringParameter(params, "initial_prompt"))
+	if guidance := strings.TrimSpace(w.GetStringParameter(params, "context")); guidance != "" {
+		if prompt != "" {
+			prompt += "\n"
+		}
+		prompt += guidance
+	}
+	if prompt != "" {
+		args = append(args, "--initial_prompt", prompt)
+	}
+	if terms := strings.TrimSpace(w.GetStringParameter(params, "context_terms")); terms != "" {
+		args = append(args, "--hotwords", strings.ReplaceAll(terms, "\n", ", "))
 	}
 
 	// Quality settings
@@ -604,7 +567,8 @@ func (w *WhisperXAdapter) parseResult(outputDir string, input interfaces.AudioIn
 
 	// Parse WhisperX JSON format
 	var whisperxResult struct {
-		Segments []struct {
+		ResolvedDevice string `json:"resolved_device"`
+		Segments       []struct {
 			Start   float64 `json:"start"`
 			End     float64 `json:"end"`
 			Text    string  `json:"text"`
@@ -628,6 +592,7 @@ func (w *WhisperXAdapter) parseResult(outputDir string, input interfaces.AudioIn
 	// Convert to standard format
 	result := &interfaces.TranscriptResult{
 		Language:     whisperxResult.Language,
+		Metadata:     map[string]string{"resolved_device": whisperxResult.ResolvedDevice},
 		Segments:     make([]interfaces.TranscriptSegment, len(whisperxResult.Segments)),
 		WordSegments: make([]interfaces.TranscriptWord, len(whisperxResult.Word)),
 		Confidence:   0.0, // WhisperX doesn't provide overall confidence
