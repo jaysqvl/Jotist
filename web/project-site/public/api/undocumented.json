@@ -2,6 +2,34 @@
   "endpoints": [
     {
       "method": "GET",
+      "path": "/api/v1/profiles/{id}/adaptive-policy",
+      "summary": "Get profile learning state",
+      "description": "",
+      "tag": "profiles"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/profiles/{id}/reset-adaptive",
+      "summary": "Reset profile learned starting plans",
+      "description": "",
+      "tag": "profiles"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/profiles/{id}/freeze-adaptive",
+      "summary": "Freeze a measured plan as fixed profile settings",
+      "description": "",
+      "tag": "profiles"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/profiles/{id}/restore-revision",
+      "summary": "Restore saved profile parameters in a new revision",
+      "description": "",
+      "tag": "profiles"
+    },
+    {
+      "method": "GET",
       "path": "/api/v1/chat/models",
       "summary": "Get available chat models",
       "description": "Get list of available OpenAI chat models",
@@ -460,6 +488,20 @@
       "path": "/api/v1/transcription/{id}/queue",
       "summary": "Clear future queued transcription runs",
       "description": "",
+      "tag": "transcription"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transcription/{id}/runs/{run_id}/recovery",
+      "summary": "Get execution recovery details",
+      "description": "Return saved stages, attempts, partial text and same-plan resume availability",
+      "tag": "transcription"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/transcription/{id}/runs/{run_id}/resume",
+      "summary": "Resume a saved execution",
+      "description": "Resume the same execution within its original deadline and attempt budget; accepts no quality overrides",
       "tag": "transcription"
     },
     {

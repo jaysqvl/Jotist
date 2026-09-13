@@ -66,23 +66,15 @@ export function Home() {
 
                     <div className="glass-panel rounded-2xl overflow-hidden p-2">
                         <img
-                            src="/screenshots/transcript-light-2.png"
-                            alt="Jotist Interface"
+                            src="/screenshots/jotist-library-light.png"
+                            alt="Jotist recording library in light mode with synthetic demo recordings"
                             className="w-full h-auto rounded-xl shadow-inner bg-white"
                         />
                     </div>
 
-                    <motion.div
-                        animate={{ y: [0, -10, 0] }}
-                        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-                        className="hidden md:block absolute -bottom-12 -right-12 w-[300px] rounded-[2.5rem] border-8 border-gray-900 overflow-hidden shadow-2xl bg-white"
-                    >
-                        <img
-                            src="/screenshots/mobile-transcript-light.PNG"
-                            alt="Mobile Interface"
-                            className="w-full h-full object-cover"
-                        />
-                    </motion.div>
+                    <p className="mt-4 text-sm text-gray-500">
+                        Jotist’s recording library. All recordings shown are synthetic demo content.
+                    </p>
                 </motion.div>
 
             </Section>

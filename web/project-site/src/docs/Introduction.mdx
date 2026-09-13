@@ -1,23 +1,15 @@
 import { BrowserFrame } from '../components/BrowserFrame';
-import { PhoneFrame } from '../components/PhoneFrame';
 
 # Introduction
 
 Jotist is a self-hosted audio transcription workspace built on [Scriberr](https://github.com/rishikanthc/Scriberr), with local models, speaker detection, notes, and optional cloud integrations.
 
-<div className="relative isolate mt-10 mb-32">
-    <div className="relative">
-         <BrowserFrame className="max-w-[90%] md:max-w-[75%]">
-            <img src="/screenshots/homepage-light.png" alt="Jotist Desktop View" className="w-full" />
-         </BrowserFrame>
-    </div>
-    
-    <div className="absolute top-1/2 right-0 transform -translate-y-1/3 md:translate-x-0 hidden sm:block">
-         <PhoneFrame className="shadow-2xl">
-            <img src="/screenshots/mobile-homepage-light.PNG" alt="Jotist Mobile View" className="w-full h-full object-cover" />
-         </PhoneFrame>
-    </div>
-</div>
+<figure className="my-10">
+    <BrowserFrame>
+        <img src="/screenshots/jotist-library-dark.png" alt="Jotist recording library in dark mode with synthetic demo recordings" className="w-full" />
+    </BrowserFrame>
+    <figcaption className="text-sm text-gray-500">Jotist’s recording library in dark mode. All recordings shown are synthetic demo content.</figcaption>
+</figure>
 
 Jotist can transcribe audio and video locally on your machine. If you choose a cloud transcription or AI provider, the relevant audio or transcript is sent to that provider.
 Using speech recognition models (such as **Whisper**, **NVIDIA Parakeet**, and **Canary**), it delivers high-accuracy text with word-level timing.

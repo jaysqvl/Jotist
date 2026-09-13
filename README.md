@@ -11,6 +11,13 @@ Jotist turns audio and video into searchable transcripts, speaker labels, notes,
 
 This is Jay Esquivel's independently maintained continuation of [Scriberr](https://github.com/rishikanthc/Scriberr), created by Rishikanth Chandrasekaran and the upstream contributors. Jotist preserves that history and the original [MIT license](LICENSE).
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="web/project-site/public/screenshots/jotist-library-dark.png" />
+  <img src="web/project-site/public/screenshots/jotist-library-light.png" alt="Jotist recording library with synthetic demo recordings" />
+</picture>
+
+*Jotist’s recording library. All recordings shown are synthetic demo content.*
+
 ## What you can do
 
 - Transcribe recordings with local models, including Whisper, NVIDIA Parakeet and Canary, and the additional adapters in the model catalog.
