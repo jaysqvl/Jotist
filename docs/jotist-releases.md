@@ -2,19 +2,22 @@
 
 Jotist publishes server archives and Linux amd64 containers from [jaysqvl/Jotist](https://github.com/jaysqvl/Jotist). The first preview is `v1.7.0-rc.1`; the first stable Jotist version will be `v1.7.0`, continuing the inherited 1.6.1 version line.
 
-The corrected runtime update candidate is `v1.7.0-rc.3`, pending publication
-and installed-state qualification. Its intended image is
-`ghcr.io/jaysqvl/jotist:1.7.0-rc.3-cuda`, with `variants=cuda` and
-`publish_latest=false`. Production remains on RC1 until the corrected candidate
-passes those checks.
+The corrected runtime update preview is [v1.7.0-rc.3](https://github.com/jaysqvl/Jotist/releases/tag/v1.7.0-rc.3).
+Its published image is `ghcr.io/jaysqvl/jotist:1.7.0-rc.3-cuda`, built from
+`71d31c7c3becc91f217b7d5bca37f3a2db86bdd4` with `variants=cuda` and
+`publish_latest=false`. Its immutable image digest is
+`sha256:a552e0d01345581aab17c9d31e1dc11303a79bc1964099c6956b106eac8b195f`.
+The release notes record qualification results and known limits; each deployment
+must also qualify its own retained runtime/data state before cutover.
 
 RC2 failed staging against copied existing environments: retained `uv.lock`
 selections kept older dependencies, and inexact readiness checks left packages
 outside the resolved graph installed. The gate stopped deployment. RC2 remains
 an immutable historical candidate; do not retag it with corrected bytes.
 
-CPU and CUDA 12.6 inference passed in fresh environments. The corrected candidate
-must additionally qualify existing-environment migration. Blackwell/CUDA 13 has
+CPU and CUDA 12.6 inference passed in fresh environments. The corrected source
+also passed migration of retained environments, including exact installed
+versions, native decoding and full dependency audits. Blackwell/CUDA 13 has
 resolver and native-library checks, but no actual Blackwell inference
 qualification. RC1 CPU and Blackwell images retain their older dependencies and
 are not part of the runtime update.
@@ -68,11 +71,11 @@ Unraid template together while retaining their data/configuration. Resume
 automatic builds after cutover acceptance. Keep the deployed digest and backup
 with the cutover record so rollback does not depend on the moving alias.
 
-## Corrected candidate publication
+## Publishing a versioned preview
 
-After the corrected source passes review and is on `main`, create and push the annotated `v1.7.0-rc.3` tag. Pushing a tag does not itself publish anything. In GitHub Actions, run **Release** with:
+RC3 is already published; never replace its existing tag or image. For a future preview, create a new annotated version tag after the reviewed source is on `main`. Pushing a tag does not itself publish anything. In GitHub Actions, run **Release** with:
 
-- `tag`: `v1.7.0-rc.3`
+- `tag`: the new version tag
 - `variants`: `cuda`
 - `publish_latest`: `false`
 

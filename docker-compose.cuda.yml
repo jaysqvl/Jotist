@@ -1,6 +1,6 @@
 # Jotist. Legacy service and volume names preserve existing deployments.
-# RC3 is pending publication and installed-state qualification; production remains on RC1.
-# RC2 failed staging and is not the deployment candidate.
+# Published RC3 CUDA 12.6 preview. Validate existing data/runtime migration before cutover.
+# RC3 corrects RC2's retained-lock and obsolete-package upgrade issues.
 version: "3.9"
 services:
   scriberr:
