@@ -89,7 +89,7 @@ jobs:
             exit 1
           fi
           case "$VARIANTS" in all|cpu|cuda|blackwell) ;; *) exit 1 ;; esac
-          matrix='[{"variant":"cpu","dockerfile":"Dockerfile","suffix":""},{"variant":"cuda","dockerfile":"Dockerfile.cuda","suffix":"-cuda"},{"variant":"blackwell","dockerfile":"Dockerfile.cuda.12.9","suffix":"-blackwell"}]'
+          matrix='[{"variant":"cpu","dockerfile":"Dockerfile","suffix":""},{"variant":"cuda","dockerfile":"Dockerfile.cuda","suffix":"-cuda"},{"variant":"blackwell","dockerfile":"Dockerfile.cuda.13.0","suffix":"-blackwell"}]'
           matrix="$(jq -c --arg variant "$VARIANTS" '{include: map(select($variant == "all" or .variant == $variant))}' <<< "$matrix")"
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           echo "image_channel=$IMAGE_CHANNEL" >> "$GITHUB_OUTPUT"

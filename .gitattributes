@@ -1,0 +1,2 @@
+# Preserve upstream source formatting and hashes in documented compatibility ports.
+internal/transcription/adapters/py/*/vendor/** -whitespace

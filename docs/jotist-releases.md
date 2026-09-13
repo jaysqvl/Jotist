@@ -2,11 +2,18 @@
 
 Jotist publishes server archives and Linux amd64 containers from [jaysqvl/Jotist](https://github.com/jaysqvl/Jotist). The first preview is `v1.7.0-rc.1`; the first stable Jotist version will be `v1.7.0`, continuing the inherited 1.6.1 version line.
 
+The runtime update candidate is `v1.7.0-rc.2`. Publish it with `variants=cuda`
+and `publish_latest=false`; its image is
+`ghcr.io/jaysqvl/jotist:1.7.0-rc.2-cuda`. CPU inference is qualified through
+updated source builds. Blackwell/CUDA 13 has resolver and native-library checks,
+but no actual Blackwell inference qualification. RC1 CPU and Blackwell images
+retain their older dependencies and are not part of the runtime update.
+
 ## Image names
 
 All variants share **one** container repository:
 
-| Variant | Preview tag | Stable tag |
+| Variant | First preview tag (RC1) | Stable tag |
 | --- | --- | --- |
 | CPU | `ghcr.io/jaysqvl/jotist:1.7.0-rc.1` | `ghcr.io/jaysqvl/jotist:1.7.0` |
 | CUDA | `ghcr.io/jaysqvl/jotist:1.7.0-rc.1-cuda` | `ghcr.io/jaysqvl/jotist:1.7.0-cuda` |
@@ -34,7 +41,7 @@ Use **Publish container images** when rebuilding a particular variant or publish
 
 The workflow resolves the source once and validates it before building. It rejects other source repositories. Release workflow calls can reuse validation only when their supplied immutable commit exactly matches the image source; this option is not exposed in manual dispatch.
 
-Each matrix job builds its own Dockerfile and prints the resulting digest and source commit. CPU uses `Dockerfile`, CUDA uses `Dockerfile.cuda`, and Blackwell uses `Dockerfile.cuda.12.9`.
+Each matrix job builds its own Dockerfile and prints the resulting digest and source commit. CPU uses `Dockerfile`, CUDA uses `Dockerfile.cuda`, and Blackwell uses `Dockerfile.cuda.13.0`.
 
 ## Stable releases
 
@@ -48,6 +55,6 @@ Repository Actions must be allowed to create pull requests. Jobs request only th
 
 Confirm that validation, artifact publication, and all selected image jobs completed successfully for the intended commit. Check the image's `org.opencontainers.image.revision` and `org.opencontainers.image.version`, then record the digest. Ensure the GHCR package is linked to Jotist, public if advertised publicly, and can be pulled without authentication.
 
-Archives and images retain the MIT license and upstream attribution. Containers include `/app/LICENSE` and `/app/ATTRIBUTION.md`.
+Archives and images retain the MIT license and upstream attribution. Containers include `/app/LICENSE`, `/app/ATTRIBUTION.md`, and `/app/THIRD_PARTY_NOTICES.md`.
 
 Deployment remains a separate step. Follow the [migration guide](jotist-migration.md), preserve the existing stack's data/configuration, and verify the actual running image and application behavior. Keep the old fork and pre-upgrade backup until the preview and cutover are accepted.

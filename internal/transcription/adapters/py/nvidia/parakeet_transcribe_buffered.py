@@ -21,6 +21,11 @@ import librosa
 import soundfile as sf
 import numpy as np
 from pathlib import Path
+# Apply the guarded compatibility import by absolute path, including under -I.
+import runpy as _nvidia_runpy
+from pathlib import Path as _NvidiaPath
+_nvidia_runpy.run_path(str(_NvidiaPath(__file__).resolve().with_name("nvidia_compat.py")))
+
 import nemo.collections.asr as nemo_asr
 import torch
 

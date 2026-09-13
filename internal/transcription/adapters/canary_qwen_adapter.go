@@ -171,6 +171,9 @@ func (c *CanaryQwenAdapter) PrepareEnvironment(ctx context.Context) error {
 		return err
 	}
 	defer release()
+	if err := copyNvidiaPythonVendors(c.envPath); err != nil {
+		return fmt.Errorf("copy NVIDIA compatibility package: %w", err)
+	}
 	if err := refreshPythonProject(nvidiaScripts, "py/nvidia/canary_qwen_pyproject.toml", c.envPath); err != nil {
 		return fmt.Errorf("refresh Python environment: %w", err)
 	}
@@ -180,7 +183,7 @@ func (c *CanaryQwenAdapter) PrepareEnvironment(ctx context.Context) error {
 		return fmt.Errorf("failed to copy transcription script: %w", err)
 	}
 
-	if checkPythonEnvironmentReady(ctx, c.envPath, "from nemo.collections.speechlm2.models import SALM") {
+	if checkPythonEnvironmentReady(ctx, c.envPath, nvidiaPythonImport(c.envPath, "from nemo.collections.speechlm2.models import SALM")) {
 		logger.Info("Canary-Qwen environment already ready")
 		c.initialized = true
 		return nil
@@ -205,15 +208,10 @@ func (c *CanaryQwenAdapter) setupCanaryQwenEnvironment(ctx context.Context) erro
 		return fmt.Errorf("failed to read embedded canary_qwen_pyproject.toml: %w", err)
 	}
 
-	contentStr := strings.Replace(
-		string(pyprojectContent),
-		"https://download.pytorch.org/whl/cu126",
-		GetPyTorchWheelURL(),
-		1,
-	)
+	contentStr := nvidiaPythonProject(pyprojectContent, GetPyTorchWheelURL())
 
 	pyprojectPath := filepath.Join(c.envPath, "pyproject.toml")
-	if err := writePythonProject(pyprojectPath, []byte(contentStr)); err != nil {
+	if err := writePythonProject(pyprojectPath, contentStr); err != nil {
 		return fmt.Errorf("failed to write pyproject.toml: %w", err)
 	}
 

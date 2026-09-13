@@ -1,0 +1,68 @@
+{
+  "schema_version": 2,
+  "adapters": ["nvidia-asr", "canary-qwen", "pyannote", "whisperx", "suplime", "diarizen", "local-asr"],
+  "exceptions": [
+    {
+      "id": "lightning-2.6.6-verified-instantiator-fix",
+      "package": "lightning",
+      "version": "2.6.6",
+      "advisory_ids": ["GHSA-qqmf-gpg7-g8gw", "PYSEC-2026-3624", "PYSEC-2026-3967"],
+      "adapters": ["nvidia-asr", "canary-qwen", "pyannote", "whisperx", "suplime", "diarizen"],
+      "review_by": "2026-10-13",
+      "reason": "The advisory prose says affected through 2.6.5, but its encoded <2022.6.15 range also matches 2.6.6. Both installed 2.6.6 package namespaces contain the reviewed instantiator allowlist and class-path guard before dynamic import. This exception requires those exact source bytes and does not approve arbitrary checkpoint loading.",
+      "references": [
+        "https://github.com/advisories/GHSA-qqmf-gpg7-g8gw",
+        "https://github.com/Lightning-AI/pytorch-lightning/commit/d710d68"
+      ],
+      "source_sha256": {
+        "lightning/pytorch/core/saving.py": "da958b64ddedb2d589ac729df25dce647dbb395e6ed604948bd7b7e1b69a76b0",
+        "pytorch_lightning/core/saving.py": "2ccf5ae904f3ee8b04e7e2d716f066a7d7da4f10b8e6db94055543c757f74619"
+      }
+    },
+    {
+      "id": "whisperx-nltk-3.10.3-fixed-punkt-caller",
+      "package": "nltk",
+      "version": "3.10.3",
+      "advisory_ids": ["GHSA-8mgp-746c-j5xp", "PYSEC-2026-3740"],
+      "adapters": ["whisperx"],
+      "review_by": "2026-10-13",
+      "reason": "The package advisory remains unpatched. Its affected TransitionParser/Perceptron/MaxEnt model import/export APIs are not used by the reviewed WhisperX caller. Alignment chooses a Punkt resource via a fixed language-name map, and installed NLTK routes that resource to pickle-free table loading. This is a caller-specific exception, not a global NLTK suppression; the listed installed source and actual materialized application caller must match their reviewed hashes.",
+      "references": ["https://github.com/advisories/GHSA-8mgp-746c-j5xp"],
+      "source_sha256": {
+        "whisperx/alignment.py": "346ac19053bd841bed1162b861d2d89efc0fe3aafc83b2493fb487fbc29c6239",
+        "whisperx/utils.py": "887b8e4513e21873a3637d7a8592b1ac4da3e6d5b24a52ff43cb9a635c4ee17a",
+        "nltk/data.py": "cda75896c3639541f3c3b811d647354dc5829774c2f201a7c942896f5cb99dc8",
+        "nltk/tokenize/punkt.py": "b85d1b51d1357d8c56d9739cb3d7975837ad12721c3702fae6facb47eb583b48",
+        "whisperx/__main__.py": "1255992c2f119863dc32a637da7bd5cdcc59c845335ba79770a942060f56eb5b",
+        "whisperx/transcribe.py": "4be80d8db4fe870d017cfc3fcc0b8a045640d739100dc05afaa32d6d4ad9c873"
+      },
+      "caller_sha256": {
+        "whisperx_run.py": "13e718521fd049202874a388561ac7c691c244aa199eeb5a5b37adbe6dda4a7f"
+      }
+    },
+    {
+      "id": "canary-qwen-nltk-3.10.3-fixed-resource-callers",
+      "package": "nltk",
+      "version": "3.10.3",
+      "advisory_ids": ["GHSA-8mgp-746c-j5xp", "PYSEC-2026-3740"],
+      "adapters": ["canary-qwen"],
+      "review_by": "2026-10-13",
+      "reason": "The unpatched model-persistence advisory is not reached by the reviewed Canary-Qwen path: its adapter loads the fixed NVIDIA SALM model, then passes prompt/context text and decoded audio to generate. Installed NLTK consumers use fixed cmudict/words resources, text tokenization or Porter stemming; none calls the advisory's TransitionParser/Perceptron/MaxEnt persistence APIs. Exact SALM, installed NLTK consumers, NLTK source and actual materialized application-caller fingerprints are required. This does not approve arbitrary model configuration or NLTK use by another adapter.",
+      "references": ["https://github.com/advisories/GHSA-8mgp-746c-j5xp"],
+      "source_sha256": {
+        "nemo/collections/speechlm2/models/salm.py": "c3a84938f09382c6a26718e0db1ecce6eb5b441af057153c9afdd73134abcb25",
+        "nemo/collections/tts/g2p/models/en_us_arpabet.py": "245bd7ed497509e714be521e8c4e38e4f19f5f33000f23e364cf0abf95bbf041",
+        "lhotse/recipes/this_american_life.py": "f1d8d3292d238657811cb7ac13e06fbd6dee197545ad1217739403b6812ac2d4",
+        "torchmetrics/functional/text/rouge.py": "84c07f91e86e92bdace3dc6b5b11b903c066b87914c828b18478e4785791ed0f",
+        "torchmetrics/text/rouge.py": "1ff1c73def994373f268382205b2d808dcbf0e2f8dffc870e87c57c00c48cc8f",
+        "transformers/models/nougat/tokenization_nougat.py": "a427b01faefb36f650028917d2747bc9adea33b87fe4b698493e0e04dba7c24e",
+        "nltk/tokenize/__init__.py": "2820a93987df61fd4f6b224f8a328e938ed0361c49c3b7c1beed02cae3ca342f",
+        "nltk/data.py": "cda75896c3639541f3c3b811d647354dc5829774c2f201a7c942896f5cb99dc8",
+        "nltk/tokenize/punkt.py": "b85d1b51d1357d8c56d9739cb3d7975837ad12721c3702fae6facb47eb583b48"
+      },
+      "caller_sha256": {
+        "canary_qwen_transcribe.py": "608c7bea8cf10cf52ab2bb812d9d2d02a24737a4c8342a9f276f5618d86aeaed"
+      }
+    }
+  ]
+}

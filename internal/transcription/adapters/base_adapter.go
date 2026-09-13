@@ -30,7 +30,7 @@ var (
 // GetPyTorchCUDAVersion returns the PyTorch CUDA wheel version to use.
 // This is configurable via the PYTORCH_CUDA_VERSION environment variable.
 // Defaults to "cu126" for CUDA 12.6 (legacy GPUs: GTX 10-series through RTX 40-series).
-// Set to "cu128" for CUDA 12.8 (Blackwell GPUs: RTX 50-series).
+// Set to "cu130" for CUDA 13.0 (Blackwell GPUs: RTX 50-series).
 func GetPyTorchCUDAVersion() string {
 	if cudaVersion := os.Getenv("PYTORCH_CUDA_VERSION"); cudaVersion != "" {
 		return cudaVersion
@@ -41,6 +41,19 @@ func GetPyTorchCUDAVersion() string {
 // GetPyTorchWheelURL returns the full PyTorch wheel URL for the configured CUDA version.
 func GetPyTorchWheelURL() string {
 	return fmt.Sprintf("https://download.pytorch.org/whl/%s", GetPyTorchCUDAVersion())
+}
+
+// validatePyTorchBackend rejects indexes that cannot supply the pinned runtime.
+// Backend selection must not silently install an older PyTorch release.
+func validatePyTorchBackend() error {
+	switch GetPyTorchCUDAVersion() {
+	case "cpu", "cu126", "cu130":
+		return nil
+	case "cu128":
+		return fmt.Errorf("CUDA 12.8 has no PyTorch 2.14 wheels; use the CUDA 12.6 image or the CUDA 13 Blackwell image")
+	default:
+		return fmt.Errorf("unsupported PYTORCH_CUDA_VERSION %q: choose cpu, cu126, or cu130", GetPyTorchCUDAVersion())
+	}
 }
 
 // CheckEnvironmentReady checks if a UV environment is ready with caching and singleflight

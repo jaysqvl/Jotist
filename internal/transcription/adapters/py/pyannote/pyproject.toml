@@ -4,11 +4,11 @@ version = "0.1.0"
 description = "Audio diarization using PyAnnote"
 requires-python = ">=3.10,<3.13"
 dependencies = [
-    "torch==2.8.0",
-    "torchaudio==2.8.0",
-    "huggingface-hub>=0.28.1",
+    "torch==2.14.0",
+    "torchaudio==2.11.0",
+    "huggingface-hub==1.31.0",
     "pyannote.audio==4.0.7",
-    "torchcodec==0.7.0",
+    "torchcodec==0.16.0",
     "soundfile>=0.12.1"
 ]
 
@@ -18,11 +18,6 @@ dev = [
     "pytest-mock>=3.12.0",
 ]
 
-[tool.uv]
-override-dependencies = [
-    "torchcodec==0.7.0 ; sys_platform != 'linux' or platform_machine != 'aarch64'"
-]
-
 [tool.uv.sources]
 torch = [
     { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
@@ -30,6 +25,11 @@ torch = [
     { index = "pytorch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
 ]
 torchaudio = [
+    { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
+    { index = "pytorch-cpu", marker = "platform_machine != 'x86_64' and sys_platform != 'darwin'" },
+    { index = "pytorch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+]
+torchcodec = [
     { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
     { index = "pytorch-cpu", marker = "platform_machine != 'x86_64' and sys_platform != 'darwin'" },
     { index = "pytorch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },

@@ -5,6 +5,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -16,7 +17,12 @@ import (
 	"scriberr/pkg/logger"
 )
 
-//go:embed py/whisperx/*
+// Explicit source globs retain Python's underscore-prefixed modules without
+// accidentally embedding local bytecode caches or virtual environments.
+//
+//go:embed py/whisperx/*.py py/whisperx/pyproject.toml
+//go:embed py/whisperx/vendor/whisperx/*.md py/whisperx/vendor/whisperx/LICENSE py/whisperx/vendor/whisperx/MANIFEST.in py/whisperx/vendor/whisperx/pyproject.toml
+//go:embed all:py/whisperx/vendor/whisperx/whisperx/*.py all:py/whisperx/vendor/whisperx/whisperx/vads/*.py py/whisperx/vendor/whisperx/whisperx/assets/*.npz
 var whisperxScripts embed.FS
 
 // WhisperXAdapter implements the TranscriptionAdapter interface for WhisperX
@@ -32,7 +38,7 @@ func NewWhisperXAdapter(envPath string) *WhisperXAdapter {
 		ModelFamily: "whisper",
 		DisplayName: "WhisperX",
 		Description: "Downloadable OpenAI Whisper running locally with speaker diarization and word-level timestamps",
-		Version:     "3.8.6",
+		Version:     "3.8.7rc1+jotist.1",
 		SupportedLanguages: []string{
 			"en", "zh", "de", "es", "ru", "ko", "fr", "ja", "pt", "tr", "pl", "ca", "nl",
 			"ar", "sv", "it", "id", "hi", "fi", "vi", "he", "uk", "el", "ms", "cs", "ro",
@@ -58,7 +64,7 @@ func NewWhisperXAdapter(envPath string) *WhisperXAdapter {
 		Metadata: map[string]string{
 			"engine":     "faster-whisper",
 			"framework":  "whisperx",
-			"license":    "MIT",
+			"license":    "BSD-2-Clause",
 			"python_env": "whisperx",
 		},
 	}
@@ -312,6 +318,9 @@ func (w *WhisperXAdapter) PrepareEnvironment(ctx context.Context) error {
 	if err := refreshPythonProject(whisperxScripts, "py/whisperx/pyproject.toml", whisperxPath); err != nil {
 		return err
 	}
+	if err := materializeWhisperXVendor(whisperxPath); err != nil {
+		return fmt.Errorf("materialize WhisperX compatibility port: %w", err)
+	}
 	script, err := whisperxScripts.ReadFile("py/whisperx/whisperx_run.py")
 	if err != nil {
 		return err
@@ -326,13 +335,35 @@ func (w *WhisperXAdapter) PrepareEnvironment(ctx context.Context) error {
 	// WhisperX's package-level functions import lazily. Import the actual CLI
 	// modules to catch incompatible Torch/TorchVision wheels before job execution.
 	cmd = processutil.CommandContext(ctx, "uv", "run", "--no-sync", "--project", whisperxPath, "python", "-I", "-c",
-		"from whisperx.alignment import load_align_model; from whisperx.asr import load_model; from whisperx.transcribe import transcribe_task; from whisperx.diarize import DiarizationPipeline")
+		"from whisperx.alignment import load_align_model; from whisperx.asr import load_model; from whisperx.transcribe import transcribe_task; from whisperx.diarize import DiarizationPipeline; import torchcodec")
 	if output, err := cmd.CombinedOutput(); err != nil {
 		w.initialized = false
 		return fmt.Errorf("WhisperX runtime import check failed: %w: %s", err, output)
 	}
 	w.initialized = true
 	return nil
+}
+
+// The immutable compatibility port is an ordinary local Python distribution,
+// including package initializers and its original license. It is installed by
+// uv; the runner never adds an editable source tree to Python's import path.
+func materializeWhisperXVendor(environment string) error {
+	const root = "py/whisperx/vendor"
+	return fs.WalkDir(whisperxScripts, root, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		relative := strings.TrimPrefix(path, "py/whisperx/")
+		destination := filepath.Join(environment, filepath.FromSlash(relative))
+		if entry.IsDir() {
+			return os.MkdirAll(destination, 0755)
+		}
+		data, err := whisperxScripts.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		return writePythonProject(destination, data)
+	})
 }
 
 // Transcribe processes audio using WhisperX

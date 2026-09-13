@@ -5,9 +5,11 @@ description = "Isolated modern Transformers speech recognition and forced alignm
 requires-python = ">=3.11,<3.13"
 dependencies = [
     "transformers==5.17.0",
-    "torch==2.11.0",
+    "torch==2.14.0",
     "torchaudio==2.11.0",
-    "accelerate>=1.10,<2",
+    "torchcodec==0.16.0",
+    "accelerate==1.15.0",
+    "huggingface-hub==1.31.0",
     "numpy>=1.26,<3",
     "librosa>=0.11,<1.1",
     "soundfile>=0.13,<0.15",
@@ -26,6 +28,7 @@ dev = ["pytest>=8,<10"]
 [tool.uv.sources]
 torch = [{index = "pytorch", marker = "sys_platform != 'darwin'"}]
 torchaudio = [{index = "pytorch", marker = "sys_platform != 'darwin'"}]
+torchcodec = [{index = "pytorch", marker = "sys_platform != 'darwin'"}]
 
 [[tool.uv.index]]
 name = "pytorch"

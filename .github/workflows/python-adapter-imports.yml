@@ -1,10 +1,26 @@
 name: Python Adapter Import Checks
 
 on:
+  workflow_call:
+    inputs:
+      source_ref:
+        description: Immutable source commit to qualify for release.
+        required: true
+        type: string
+      adapter:
+        description: Adapter to qualify; releases run all.
+        default: all
+        type: string
+  pull_request:
+    paths:
+      - 'internal/transcription/adapters/**'
+      - 'scripts/*python*'
+      - 'scripts/python-adapter-audit-policy.json'
+      - '.github/workflows/python-adapter-imports.yml'
   workflow_dispatch:
     inputs:
       adapter:
-        description: Adapter import check to run
+        description: Adapter import check to run on Python 3.12
         required: true
         default: all
         type: choice
@@ -13,39 +29,61 @@ on:
           - canary-qwen
           - nvidia-asr
           - pyannote
-          - voxtral
-      python-version:
-        description: Python runtime version
-        required: true
-        default: '3.12'
-        type: choice
-        options:
-          - '3.12'
-          - '3.11'
+          - whisperx
+          - local-asr
+          - suplime
+          - diarizen
+
+permissions:
+  contents: read
 
 jobs:
   imports:
-    name: import ${{ inputs.adapter }} on Python ${{ inputs.python-version }}
+    name: import ${{ matrix.adapter }} on Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        adapter: [nvidia-asr, canary-qwen, pyannote, whisperx, local-asr, suplime, diarizen]
+        python-version: ['3.12']
+        include:
+          - {adapter: pyannote, python-version: '3.10'}
     steps:
       - name: Checkout code
+        if: github.event_name != 'workflow_dispatch' || inputs.adapter == 'all' || inputs.adapter == matrix.adapter
         uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.source_ref }}
 
       - name: Setup Python
+        if: github.event_name != 'workflow_dispatch' || inputs.adapter == 'all' || inputs.adapter == matrix.adapter
         uses: actions/setup-python@v6
         with:
-          python-version: ${{ inputs.python-version }}
+          python-version: '3.12'
 
       - name: Setup uv
+        if: github.event_name != 'workflow_dispatch' || inputs.adapter == 'all' || inputs.adapter == matrix.adapter
         uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
-      - name: Run adapter import harness
-        run: |
-          if [ "${{ inputs.adapter }}" = "all" ]; then
-            python scripts/verify-python-adapter-envs.py --mode import --torch-index cpu --python "${{ inputs.python-version }}"
-          else
-            python scripts/verify-python-adapter-envs.py --mode import --torch-index cpu --python "${{ inputs.python-version }}" --adapter "${{ inputs.adapter }}"
-          fi
+      - name: Install native audio decoder libraries
+        if: github.event_name != 'workflow_dispatch' || inputs.adapter == 'all' || inputs.adapter == matrix.adapter
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg libsndfile1
+
+      - name: Import adapter and decode audio
+        if: github.event_name != 'workflow_dispatch' || inputs.adapter == 'all' || inputs.adapter == matrix.adapter
+        env:
+          ADAPTER: ${{ matrix.adapter }}
+          ADAPTER_PYTHON: ${{ matrix.python-version }}
+        run: python scripts/verify-python-adapter-envs.py --mode import --torch-index cpu --python "$ADAPTER_PYTHON" --adapter "$ADAPTER" --audit --audit-output-dir artifacts/python-audit
+
+      - name: Preserve installed dependency audit
+        if: always() && hashFiles('artifacts/python-audit/*.json') != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: python-audit-${{ matrix.adapter }}-${{ matrix.python-version }}
+          path: artifacts/python-audit/*.json
+          retention-days: 30

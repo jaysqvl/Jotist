@@ -275,6 +275,22 @@ func TestLocalASREmbeddedEnvironment(t *testing.T) {
 	}
 }
 
+func TestLocalASRRejectsRetiredCUDAWheelsBeforePreparing(t *testing.T) {
+	logPath := fakeLocalASRUV(t)
+	t.Setenv("PYTORCH_CUDA_VERSION", "cu128")
+	adapter, err := NewLocalASRAdapter(t.TempDir(), "Edge0/ARK-ASR-3B")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = adapter.PrepareEnvironment(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "cu130 for Blackwell") {
+		t.Fatalf("expected CUDA wheel migration guidance, got %v", err)
+	}
+	if _, err := os.Stat(logPath); !os.IsNotExist(err) {
+		t.Fatalf("unsupported CUDA setting invoked package manager: %v", err)
+	}
+}
+
 func TestLocalASRResultPreservesSpeakersAndTimingProvenance(t *testing.T) {
 	a, err := NewLocalASRAdapter(t.TempDir(), "OpenMOSS-Team/MOSS-Transcribe-Diarize")
 	if err != nil {

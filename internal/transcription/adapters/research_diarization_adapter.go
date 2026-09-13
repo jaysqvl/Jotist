@@ -5,6 +5,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -16,7 +17,30 @@ import (
 	"scriberr/internal/transcription/interfaces"
 )
 
-//go:embed py/diarizen/* py/suplime/* py/research/*
+// Keep package initializers, but never recursively embed development caches.
+//
+//go:embed py/diarizen/pyproject.toml
+//go:embed py/diarizen/vendor/README.md
+//go:embed py/diarizen/vendor/*/pyproject.toml
+//go:embed py/diarizen/vendor/*/UPSTREAM.json
+//go:embed py/diarizen/vendor/*/LICENSE
+//go:embed py/diarizen/vendor/diarizen/diarizen/*.py
+//go:embed py/diarizen/vendor/diarizen/diarizen/*/*.py
+//go:embed py/diarizen/vendor/diarizen/diarizen/*/*/*.py
+//go:embed py/diarizen/vendor/diarizen/diarizen/*/*/*/*.py
+//go:embed py/diarizen/vendor/diarizen/diarizen/*/*/*/*/*.py
+//go:embed py/diarizen/vendor/pyannote-audio/pyannote/*.py
+//go:embed py/diarizen/vendor/pyannote-audio/pyannote/*/*.py
+//go:embed py/diarizen/vendor/pyannote-audio/pyannote/*/*/*.py
+//go:embed py/diarizen/vendor/pyannote-audio/pyannote/*/*/*/*.py
+//go:embed py/diarizen/vendor/pyannote-audio/pyannote/*/*/*/*/*.py
+//go:embed py/diarizen/vendor/pyannote-audio/pyannote/audio/sample/*.wav
+//go:embed py/diarizen/vendor/pyannote-audio/pyannote/audio/sample/*.rttm
+//go:embed py/diarizen/vendor/pyannote-audio/pyannote/audio/cli/*/*.yaml
+//go:embed py/diarizen/vendor/pyannote-audio/pyannote/audio/cli/*/*/*.yaml
+//go:embed py/diarizen/vendor/pyannote-audio/pyannote/audio/models/embedding/wespeaker/LICENSE.WeSpeaker
+//go:embed py/suplime/pyproject.toml
+//go:embed py/research/research_diarize.py
 var researchDiarizationScripts embed.FS
 
 // ResearchDiarizationAdapter isolates research packages from the production
@@ -64,6 +88,9 @@ func (r *ResearchDiarizationAdapter) GetMinSpeakers() int { return 1 }
 func (r *ResearchDiarizationAdapter) GetMaxSpeakers() int { return 20 }
 
 func (r *ResearchDiarizationAdapter) PrepareEnvironment(ctx context.Context) error {
+	if err := validatePyTorchBackend(); err != nil {
+		return err
+	}
 	r.setupMu.Lock()
 	defer r.setupMu.Unlock()
 	if r.initialized {
@@ -76,17 +103,17 @@ func (r *ResearchDiarizationAdapter) PrepareEnvironment(ctx context.Context) err
 	if err != nil {
 		return err
 	}
-	// DiariZen's legacy PyTorch uses its matching CUDA 12.4 wheels. The other
-	// pipeline uses the same configurable CPU/CUDA index as pyannote 4.
+	project = []byte(strings.Replace(string(project), "https://download.pytorch.org/whl/cu126", GetPyTorchWheelURL(), 1))
 	if r.engine == "diarizen" {
-		if GetPyTorchWheelURL() == "https://download.pytorch.org/whl/cpu" {
-			project = []byte(strings.ReplaceAll(string(project), "https://download.pytorch.org/whl/cu124", GetPyTorchWheelURL()))
+		if err := r.copyVendoredPackages(); err != nil {
+			return fmt.Errorf("prepare bundled DiariZen source: %w", err)
 		}
-	} else {
-		project = []byte(strings.Replace(string(project), "https://download.pytorch.org/whl/cu126", GetPyTorchWheelURL(), 1))
 	}
-	if err := os.WriteFile(filepath.Join(r.envPath, "pyproject.toml"), project, 0644); err != nil {
+	if err := writePythonProject(filepath.Join(r.envPath, "pyproject.toml"), project); err != nil {
 		return err
+	}
+	if _, err := reconcilePythonVersion(r.envPath, project); err != nil {
+		return fmt.Errorf("reconcile %s Python version: %w", r.engine, err)
 	}
 	script, err := researchDiarizationScripts.ReadFile("py/research/research_diarize.py")
 	if err != nil {
@@ -101,6 +128,25 @@ func (r *ResearchDiarizationAdapter) PrepareEnvironment(ctx context.Context) err
 	}
 	r.initialized = true
 	return nil
+}
+
+func (r *ResearchDiarizationAdapter) copyVendoredPackages() error {
+	const source = "py/diarizen/vendor"
+	return fs.WalkDir(researchDiarizationScripts, source, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		relative := strings.TrimPrefix(path, "py/diarizen/")
+		target := filepath.Join(r.envPath, filepath.FromSlash(relative))
+		if entry.IsDir() {
+			return os.MkdirAll(target, 0755)
+		}
+		data, err := researchDiarizationScripts.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		return writePythonProject(target, data)
+	})
 }
 
 func (r *ResearchDiarizationAdapter) buildDiarizationArgs(input interfaces.AudioInput, params map[string]interface{}, directory string) []string {

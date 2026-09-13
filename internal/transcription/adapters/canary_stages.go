@@ -24,19 +24,19 @@ const canaryRecognitionSchema = "canary-native-recognition-v1"
 
 func (c *CanaryAdapter) Stages() []interfaces.StageDescriptor {
 	return []interfaces.StageDescriptor{
-		{Kind: "recognition", SchemaVersion: canaryRecognitionSchema, ImplementationVersion: "canary-nemo-2.7.3-stages-v1", Recoverable: true, Cancellable: true,
+		{Kind: "recognition", SchemaVersion: canaryRecognitionSchema, ImplementationVersion: "canary-nemo-3.0.0-torch-2.14.0-stages-v1", Recoverable: true, Cancellable: true,
 			ModelArtifacts:     map[string]string{"nvidia/canary-1b-v2": canaryModelRevision, "canary-1b-v2.nemo": canaryModelSHA256},
 			DevicePrecisions:   map[string][]string{"cpu": {"float32"}, "cuda": {"float16", "bfloat16", "float32"}},
 			PrecisionParameter: "precision", BatchParameter: "batch_size", MeasurementSupport: []string{"process_peak_rss", "structured_cuda_failure"},
 			QualificationNotes: []string{"Native NeMo recognition windows, overlap, timestamp prompt and hypotheses are retained. Alignment has a separate process boundary.", "Recognition batch reduction is not qualified: one source can expand to many native chunks independently of the requested batch size."}},
-		{Kind: "alignment", SchemaVersion: "transcript-result-v1", ImplementationVersion: "canary-nemo-2.7.3-ctc-v1", Recoverable: true, Cancellable: true,
+		{Kind: "alignment", SchemaVersion: "transcript-result-v1", ImplementationVersion: "canary-nemo-3.0.0-torch-2.14.0-ctc-v1", Recoverable: true, Cancellable: true,
 			ModelArtifacts:     map[string]string{"embedded_canary_ctc": canaryCTCSHA256, "canary_tokenizer": canaryTokenizerSHA256, "canary_archive": canaryModelSHA256},
 			DevicePrecisions:   map[string][]string{"cpu": {"float32"}, "cuda": {"float32"}},
 			PrecisionParameter: "alignment_precision", DefaultPrecision: "float32", BatchParameter: "alignment_batch_size",
 			QualifiedBatches: []int{1}, WindowParameter: "alignment_window_seconds",
 			WindowPolicy:       &interfaces.StageWindowPolicy{Unit: "seconds", Candidates: []int{20, 10}, MinimumOverlap: 2, StitchingVersion: "canary-ctc-center-logits-v1"},
 			MeasurementSupport: []string{"process_peak_rss", "structured_cuda_failure"},
-			QualificationNotes: []string{"Loads the existing embedded NeMo CTC artifact and tokenizer only; the recognizer is absent. Native CTC precision is FP32, including when recognition uses FP16.", "Batch 2 to 1 preserved text and all timestamps on the 77.5-second public boundary fixture; this is not a universal numerical equivalence guarantee.", "Level 4 windows bound only CTC encoder input, including at least 2 seconds of context on each side (4-second adjacent overlap). Centers tile the exact 80ms frame grid; full native-cut Viterbi, recognized text and native transcript merging remain unchanged.", "20/10-second windows preserved all 196 words on the public fixture, with up to 0.24-second word-boundary shifts on CPU. Reduced acoustic context may alter timestamps; recognition and speaker windows are unchanged."}},
+			QualificationNotes: []string{"Loads the existing embedded NeMo CTC artifact and tokenizer only; the recognizer is absent. Native CTC precision is FP32, including when recognition uses FP16.", "The NeMo 2.7.3 baseline preserved text and all timestamps when reducing batch 2 to 1 on the 77.5-second public fixture; runtime upgrades require fresh numerical qualification.", "Level 4 windows bound only CTC encoder input, including at least 2 seconds of context on each side (4-second adjacent overlap). Centers tile the exact 80ms frame grid; full native-cut Viterbi, recognized text and native transcript merging remain unchanged.", "The NeMo 2.7.3 baseline preserved all 196 words with 20/10-second windows on the public fixture, with up to 0.24-second word-boundary shifts on CPU. Reduced acoustic context may alter timestamps; recognition and speaker windows are unchanged."}},
 	}
 }
 

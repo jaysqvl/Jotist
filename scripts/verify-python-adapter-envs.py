@@ -40,7 +40,10 @@ class AdapterSpec:
     requires_python: str
     package_ranges: tuple[PackageRange, ...] = ()
     expected_sources: tuple[SourceExpectation, ...] = ()
-    torch_companions: tuple[str, ...] = ()
+    bootstrap_script: str | None = None
+    caller_scripts: tuple[str, ...] = ()
+    expected_overrides: tuple[str, ...] = ()
+    torch_companions: tuple[str, ...] = ("torchaudio", "torchcodec")
     pair_import_packages: tuple[str, ...] = ()
     pair_import_code: str | None = None
 
@@ -53,14 +56,22 @@ ADAPTERS: tuple[AdapterSpec, ...] = (
         import_code="import nemo.collections.asr",
         requires_python=">=3.11,<3.13",
         package_ranges=(
-            PackageRange("torch", exact="2.8.0"),
-            PackageRange("torchaudio", exact="2.8.0"),
-            PackageRange("ml-dtypes", min_inclusive="0.5.0", max_exclusive="0.6.0"),
-            PackageRange("onnx", min_inclusive="1.18.0", max_exclusive="1.20.0"),
+            PackageRange("torch", exact="2.14.0"),
+            PackageRange("torchaudio", exact="2.11.0"),
+            PackageRange("nemo-toolkit", exact="3.0.0"),
+            PackageRange("lightning", exact="2.6.6"),
+            PackageRange("pytorch-lightning", exact="2.6.6"),
+            PackageRange("hydra-core", exact="1.3.6"),
+            PackageRange("nv-one-logger-pytorch-lightning-integration", exact="2.3.1+jotist.1"),
+            PackageRange("transformers", exact="5.17.0"),
+            PackageRange("torchcodec", exact="0.16.0"),
+            PackageRange("huggingface-hub", exact="1.31.0"),
+            PackageRange("ml-dtypes", exact="0.6.0"),
+            PackageRange("onnx", exact="1.22.0"),
         ),
-        expected_sources=(
-            SourceExpectation("nemo-toolkit", "tag", "v2.7.3"),
-        ),
+        expected_sources=(SourceExpectation("nv-one-logger-pytorch-lightning-integration", "path", "vendor/nv-one-logger-pytorch-lightning-integration"),),
+        bootstrap_script="nvidia_compat.py",
+        expected_overrides=("lightning==2.6.6", "hydra-core==1.3.6"),
         pair_import_packages=("onnx", "ml-dtypes"),
         pair_import_code=(
             "import ml_dtypes, onnx; "
@@ -74,18 +85,23 @@ ADAPTERS: tuple[AdapterSpec, ...] = (
         import_code="from nemo.collections.speechlm2.models import SALM",
         requires_python=">=3.11,<3.13",
         package_ranges=(
-            PackageRange("torch", exact="2.8.0"),
-            PackageRange("torchaudio", exact="2.8.0"),
-            PackageRange("ml-dtypes", min_inclusive="0.5.0", max_exclusive="0.6.0"),
-            PackageRange("onnx", min_inclusive="1.18.0", max_exclusive="1.20.0"),
+            PackageRange("torch", exact="2.14.0"),
+            PackageRange("torchaudio", exact="2.11.0"),
+            PackageRange("nemo-toolkit", exact="3.0.0"),
+            PackageRange("lightning", exact="2.6.6"),
+            PackageRange("pytorch-lightning", exact="2.6.6"),
+            PackageRange("hydra-core", exact="1.3.6"),
+            PackageRange("nv-one-logger-pytorch-lightning-integration", exact="2.3.1+jotist.1"),
+            PackageRange("transformers", exact="5.17.0"),
+            PackageRange("torchcodec", exact="0.16.0"),
+            PackageRange("huggingface-hub", exact="1.31.0"),
+            PackageRange("ml-dtypes", exact="0.6.0"),
+            PackageRange("onnx", exact="1.22.0"),
         ),
-        expected_sources=(
-            SourceExpectation(
-                "nemo-toolkit",
-                "tag",
-                "v2.7.3",
-            ),
-        ),
+        expected_sources=(SourceExpectation("nv-one-logger-pytorch-lightning-integration", "path", "vendor/nv-one-logger-pytorch-lightning-integration"),),
+        bootstrap_script="nvidia_compat.py",
+        caller_scripts=("canary_qwen_transcribe.py",),
+        expected_overrides=("lightning==2.6.6", "hydra-core==1.3.6"),
         pair_import_packages=("onnx", "ml-dtypes"),
         pair_import_code=(
             "import ml_dtypes, onnx; "
@@ -102,6 +118,10 @@ ADAPTERS: tuple[AdapterSpec, ...] = (
         requires_python=">=3.10,<3.13",
         package_ranges=(
             PackageRange("pyannote.audio", exact="4.0.7"),
+            PackageRange("torch", exact="2.14.0"),
+            PackageRange("torchaudio", exact="2.11.0"),
+            PackageRange("torchcodec", exact="0.16.0"),
+            PackageRange("huggingface-hub", exact="1.31.0"),
         ),
     ),
     AdapterSpec(
@@ -112,26 +132,49 @@ ADAPTERS: tuple[AdapterSpec, ...] = (
             "from whisperx.transcribe import transcribe_task; "
             "from whisperx.diarize import DiarizationPipeline"
         ), requires_python=">=3.11,<3.13",
-        package_ranges=(PackageRange("whisperx", exact="3.8.6"), PackageRange("torch", exact="2.8.0"), PackageRange("torchaudio", exact="2.8.0"), PackageRange("torchvision", exact="0.23.0"), PackageRange("torchcodec", exact="0.7.0")),
-        torch_companions=("torchaudio", "torchvision"),
+        caller_scripts=("whisperx_run.py",),
+        package_ranges=(PackageRange("whisperx", exact="3.8.7rc1+jotist.1"), PackageRange("torch", exact="2.14.0"), PackageRange("torchaudio", exact="2.11.0"), PackageRange("torchvision", exact="0.29.0"), PackageRange("torchcodec", exact="0.16.0"), PackageRange("transformers", exact="5.17.0"), PackageRange("huggingface-hub", exact="1.31.0")),
+        torch_companions=("torchaudio", "torchvision", "torchcodec"),
     ),
     AdapterSpec(
         key="suplime", label="SUPlime research diarization", pyproject=ROOT / "internal/transcription/adapters/py/suplime/pyproject.toml",
         import_code="import suplime; from pyannote.audio import Pipeline", requires_python=">=3.11,<3.13",
-        package_ranges=(PackageRange("suplime", exact="0.2.0"), PackageRange("pyannote.audio", exact="4.0.7"), PackageRange("torch", exact="2.8.0")),
+        package_ranges=(PackageRange("suplime", exact="0.2.0"), PackageRange("pyannote.audio", exact="4.0.7"), PackageRange("torch", exact="2.14.0"), PackageRange("torchaudio", exact="2.11.0"), PackageRange("torchcodec", exact="0.16.0"), PackageRange("huggingface-hub", exact="1.31.0")),
     ),
     AdapterSpec(
         key="diarizen", label="DiariZen research diarization", pyproject=ROOT / "internal/transcription/adapters/py/diarizen/pyproject.toml",
-        import_code="from diarizen.pipelines.inference import DiariZenPipeline", requires_python=">=3.11,<3.13",
-        package_ranges=(PackageRange("torch", exact="2.5.1"), PackageRange("torchaudio", exact="2.5.1"), PackageRange("numpy", exact="1.26.4")),
-        expected_sources=(SourceExpectation("diarizen", "rev", "844f5555b0a98acd0931511fc641a8c5b8ba92c7"), SourceExpectation("pyannote.audio", "subdirectory", "pyannote-audio")),
+        import_code="from diarizen.pipelines.inference import DiariZenPipeline", requires_python=">=3.12,<3.13",
+        package_ranges=(PackageRange("diarizen", exact="0.0.1+jotist.1"), PackageRange("pyannote.audio", exact="3.1.1+jotist.1"), PackageRange("torch", exact="2.14.0"), PackageRange("torchaudio", exact="2.11.0"), PackageRange("torchcodec", exact="0.16.0"), PackageRange("transformers", exact="5.17.0"), PackageRange("huggingface-hub", exact="1.31.0"), PackageRange("accelerate", exact="1.15.0")),
+        expected_sources=(SourceExpectation("diarizen", "path", "vendor/diarizen"), SourceExpectation("pyannote.audio", "path", "vendor/pyannote-audio")),
     ),
     AdapterSpec(
         key="local-asr", label="Modern local ASR", pyproject=ROOT / "internal/transcription/adapters/py/local_asr/pyproject.toml",
         import_code="import torch, torchaudio; from transformers import AutoProcessor, AutoModelForSpeechSeq2Seq", requires_python=">=3.11,<3.13",
-        package_ranges=(PackageRange("transformers", exact="5.17.0"), PackageRange("torch", exact="2.11.0"), PackageRange("torchaudio", exact="2.11.0")),
+        package_ranges=(PackageRange("transformers", exact="5.17.0"), PackageRange("torch", exact="2.14.0"), PackageRange("torchaudio", exact="2.11.0"), PackageRange("torchcodec", exact="0.16.0"), PackageRange("huggingface-hub", exact="1.31.0"), PackageRange("accelerate", exact="1.15.0")),
     ),
 )
+
+
+# Importing pyannote alone can merely warn about a broken TorchCodec wheel.
+# Exercise the native decoder on an in-memory generated public-domain signal.
+AUDIO_IMPORT_CHECK = """
+import tempfile, wave
+from pathlib import Path
+import torch, torchaudio, torchcodec
+from torchcodec.decoders import AudioDecoder
+with tempfile.TemporaryDirectory() as audio_dir:
+    audio_path = Path(audio_dir) / "silence.wav"
+    with wave.open(str(audio_path), "wb") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(16000)
+        wav.writeframes(b"\\x00\\x00" * 1600)
+    decoded = AudioDecoder(str(audio_path)).get_all_samples()
+    assert decoded.sample_rate == 16000 and decoded.data.shape == (1, 1600)
+    samples, rate = torchaudio.load(str(audio_path))
+    assert rate == 16000 and samples.shape == (1, 1600)
+print(f"native audio: torch={torch.__version__} torchaudio={torchaudio.__version__} torchcodec={torchcodec.__version__}")
+"""
 
 
 ADAPTERS_BY_KEY = {adapter.key: adapter for adapter in ADAPTERS}
@@ -212,7 +255,10 @@ def validate_pyproject(spec: AdapterSpec) -> None:
             f"expected {spec.requires_python!r}"
         )
 
-    sources = pyproject.get("tool", {}).get("uv", {}).get("sources", {})
+    uv_settings = pyproject.get("tool", {}).get("uv", {})
+    if sorted(uv_settings.get("override-dependencies", [])) != sorted(spec.expected_overrides):
+        raise CheckError(f"{spec.key}: dependency overrides differ from the reviewed compatibility policy")
+    sources = uv_settings.get("sources", {})
     for companion in spec.torch_companions:
         # Exact public versions alone allow a PyPI CUDA vision wheel beside a
         # +cpu Torch wheel. Every platform must use the same selected index.
@@ -234,13 +280,25 @@ def validate_pyproject(spec: AdapterSpec) -> None:
 def copy_pyproject(spec: AdapterSpec, temp_root: Path, torch_index: str) -> Path:
     workdir = temp_root / spec.key
     workdir.mkdir(parents=True, exist_ok=True)
+    # Local compatibility distributions are part of the runtime, including
+    # package files such as __init__.py. Resolve the actual shipped source.
+    vendor = spec.pyproject.parent / "vendor"
+    if vendor.is_dir():
+        shutil.copytree(vendor, workdir / "vendor", dirs_exist_ok=True,
+                        ignore=shutil.ignore_patterns(".git", ".venv", "__pycache__", "*.pyc"))
+    if spec.bootstrap_script:
+        shutil.copy2(spec.pyproject.parent / spec.bootstrap_script, workdir / spec.bootstrap_script)
+    for caller in spec.caller_scripts:
+        shutil.copy2(spec.pyproject.parent / caller, workdir / caller)
     pyproject_content = spec.pyproject.read_text()
-    if torch_index == "cpu":
-        pyproject_content = pyproject_content.replace(
-            'url = "https://download.pytorch.org/whl/cu124"' if spec.key == "diarizen" else 'url = "https://download.pytorch.org/whl/cu126"',
-            'url = "https://download.pytorch.org/whl/cpu"',
-            1,
-        )
+    backend = ("cpu" if spec.key == "local-asr" else "cu126") if torch_index == "project" else torch_index
+    pyproject_content = pyproject_content.replace(
+        'url = "https://download.pytorch.org/whl/cpu"' if spec.key == "local-asr" else 'url = "https://download.pytorch.org/whl/cu126"',
+        f'url = "https://download.pytorch.org/whl/{backend}"', 1,
+    )
+    if spec.key in ("nvidia-asr", "canary-qwen") and backend == "cu130":
+        pyproject_content = pyproject_content.replace("numba-cuda[cu12]", "numba-cuda[cu13]")
+        pyproject_content = pyproject_content.replace("cuda-python>=12,<13", "cuda-python>=13,<14")
     (workdir / "pyproject.toml").write_text(pyproject_content)
     return workdir
 
@@ -292,8 +350,10 @@ def check_package_ranges(spec: AdapterSpec, packages: dict[str, list[str]]) -> N
             raise CheckError(f"{spec.key}: {package_range.name} was not present in uv.lock")
 
         for version in versions:
-            # PEP 440 "==2.8.0" also selects 2.8.0+cpu / +cu126 wheels.
-            if package_range.exact is not None and version.split("+", 1)[0] != package_range.exact:
+            # PEP 440 public versions also select their +cpu / +cu126 wheels.
+            expected = package_range.exact
+            compared = version if expected and "+" in expected else version.split("+", 1)[0]
+            if expected is not None and compared != expected:
                 raise CheckError(
                     f"{spec.key}: {package_range.name} resolved to {version}; "
                     f"expected {package_range.exact}"
@@ -364,6 +424,10 @@ def run_adapter_import_check(
     verbose: bool,
 ) -> None:
     print(f"    import: {spec.import_code.splitlines()[-1]}")
+    import_code = spec.import_code
+    if spec.bootstrap_script:
+        bootstrap = str(workdir / spec.bootstrap_script)
+        import_code = f"import runpy; runpy.run_path({bootstrap!r}); " + import_code
     run(
         [
             uv,
@@ -377,12 +441,22 @@ def run_adapter_import_check(
             "python",
             "-I",
             "-c",
-            spec.import_code,
+            import_code + "\n" + AUDIO_IMPORT_CHECK,
         ],
         cwd=ROOT,
         timeout=timeout,
         verbose=verbose,
     )
+
+
+def run_adapter_audit(spec, workdir, args):
+    command = [args.uv, "run", "--no-sync", "--project", str(workdir),
+               "python", "-I", str(ROOT / "scripts/audit-python-adapter-env.py"),
+               "--adapter", spec.key, "--caller-root", str(workdir)]
+    if args.audit_output_dir:
+        command += ["--output", str(args.audit_output_dir.resolve() / f"{spec.key}.json")]
+    completed = run(command, cwd=ROOT, timeout=args.timeout, verbose=args.verbose)
+    print(completed.stdout.strip())
 
 
 def selected_adapters(keys: list[str] | None) -> list[AdapterSpec]:
@@ -393,7 +467,7 @@ def selected_adapters(keys: list[str] | None) -> list[AdapterSpec]:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Validate Scriberr Python adapter resolver output and optional imports."
+        description="Validate Jotist Python adapter resolver output and optional imports."
     )
     parser.add_argument(
         "--adapter",
@@ -413,11 +487,15 @@ def parse_args() -> argparse.Namespace:
         help="Python version uv should resolve against, for example 3.11 or 3.12.",
     )
     parser.add_argument("--uv", default="uv", help="uv executable to run.")
+    parser.add_argument("--audit", action="store_true",
+                        help="In import mode, audit the installed graph against OSV and the scoped source policy.")
+    parser.add_argument("--audit-output-dir", type=Path,
+                        help="Save one installed inventory/advisory JSON report per adapter.")
     parser.add_argument(
         "--torch-index",
-        choices=("project", "cpu"),
+        choices=("project", "cpu", "cu126", "cu130"),
         default="project",
-        help="project keeps the adapter pyproject index; cpu rewrites the temp PyTorch index for import checks.",
+        help="Select a supported wheel backend; project preserves each adapter default.",
     )
     parser.add_argument("--timeout", type=int, default=1800, help="Per-command timeout in seconds.")
     parser.add_argument("--verbose", action="store_true", help="Print full uv command output.")
@@ -426,10 +504,13 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    if args.audit and args.mode != "import":
+        print("--audit requires --mode import so it checks installed distributions", file=sys.stderr)
+        return 2
     adapters = selected_adapters(args.adapter)
     failures: list[str] = []
 
-    with tempfile.TemporaryDirectory(prefix="scriberr-adapter-envs-") as temp_dir:
+    with tempfile.TemporaryDirectory(prefix="jotist-adapter-envs-") as temp_dir:
         temp_root = Path(temp_dir)
         for spec in adapters:
             print(f"==> {spec.key} ({spec.label}) on Python {args.python}", flush=True)
@@ -461,6 +542,8 @@ def main() -> int:
                         args.timeout,
                         args.verbose,
                     )
+                    if args.audit:
+                        run_adapter_audit(spec, workdir, args)
             except CheckError as exc:
                 failures.append(f"{spec.key}: {exc}")
                 print(f"    FAILED: {exc}", file=sys.stderr)

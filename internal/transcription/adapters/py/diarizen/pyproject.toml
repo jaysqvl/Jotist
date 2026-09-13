@@ -1,33 +1,34 @@
 [project]
 name = "scriberr-diarizen"
 version = "0.1.0"
-requires-python = ">=3.11,<3.13"
+requires-python = ">=3.12,<3.13"
 dependencies = [
     "diarizen",
     "pyannote.audio",
-    "torch==2.5.1",
-    "torchaudio==2.5.1",
-    "numpy==1.26.4",
-    "huggingface-hub>=0.28.1,<1",
-    "accelerate==1.6.0",
-    "transformers>=4.48,<5",
-    "speechbrain>=1.0,<1.1",
-    "lightning>=2.4,<2.6",
-    "torchmetrics>=1.6,<1.9",
-    "torch-audiomentations>=0.11,<0.12",
-    "librosa>=0.10,<0.12",
-    "soundfile>=0.12.1",
+    "torch==2.14.0",
+    "torchaudio==2.11.0",
+    "torchcodec==0.16.0",
+    "numpy>=2.2.2,<3",
+    "huggingface-hub==1.31.0",
+    "accelerate==1.15.0",
+    "transformers==5.17.0",
+    "speechbrain==1.1.1",
+    "lightning==2.6.6",
+    "torchmetrics==1.9.0",
+    "torch-audiomentations==0.12.0",
+    "librosa==1.0.0",
+    "soundfile==0.14.0",
     "toml",
     "torchinfo",
     "thop",
     "h5py",
 ]
 
-# Both distributions must come from the same reviewed source revision.
-# DiariZen's custom pyannote fork is not compatible with stock pyannote 4.
+# Both vendored packages retain the same reviewed upstream source revision.
+# See vendor/README.md and each package's UPSTREAM.json for compatibility changes.
 [tool.uv.sources]
-diarizen = { git = "https://github.com/BUTSpeechFIT/DiariZen.git", rev = "844f5555b0a98acd0931511fc641a8c5b8ba92c7" }
-"pyannote.audio" = { git = "https://github.com/BUTSpeechFIT/DiariZen.git", rev = "844f5555b0a98acd0931511fc641a8c5b8ba92c7", subdirectory = "pyannote-audio" }
+diarizen = { path = "vendor/diarizen", editable = true }
+"pyannote.audio" = { path = "vendor/pyannote-audio", editable = true }
 
 torch = [
     { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
@@ -39,10 +40,15 @@ torchaudio = [
     { index = "pytorch-cpu", marker = "platform_machine != 'x86_64' and sys_platform != 'darwin'" },
     { index = "pytorch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
 ]
+torchcodec = [
+    { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
+    { index = "pytorch-cpu", marker = "platform_machine != 'x86_64' and sys_platform != 'darwin'" },
+    { index = "pytorch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+]
 
 [[tool.uv.index]]
 name = "pytorch"
-url = "https://download.pytorch.org/whl/cu124"
+url = "https://download.pytorch.org/whl/cu126"
 explicit = true
 
 [[tool.uv.index]]

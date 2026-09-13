@@ -17,7 +17,9 @@ import (
 	"scriberr/pkg/logger"
 )
 
-//go:embed py/nvidia/*
+//go:embed py/nvidia/*.py py/nvidia/*.toml
+//go:embed py/nvidia/vendor/nv-one-logger-pytorch-lightning-integration/*.md py/nvidia/vendor/nv-one-logger-pytorch-lightning-integration/LICENSE* py/nvidia/vendor/nv-one-logger-pytorch-lightning-integration/*.json py/nvidia/vendor/nv-one-logger-pytorch-lightning-integration/*.toml
+//go:embed py/nvidia/vendor/nv-one-logger-pytorch-lightning-integration/src/nv_one_logger/training_telemetry/integration/*.py py/nvidia/vendor/nv-one-logger-pytorch-lightning-integration/src/nv_one_logger/training_telemetry/integration/_compat/*.py
 var nvidiaScripts embed.FS
 
 // CanaryAdapter implements the TranscriptionAdapter interface for NVIDIA Canary
@@ -213,6 +215,9 @@ func (c *CanaryAdapter) PrepareEnvironment(ctx context.Context) error {
 		return err
 	}
 	defer release()
+	if err := copyNvidiaPythonVendors(c.envPath); err != nil {
+		return fmt.Errorf("copy NVIDIA compatibility package: %w", err)
+	}
 	if err := refreshPythonProject(nvidiaScripts, "py/nvidia/pyproject.toml", c.envPath); err != nil {
 		return fmt.Errorf("refresh Python environment: %w", err)
 	}
@@ -224,7 +229,7 @@ func (c *CanaryAdapter) PrepareEnvironment(ctx context.Context) error {
 	}
 
 	// Check if environment is already ready (using cache to speed up repeated checks)
-	if checkPythonEnvironmentReady(ctx, c.envPath, "import nemo.collections.asr") {
+	if checkPythonEnvironmentReady(ctx, c.envPath, nvidiaPythonImport(c.envPath, "import nemo.collections.asr")) {
 		modelPath := filepath.Join(c.envPath, "canary-1b-v2.nemo")
 		if stat, err := os.Stat(modelPath); err == nil && stat.Size() > 1024*1024 {
 			if err := c.verifyCanaryModel(ctx); err != nil {
@@ -268,15 +273,10 @@ func (c *CanaryAdapter) setupCanaryEnvironment(ctx context.Context) error {
 
 	// Replace the hardcoded PyTorch URL with the dynamic one based on environment
 	// The static file contains the default cu126 URL
-	contentStr := strings.Replace(
-		string(pyprojectContent),
-		"https://download.pytorch.org/whl/cu126",
-		GetPyTorchWheelURL(),
-		1,
-	)
+	contentStr := nvidiaPythonProject(pyprojectContent, GetPyTorchWheelURL())
 
 	pyprojectPath := filepath.Join(c.envPath, "pyproject.toml")
-	if err := writePythonProject(pyprojectPath, []byte(contentStr)); err != nil {
+	if err := writePythonProject(pyprojectPath, contentStr); err != nil {
 		return fmt.Errorf("failed to write pyproject.toml: %w", err)
 	}
 
