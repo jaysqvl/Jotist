@@ -226,7 +226,7 @@ export function TranscribeDDialog({
           <Button
             onClick={handleStartTranscription}
             disabled={loading || !selectedProfileId || profilesLoading || profiles.length === 0}
-            className="min-w-[140px] !bg-[var(--brand-gradient)] hover:!opacity-90 !text-black dark:!text-white border-none shadow-lg shadow-orange-500/20"
+            className="min-w-[140px] !bg-[image:var(--brand-gradient)] hover:!opacity-90 !text-white border-none shadow-lg shadow-brand-500/20"
           >
             {loading ? (
               <>

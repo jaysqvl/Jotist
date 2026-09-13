@@ -3,6 +3,17 @@
 
 @theme {
   --color-brand-solid: var(--brand-solid);
+  --color-brand-50: #F4F2FF;
+  --color-brand-100: #EAE6FF;
+  --color-brand-200: #D7D0FE;
+  --color-brand-300: #B8ADFA;
+  --color-brand-400: #8D82F2;
+  --color-brand-500: #6356E5;
+  --color-brand-600: #5547CB;
+  --color-brand-700: #4538A7;
+  --color-brand-800: #392F86;
+  --color-brand-900: #30296B;
+  --color-brand-950: #1D1940;
   --image-brand-gradient: var(--brand-gradient);
 
   --font-sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -37,8 +48,9 @@
 
 :root {
   /* Brand Colors */
-  --brand-solid: #FF6D20;
-  --brand-gradient: linear-gradient(135deg, #FF9800 0%, #FF3D00 100%);
+  --brand-solid: #6356E5;
+  --brand-cyan: #22C7D8;
+  --brand-gradient: linear-gradient(135deg, #6356E5 0%, #5143C6 100%);
 
   /* Neutral Colors */
   --color-bg-primary: #ffffff;
@@ -144,7 +156,7 @@ h6 {
   background-color: #f3f4f6;
   padding: 0.2em 0.4em;
   border-radius: 0.25rem;
-  color: #d03801;
+  color: #5143C6;
   /* Brand accent for inline code */
 }
 
@@ -167,18 +179,18 @@ h6 {
 }
 
 .docs-content a {
-  color: #FF6D20;
+  color: #6356E5;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
 .docs-content a:hover {
-  color: #e05510;
+  color: #5143C6;
 }
 
 .docs-content blockquote {
   border-left: 4px solid var(--brand-solid);
-  background-color: rgba(255, 109, 32, 0.05);
+  background-color: rgba(99, 86, 229, 0.05);
   /* Brand tint */
   padding: 1.25rem 1.5rem 1.25rem 3.5rem;
   /* Left padding for icon */

@@ -27,7 +27,7 @@ export function DragDropOverlay({
 
 		switch (fileType) {
 			case 'multitrack':
-				return <Users className="h-16 w-16 text-amber-400" />;
+				return <Users className="h-16 w-16 text-brand-400" />;
 			case 'video':
 				return <Video className="h-16 w-16 text-rose-400" />;
 			case 'single':
@@ -69,7 +69,7 @@ export function DragDropOverlay({
 
 		switch (fileType) {
 			case 'multitrack':
-				return "border-amber-400";
+				return "border-brand-400";
 			case 'video':
 				return "border-rose-400";
 			case 'single':
@@ -86,7 +86,7 @@ export function DragDropOverlay({
 
 		switch (fileType) {
 			case 'multitrack':
-				return "bg-amber-50 dark:bg-amber-950/20";
+				return "bg-brand-50 dark:bg-brand-950/20";
 			case 'video':
 				return "bg-rose-50 dark:bg-rose-950/20";
 			case 'single':
@@ -134,7 +134,7 @@ export function DragDropOverlay({
 
 				{/* Multi-track badge */}
 				{fileType === 'multitrack' && !errorMessage && (
-					<div className="mt-3 px-3 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full text-sm font-medium">
+					<div className="mt-3 px-3 py-1 bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 rounded-full text-sm font-medium">
 						Auto-detected multi-track project
 					</div>
 				)}

@@ -614,7 +614,7 @@ export function SystemAudioRecorder({
 						<Button
 							onClick={handleUpload}
 							disabled={isUploading}
-							className="w-full rounded-xl text-white cursor-pointer bg-gradient-to-r from-[#FFAB40] to-[#FF3D00] hover:opacity-90 active:scale-[0.98] transition-all shadow-lg shadow-orange-500/20"
+							className="w-full rounded-xl text-white cursor-pointer bg-gradient-to-r from-[#6356E5] to-[#5143C6] hover:opacity-90 active:scale-[0.98] transition-all shadow-lg shadow-brand-500/20"
 						>
 							{isUploading ? (
 								<>
@@ -879,7 +879,7 @@ export function SystemAudioRecorder({
 					<Button
 						onClick={startRecording}
 						size="lg"
-						className="w-full rounded-xl text-white cursor-pointer bg-gradient-to-r from-[#FFAB40] to-[#FF3D00] hover:opacity-90 active:scale-[0.98] transition-all shadow-lg shadow-orange-500/20"
+						className="w-full rounded-xl text-white cursor-pointer bg-gradient-to-r from-[#6356E5] to-[#5143C6] hover:opacity-90 active:scale-[0.98] transition-all shadow-lg shadow-brand-500/20"
 					>
 						<MonitorSpeaker className="h-5 w-5 mr-2" />
 						Start Recording

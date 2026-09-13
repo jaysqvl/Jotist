@@ -51,7 +51,7 @@ export function DocsLayout({ children }: DocsLayoutProps) {
                           to={item.path}
                           onClick={() => setIsSidebarOpen(false)}
                           className={`block px-3 py-1.5 rounded-md text-sm font-[family-name:var(--font-heading)] transition-colors duration-200 ${isActive
-                            ? 'text-[#FF6D20] font-medium bg-orange-50'
+                            ? 'text-[#6356E5] font-medium bg-brand-50'
                             : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
                             }`}
                         >
@@ -71,7 +71,7 @@ export function DocsLayout({ children }: DocsLayoutProps) {
             <div className="lg:hidden mb-6 flex items-center justify-between sticky top-0 bg-white/80 backdrop-blur-md py-4 z-20 border-b border-gray-100 -mx-4 px-4 sm:-mx-6 sm:px-6">
               <button
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-orange-50 border border-orange-100 text-[#FF6D20] font-semibold text-sm hover:bg-orange-100 transition-colors"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-brand-50 border border-brand-100 text-[#6356E5] font-semibold text-sm hover:bg-brand-100 transition-colors"
               >
                 {isSidebarOpen ? <X className="w-4 h-4" strokeWidth={2.5} /> : <Menu className="w-4 h-4" strokeWidth={2.5} />}
                 <span>Menu</span>

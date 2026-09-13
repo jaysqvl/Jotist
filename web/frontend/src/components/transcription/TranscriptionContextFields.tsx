@@ -2,7 +2,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { FormField, SwitchField, inputClassName } from "./FormHelpers";
 
 export const CONTEXT_EXAMPLE = "Software engineering meeting about our API, deployment pipeline, and database migrations.";
-export const TERMS_EXAMPLE = "Kubernetes\nPostgreSQL\nTypeScript\ngRPC\nScriberr";
+export const TERMS_EXAMPLE = "Kubernetes\nPostgreSQL\nTypeScript\ngRPC\nJotist";
 
 interface ContextFieldsProps {
     context: string | null | undefined;

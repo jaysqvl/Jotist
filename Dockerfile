@@ -1,10 +1,10 @@
-# Multi-stage build for Scriberr: builds React UI and Go server, then
+# Multi-stage build for Jotist: builds React UI and Go server, then
 # ships a slim runtime with Python, uv, and ffmpeg for WhisperX/yt-dlp.
 
 ########################
 # UI build stage
 ########################
-FROM node:20-alpine AS ui-builder
+FROM node:24-alpine AS ui-builder
 WORKDIR /web
 
 # Install deps and build web/frontend
@@ -44,7 +44,7 @@ RUN go run golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION} ./cmd/... ./
 
 # Build binary (arch matches builder platform)
 RUN CGO_ENABLED=0 \
-  go build -ldflags "-s -w -X scriberr/internal/version.Version=${VERSION} -X scriberr/internal/version.Commit=${COMMIT} -X scriberr/internal/version.Date=${DATE}" -o /out/scriberr cmd/server/main.go
+  go build -ldflags "-s -w -X scriberr/internal/version.Version=${VERSION} -X scriberr/internal/version.Commit=${COMMIT} -X scriberr/internal/version.Date=${DATE}" -o /out/jotist cmd/server/main.go
 
 # Build CLI binaries (cross-platform)
 RUN mkdir -p /out/bin/cli \
@@ -117,13 +117,16 @@ RUN groupadd -g 1000 appuser \
   && chown -R appuser:appuser /app
 
 # Copy binary and entrypoint script
-COPY --from=go-builder /out/scriberr /app/scriberr
+COPY --from=go-builder /out/jotist /app/jotist
+# Retain the previous executable path for existing container overrides.
+RUN ln -s /app/jotist /app/scriberr
+COPY LICENSE ATTRIBUTION.md /app/
 COPY --from=go-builder /out/bin/cli /app/bin/cli
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 # Make entrypoint script executable and set up basic permissions
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh \
-  && chown appuser:appuser /app/scriberr
+  && chown appuser:appuser /app/jotist
 
 # Expose port and declare volume for persistence
 EXPOSE 8080
@@ -135,4 +138,4 @@ RUN uv --version
 
 # Use entrypoint script that handles user switching and permissions
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["/app/scriberr"]
+CMD ["/app/jotist"]

@@ -61,7 +61,7 @@ export function TableOfContents() {
                         <a
                             href={`#${heading.id}`}
                             className={`text-sm font-[family-name:var(--font-heading)] transition-colors duration-200 block ${activeId === heading.id
-                                ? 'text-[#FF6D20] font-medium'
+                                ? 'text-[#6356E5] font-medium'
                                 : 'text-gray-500 hover:text-gray-900'
                                 }`}
                             onClick={(e) => {

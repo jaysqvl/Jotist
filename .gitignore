@@ -71,3 +71,7 @@ tmp/
 # *.png
 dhl.txt
 __pycache__/
+
+/jotist
+
+/output/

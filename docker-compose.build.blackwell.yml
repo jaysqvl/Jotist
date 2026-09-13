@@ -1,4 +1,5 @@
-# Docker Compose for building Scriberr with Blackwell GPU support locally
+# Jotist. Legacy service and volume names preserve existing deployments.
+# Docker Compose for building Jotist with Blackwell GPU support locally
 # Uses Dockerfile.cuda.12.9 for RTX 50-series (Blackwell architecture, sm_120)
 # For legacy GPUs (GTX 10-series through RTX 40-series), use docker-compose.build.cuda.yml instead
 services:
@@ -6,7 +7,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.cuda.12.9
-    image: scriberr:local-blackwell
+    image: jotist:local-blackwell
     container_name: scriberr-blackwell
     ports:
       - "8080:8080"

@@ -22,7 +22,7 @@ import (
 
 var loginCmd = &cobra.Command{
 	Use:   "login",
-	Short: "Authenticate with the Scriberr server",
+	Short: "Authenticate with the Jotist server",
 	Run:   runLogin,
 }
 
@@ -44,7 +44,7 @@ type cliTokenResponse struct {
 
 func init() {
 	rootCmd.AddCommand(loginCmd)
-	loginCmd.Flags().StringVarP(&serverURL, "server", "s", "http://localhost:8080", "Scriberr server URL")
+	loginCmd.Flags().StringVarP(&serverURL, "server", "s", "http://localhost:8080", "Jotist server URL")
 }
 
 func runLogin(cmd *cobra.Command, args []string) {
@@ -143,7 +143,7 @@ func runLogin(cmd *cobra.Command, args []string) {
 func startCLILogin(client *http.Client, baseURL, callbackURL, challenge string) (cliAuthorizationStartResponse, error) {
 	body := map[string]string{
 		"callback_url":          callbackURL,
-		"device_name":           "Scriberr CLI",
+		"device_name":           "Jotist CLI",
 		"code_challenge":        challenge,
 		"code_challenge_method": "S256",
 	}

@@ -39,7 +39,7 @@ type cachedUploadSession struct {
 	Fingerprint string `json:"fingerprint"`
 }
 
-// UploadFile uploads a file to the Scriberr server
+// UploadFile uploads a file to the Jotist server
 func UploadFile(filePath string) error {
 	config := GetConfig()
 	if config.ServerURL == "" {

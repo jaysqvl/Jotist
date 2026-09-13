@@ -48,7 +48,7 @@ export function TranscriptionPresetsDialog({ open, onOpenChange, onSelect, onAdd
                                         <label className="flex items-start gap-3 text-sm font-medium text-[var(--text-primary)]">
                                             <input type="checkbox" checked={selected.has(preset.id) && !alreadyAdded} disabled={alreadyAdded || adding}
                                                 onChange={(event) => setSelected((previous) => { const next = new Set(previous); if (event.target.checked) next.add(preset.id); else next.delete(preset.id); return next; })}
-                                                className="mt-1 accent-orange-500" />
+                                                className="mt-1 accent-brand-500" />
                                             <span className="min-w-0 break-words">{preset.name}</span>
                                         </label>
                                         {alreadyAdded && <p className="mt-2 text-xs font-medium text-[var(--success-solid)]">Already added</p>}

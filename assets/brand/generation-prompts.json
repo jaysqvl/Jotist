@@ -1,0 +1,15 @@
+{
+  "mode": "built-in image_gen edit",
+  "reference": "approved rounded lowercase Jotist concept",
+  "prompts": [
+    {
+      "name": "logo-light",
+      "prompt": "Use case: precise-object-edit. Create the final production transparent PNG horizontal logo from this exact approved Jotist reference. Preserve the exact rounded lowercase 'jotist' lettering shapes and indigo flame/speech-bubble icon. Enlarge ONLY the full wordmark uniformly so that the TOP of the lowercase j's DOT aligns exactly with the TOP of the icon and the BOTTOM of the j's hooked DESCENDER aligns exactly with the BOTTOM of the icon. The j, including its dot, is the same total height as the icon. Other letters retain their proportions. Vertically align these bounds precisely. Increase the name scale from the current reference by about 1.38, keeping a comfortable modest gap from the symbol; the wordmark will extend farther right. Preserve icon geometry. Solid electric indigo #6356E5 icon, white inner speech bubble, two indigo short bars, and UNIFORM SOLID cyan #22C7D8 center bar (no blue gradient). Lettering solid graphite #171923. Exactly 'jotist', all lowercase. No other text. Genuinely TRANSPARENT alpha background outside the actual design, retain opaque white inner bubble. Flat smooth vector-like shapes, no paper texture, no shadows, no gradients, no mockup. Tight landscape canvas around the whole design with only 3% transparent padding, approximately 3.3:1 aspect ratio. High resolution, sharp edges. This is asset preparation, do not redesign the letters or icon."
+    },
+    {
+      "name": "icon",
+      "prompt": "Use case: background-extraction. Extract ONLY the existing indigo flame/speech-bubble icon on the LEFT of this reference as a standalone app icon. Remove the wordmark completely. Preserve the icon's exact outer silhouette, opaque WHITE speech bubble and three voice bars, proportions and geometry. Exterior solid electric indigo #6356E5, side bars indigo, center bar uniform solid cyan #22C7D8 with no blue section. Genuinely TRANSPARENT alpha background OUTSIDE the icon; keep the inner white bubble opaque. Square canvas with the icon centered and filling 90% of the canvas height, 5% transparent padding above and below. Flat clean smooth edges, no texture, no shadow, no gradients, no letters, no extra shapes. The design should match the supplied icon, not be reinterpreted."
+    }
+  ]
+}
+

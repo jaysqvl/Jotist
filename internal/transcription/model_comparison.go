@@ -55,8 +55,8 @@ func withModelComparisonMetadata(catalog map[string]interfaces.ModelCapabilities
 			metadata["privacy_notes"] = "Uploads audio and any recognition prompt to OpenAI for transcription. Requires an OpenAI API key."
 		} else if isLocalSpeechAdapter(id) {
 			metadata["execution_location"] = "local"
-			metadata["audio_destination"] = "Scriberr server"
-			metadata["privacy_notes"] = "Audio processing runs on your Scriberr server. Model files may be downloaded. Optional summaries and chat use their own provider setting."
+			metadata["audio_destination"] = "Jotist server"
+			metadata["privacy_notes"] = "Audio processing runs on your Jotist server. Model files may be downloaded. Optional summaries and chat use their own provider setting."
 		}
 		model := metadata["model_id"]
 		if model == "" {

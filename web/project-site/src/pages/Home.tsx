@@ -29,12 +29,12 @@ export function Home() {
                     transition={{ duration: 0.8, ease: "easeOut" }}
                     className="space-y-6 max-w-4xl mx-auto"
                 >
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-100 text-orange-600 text-sm font-medium">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-50 border border-brand-100 text-brand-600 text-sm font-medium">
                         <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-500"></span>
                         </span>
-                        v1.2.0 Now Available
+                        Introducing Jotist
                     </div>
 
                     <Heading level={1}>
@@ -43,8 +43,8 @@ export function Home() {
                     </Heading>
 
                     <Paragraph size="lg" className="max-w-2xl mx-auto">
-                        A self-hostable offline audio transcription app.
-                        State-of-the-art AI models, running entirely on your machine.
+                        A self-hosted workspace for audio transcription.
+                        Run models locally, or choose an optional cloud provider.
                     </Paragraph>
 
                     <div className="flex items-center justify-center pt-4">
@@ -67,7 +67,7 @@ export function Home() {
                     <div className="glass-panel rounded-2xl overflow-hidden p-2">
                         <img
                             src="/screenshots/transcript-light-2.png"
-                            alt="Scriberr Interface"
+                            alt="Jotist Interface"
                             className="w-full h-auto rounded-xl shadow-inner bg-white"
                         />
                     </div>
@@ -85,27 +85,6 @@ export function Home() {
                     </motion.div>
                 </motion.div>
 
-                {/* Sponsor Section */}
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 1.2, duration: 1 }}
-                    className="mt-20 flex flex-col items-center justify-center space-y-4"
-                >
-                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-[0.2em]">Sponsors</span>
-                    <a
-                        href="https://www.recall.ai/?utm_source=github&utm_medium=sponsorship&utm_campaign=rishikanthc-scriberr"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="group transition-all duration-300 hover:-translate-y-0.5"
-                    >
-                        <img
-                            src="https://cdn.prod.website-files.com/620d732b1f1f7b244ac89f0e/66b294e51ee15f18dd2b171e_recall-logo.svg"
-                            alt="Recall.ai"
-                            className="h-7 md:h-8 w-auto hover:opacity-80 transition-opacity duration-300"
-                        />
-                    </a>
-                </motion.div>
             </Section>
 
             {/* Features Grid */}
@@ -113,7 +92,7 @@ export function Home() {
                 <div className="text-center mb-16 space-y-4">
                     <Heading level={2}>Your audio, transcribed on your terms.</Heading>
                     <Paragraph className="max-w-2xl mx-auto">
-                        Get accurate text, speaker labels, and AI summaries without ever sending your data to the cloud.
+                        Transcribe with local models, add speaker labels, and connect your preferred provider for AI summaries.
                     </Paragraph>
                 </div>
 
@@ -126,7 +105,7 @@ export function Home() {
                 >
                     {features.map((feature, index) => (
                         <Card key={index} className="h-full group">
-                            <div className="w-12 h-12 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                            <div className="w-12 h-12 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
                                 {feature.icon}
                             </div>
                             <Heading level={4} className="mb-3">{feature.title}</Heading>
@@ -149,8 +128,8 @@ const features = [
     },
     {
         icon: <Shield className="w-6 h-6" />,
-        title: "100% Private & Local",
-        description: "All processing happens securely on your device. Your audio data never leaves your machine."
+        title: "Local by Choice",
+        description: "Keep audio on your server with local models. Cloud transcription and summary providers are optional and clearly identified."
     },
     {
         icon: <Zap className="w-6 h-6" />,

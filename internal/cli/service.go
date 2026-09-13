@@ -105,8 +105,8 @@ func getServiceConfig(configPath string) *service.Config {
 
 	return &service.Config{
 		Name:        "scriberr-watcher",
-		DisplayName: "Scriberr Watcher Service",
-		Description: "Watches a folder and uploads audio files to Scriberr.",
+		DisplayName: "Jotist Watcher Service",
+		Description: "Watches a folder and uploads audio files to Jotist.",
 		Executable:  ex,
 		Arguments:   args,
 	}
@@ -139,7 +139,7 @@ var serviceRunCmd = &cobra.Command{
 		if err != nil {
 			log.Printf("Failed to get system logger: %v", err)
 		} else {
-			_ = logger.Info("Scriberr service starting...")
+			_ = logger.Info("Jotist service starting...")
 		}
 
 		if err = s.Run(); err != nil {

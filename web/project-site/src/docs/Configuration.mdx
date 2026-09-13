@@ -8,7 +8,7 @@ While you need to accept user agreements on Hugging Face to download the models,
 
 ## Speaker Diarization Setup
 
-Scriberr uses [pyannote.audio](https://github.com/pyannote/pyannote-audio) for speaker diarization. To use this feature, you need to obtain an access token from Hugging Face.
+Jotist uses [pyannote.audio](https://github.com/pyannote/pyannote-audio) for speaker diarization. To use this feature, you need to obtain an access token from Hugging Face.
 
 ### Step 1: Hugging Face Account
 
@@ -34,8 +34,8 @@ You will need to get a Hugging Face access token.
 Set the `HF_TOKEN` environment variable. For Docker users, add `-e HF_TOKEN=your_token_here` to your docker run command or add it to your docker-compose.yml.
 
 **Option B: UI Input**
-Enter the token directly in the Scriberr UI under Transcription Profile settings when configuring diarization.
+Enter the token directly in the Jotist UI under Transcription Profile settings when configuring diarization.
 
 > **Note:** If the `HF_TOKEN` environment variable is set, you don't need to enter the token in the UI - it will be used automatically as a fallback.
 
-After setting up the token, you can enable Speaker Diarization in your Transcription Profiles or Advanced settings within Scriberr.
+After setting up the token, you can enable Speaker Diarization in your Transcription Profiles or Advanced settings within Jotist.

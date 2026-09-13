@@ -199,7 +199,7 @@ export function Settings() {
         </Tabs>
 
         <div className="mt-6 border-t border-[var(--border-subtle)] pt-4 text-xs text-[var(--text-tertiary)]">
-          Scriberr {appInfo.version}
+          Jotist {appInfo.version}
           {appInfo.commit && (
             <span> · {appInfo.commit}</span>
           )}

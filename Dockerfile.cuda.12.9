@@ -1,4 +1,4 @@
-# Multi-stage build for Scriberr with CUDA 12.9 support (Blackwell GPUs)
+# Multi-stage build for Jotist with CUDA 12.9 support (Blackwell GPUs)
 # This Dockerfile targets NVIDIA RTX 50-series (Blackwell architecture, sm_120)
 # For legacy GPUs (GTX 10-series through RTX 40-series), use Dockerfile.cuda instead
 # Builds React UI and Go server, then ships with NVIDIA CUDA runtime
@@ -6,7 +6,7 @@
 ########################
 # UI build stage
 ########################
-FROM node:20-alpine AS ui-builder
+FROM node:24-alpine AS ui-builder
 WORKDIR /web
 
 # Install deps and build web/frontend
@@ -46,7 +46,7 @@ RUN go run golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION} ./cmd/... ./
 
 # Build binary (arch matches builder platform)
 RUN CGO_ENABLED=0 \
-  go build -ldflags "-s -w -X scriberr/internal/version.Version=${VERSION} -X scriberr/internal/version.Commit=${COMMIT} -X scriberr/internal/version.Date=${DATE}" -o /out/scriberr cmd/server/main.go
+  go build -ldflags "-s -w -X scriberr/internal/version.Version=${VERSION} -X scriberr/internal/version.Commit=${COMMIT} -X scriberr/internal/version.Date=${DATE}" -o /out/jotist cmd/server/main.go
 # Build CLI binaries (cross-platform)
 RUN mkdir -p /out/bin/cli \
   && GOOS=linux GOARCH=amd64 go build -o /out/bin/cli/scriberr-linux-amd64 ./cmd/scriberr-cli \
@@ -123,13 +123,16 @@ RUN groupadd -g 10001 appuser \
   && chown -R appuser:appuser /app
 
 # Copy binary and entrypoint script
-COPY --from=go-builder /out/scriberr /app/scriberr
+COPY --from=go-builder /out/jotist /app/jotist
+# Retain the previous executable path for existing container overrides.
+RUN ln -s /app/jotist /app/scriberr
+COPY LICENSE ATTRIBUTION.md /app/
 COPY --from=go-builder /out/bin/cli /app/bin/cli
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 # Make entrypoint script executable and set up basic permissions
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh \
-  && chown appuser:appuser /app/scriberr
+  && chown appuser:appuser /app/jotist
 
 # Expose port and declare volume for persistence
 EXPOSE 8080
@@ -141,4 +144,4 @@ RUN uv --version
 
 # Use entrypoint script that handles user switching and permissions
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["/app/scriberr"]
+CMD ["/app/jotist"]

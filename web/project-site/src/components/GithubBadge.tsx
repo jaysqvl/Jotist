@@ -10,7 +10,7 @@ export function GithubBadge() {
     const [stats, setStats] = useState<RepoStats | null>(null);
 
     useEffect(() => {
-        fetch('https://api.github.com/repos/rishikanthc/scriberr')
+        fetch('https://api.github.com/repos/jaysqvl/Jotist')
             .then(res => res.json())
             .then(data => {
                 setStats({
@@ -30,7 +30,7 @@ export function GithubBadge() {
 
     return (
         <a
-            href="https://github.com/rishikanthc/scriberr"
+            href="https://github.com/jaysqvl/Jotist"
             target="_blank"
             rel="noopener noreferrer"
             className="group flex items-center gap-0 rounded-md overflow-hidden border border-gray-200 shadow-sm hover:shadow transition-all duration-200"

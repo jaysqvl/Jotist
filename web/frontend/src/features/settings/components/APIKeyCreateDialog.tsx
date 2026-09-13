@@ -105,7 +105,7 @@ export function APIKeyCreateDialog({
 				<DialogHeader>
 					<DialogTitle>Create New API Key</DialogTitle>
 					<DialogDescription>
-						Create a new API key for external access to Scriberr. Give it a
+						Create a new API key for external access to Jotist. Give it a
 						descriptive name to help you identify it later.
 					</DialogDescription>
 				</DialogHeader>
@@ -163,7 +163,7 @@ export function APIKeyCreateDialog({
 						<Button
 							type="submit"
 							disabled={isCreating || !name.trim()}
-							className="!bg-[var(--brand-gradient)] hover:!opacity-90 !text-black dark:!text-white border-none"
+							className="!bg-[image:var(--brand-gradient)] hover:!opacity-90 !text-white border-none"
 						>
 							{isCreating ? "Creating..." : "Create API Key"}
 						</Button>

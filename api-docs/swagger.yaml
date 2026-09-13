@@ -1337,12 +1337,13 @@ info:
     email: support@swagger.io
     name: API Support
     url: http://www.swagger.io/support
-  description: Audio transcription service using WhisperX
+  description: Self-hosted audio transcription with local models and optional cloud
+    providers
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
   termsOfService: http://swagger.io/terms/
-  title: Scriberr API
+  title: Jotist API
   version: "1.0"
 paths:
   /api/v1/admin/queue/stats:

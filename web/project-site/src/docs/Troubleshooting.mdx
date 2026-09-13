@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Common issues and their solutions when setting up or running Scriberr.
+Common issues and their solutions when setting up or running Jotist.
 
 ## 1. SQLite OOM Error (out of memory)
 
@@ -21,12 +21,12 @@ Replace `10001` with the value you set for `PUID`/`PGID` (default is `1000`).
 
 ## 2. "Unable to load audio stream"
 
-If the application loads but you cannot play or see the audio waveform (receiving "Unable to load audio stream"), first refresh the page. Scriberr synchronizes restored browser sessions before the native audio request is made.
+If the application loads but you cannot play or see the audio waveform (receiving "Unable to load audio stream"), first refresh the page. Jotist synchronizes restored browser sessions before the native audio request is made.
 
-By default, `SECURE_COOKIES=auto` detects direct HTTP or HTTPS. When TLS terminates at a reverse proxy, list that proxy's IP or CIDR in `TRUSTED_PROXIES` so Scriberr can safely honor `X-Forwarded-Proto` or `Forwarded`.
+By default, `SECURE_COOKIES=auto` detects direct HTTP or HTTPS. When TLS terminates at a reverse proxy, list that proxy's IP or CIDR in `TRUSTED_PROXIES` so Jotist can safely honor `X-Forwarded-Proto` or `Forwarded`.
 
 ### Solutions:
-- **Recommended:** Deploy Scriberr behind a Reverse Proxy (like Nginx, Caddy, or Traefik) and use SSL/TLS (HTTPS).
+- **Recommended:** Deploy Jotist behind a Reverse Proxy (like Nginx, Caddy, or Traefik) and use SSL/TLS (HTTPS).
 - **Proxy setup:** Configure `TRUSTED_PROXIES` with only your proxy network and leave `SECURE_COOKIES=auto`.
 - **Override:** If scheme detection is unavailable, force the mode in `docker-compose.yml` (`true` for HTTPS or `false` for HTTP):
   ```yaml

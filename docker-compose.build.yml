@@ -1,14 +1,15 @@
+# Jotist. Legacy service and volume names preserve existing deployments.
 version: "3.9"
 
 services:
   scriberr:
-    # Build from local Dockerfile; replace with `image: ghcr.io/jaysqvl/scriberr:nightly`
+    # Build from local Dockerfile; replace with `image: ghcr.io/jaysqvl/jotist:1.7.0-rc.1`
     # if you prefer pulling a prebuilt image.
     build:
       context: .
       dockerfile: Dockerfile
-    image: scriberr:local
-    # image: ghcr.io/jaysqvl/scriberr:nightly
+    image: jotist:local
+    # image: ghcr.io/jaysqvl/jotist:1.7.0-rc.1
     container_name: scriberr
     ports:
       - "8080:8080"

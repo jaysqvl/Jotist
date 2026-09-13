@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 )
 
-var ErrAlreadyRunning = errors.New("another Scriberr server owns this database")
+var ErrAlreadyRunning = errors.New("another Jotist server owns this database")
 var priorSafety atomic.Int32    // 0 unmanaged (tests/embedders), 1 proven, 2 unknown
 func PriorWorkersStopped() bool { return priorSafety.Load() != 2 }
 

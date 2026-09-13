@@ -132,7 +132,7 @@ export function RunQueuePanel({
                             size="sm"
                             onClick={onAddRun}
                             disabled={queueBusy}
-                            className="gap-2 rounded-full border-0 !text-black shadow-lg shadow-orange-500/15 hover:opacity-90 dark:!text-white"
+                            className="gap-2 rounded-full border-0 !text-white shadow-lg shadow-brand-500/15 hover:opacity-90"
                             style={{ background: "var(--brand-gradient)" }}
                         >
                             <Plus className="h-4 w-4" />

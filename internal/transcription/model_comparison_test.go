@@ -63,7 +63,7 @@ func TestModelComparisonDistinguishesLocalWhisperFromOpenAIAPI(t *testing.T) {
 		"unknown-provider": {},
 	})
 	require.Equal(t, "local", catalog[ModelWhisperX].Metadata["execution_location"])
-	require.Equal(t, "Scriberr server", catalog[ModelWhisperX].Metadata["audio_destination"])
+	require.Equal(t, "Jotist server", catalog[ModelWhisperX].Metadata["audio_destination"])
 	require.Equal(t, "cloud", catalog[ModelOpenAI].Metadata["execution_location"])
 	require.Equal(t, "OpenAI API", catalog[ModelOpenAI].Metadata["audio_destination"])
 	require.Empty(t, catalog[ModelOpenAI].Metadata["cpu_float32_ram_gb"])

@@ -312,7 +312,7 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
                 ref={containerRef}
                 onClick={isDesktop ? handleWordClick : undefined}
                 className={cn(
-                    "text-lg leading-relaxed text-carbon-700 dark:text-carbon-300 whitespace-pre-wrap font-reading selection:bg-orange-500/30 transition-colors duration-200 select-text",
+                    "text-lg leading-relaxed text-carbon-700 dark:text-carbon-300 whitespace-pre-wrap font-reading selection:bg-brand-500/30 transition-colors duration-200 select-text",
                     isDesktop && isModifierPressed ? 'cursor-pointer hover:text-carbon-900 dark:hover:text-carbon-100' : 'cursor-text'
                 )}
                 style={{

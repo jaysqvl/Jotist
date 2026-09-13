@@ -168,7 +168,7 @@ export function ChatSessionsSidebar({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0 text-muted-foreground hover:text-[#FF6D20] hover:bg-orange-500/10 transition-colors"
+                className="h-8 w-8 p-0 text-muted-foreground hover:text-[#6356E5] hover:bg-brand-500/10 transition-colors"
                 title="New Chat"
               >
                 <Plus className="h-5 w-5" />
@@ -177,7 +177,7 @@ export function ChatSessionsSidebar({
             <DialogContent className="w-[calc(100%-2rem)] max-w-md mx-auto bg-[var(--bg-card)] dark:bg-[#0A0A0A] border border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.08)] shadow-[0_2px_4px_rgba(0,0,0,0.04),0_24px_48px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),0_24px_48px_rgba(0,0,0,0.3)] p-0 rounded-2xl overflow-hidden">
               <DialogHeader className="p-5 pb-0">
                 <DialogTitle className="text-xl font-bold text-[var(--text-primary)] flex items-center gap-2">
-                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#FFAB40] to-[#FF6D20] flex items-center justify-center shadow-md">
+                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#6356E5] to-[#6356E5] flex items-center justify-center shadow-md">
                     <Sparkles className="h-4 w-4 text-white" />
                   </div>
                   New Chat Session
@@ -230,7 +230,7 @@ export function ChatSessionsSidebar({
                 <Button
                   onClick={createSession}
                   disabled={!selectedModel}
-                  className="h-11 px-6 bg-gradient-to-br from-[#FFAB40] to-[#FF3D00] text-white hover:scale-[1.02] active:scale-[0.98] transition-transform shadow-md disabled:opacity-50 disabled:cursor-not-allowed rounded-full w-full sm:w-auto"
+                  className="h-11 px-6 bg-gradient-to-br from-[#6356E5] to-[#5143C6] text-white hover:scale-[1.02] active:scale-[0.98] transition-transform shadow-md disabled:opacity-50 disabled:cursor-not-allowed rounded-full w-full sm:w-auto"
                 >
                   <MessageSquare className="h-4 w-4 mr-2" />
                   Start Chat
@@ -270,7 +270,7 @@ export function ChatSessionsSidebar({
                 className={`
                   group relative p-3 rounded-xl border cursor-pointer transition-all duration-200 pr-10 min-h-[64px]
                   ${session.id === activeSessionId
-                    ? 'bg-[var(--bg-card)] dark:bg-[#1F1F1F] border-[#FF6D20] shadow-[0_2px_4px_rgba(0,0,0,0.04),0_8px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),0_8px_16px_rgba(0,0,0,0.2)] ring-1 ring-[#FF6D20]/20 z-10'
+                    ? 'bg-[var(--bg-card)] dark:bg-[#1F1F1F] border-[#6356E5] shadow-[0_2px_4px_rgba(0,0,0,0.04),0_8px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),0_8px_16px_rgba(0,0,0,0.2)] ring-1 ring-[#6356E5]/20 z-10'
                     : 'bg-[var(--bg-card)] dark:bg-[#141414] border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.08)] shadow-[0_2px_4px_rgba(0,0,0,0.04),0_8px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_4px_rgba(0,0,0,0.2),0_8px_16px_rgba(0,0,0,0.1)] hover:shadow-[0_4px_8px_rgba(0,0,0,0.06),0_12px_24px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 hover:border-[var(--brand-solid)]/30'
                   }
                 `}
@@ -290,7 +290,7 @@ export function ChatSessionsSidebar({
                         autoFocus
                       />
                     ) : (
-                      <h3 className={`text-sm font-medium truncate leading-tight ${session.id === activeSessionId ? 'text-[#FF6D20]' : 'text-foreground group-hover:text-foreground'}`}>
+                      <h3 className={`text-sm font-medium truncate leading-tight ${session.id === activeSessionId ? 'text-[#6356E5]' : 'text-foreground group-hover:text-foreground'}`}>
                         {session.title || 'Untitled Chat'}
                         {generatingTitleIds.has(session.id) && (
                           <span className="inline-flex items-center ml-2 text-brand-500 dark:text-brand-400" title="Generating title...">

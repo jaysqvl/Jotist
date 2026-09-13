@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ScriberrLogo } from "@/components/ScriberrLogo";
+import { JotistLogo } from "@/components/JotistLogo";
 import { useNavigate } from "react-router-dom";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { Loader2, AlertCircle } from "lucide-react";
@@ -68,7 +68,7 @@ export function Login({ onLogin }: LoginProps) {
 							className="flex justify-center cursor-pointer transition-transform hover:scale-105 active:scale-95"
 							onClick={() => navigate('/')}
 						>
-							<ScriberrLogo />
+							<JotistLogo />
 						</div>
 
 						<div className="space-y-2">
@@ -148,7 +148,7 @@ export function Login({ onLogin }: LoginProps) {
 								type="submit"
 								disabled={loading || !isFormValid}
 								className="w-full h-11 rounded-xl font-medium text-white
-									bg-gradient-to-r from-[#FFAB40] to-[#FF3D00]
+									bg-gradient-to-r from-[#6356E5] to-[#5143C6]
 									hover:opacity-90 active:scale-[0.98]
 									disabled:opacity-50 disabled:cursor-not-allowed
 									transition-all duration-200 cursor-pointer"

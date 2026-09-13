@@ -55,7 +55,7 @@ interface FormFieldProps {
 
 /**
  * FormField - A consistent wrapper for form inputs with optional tooltip description
- * Follows Scriberr design system
+ * Follows Jotist design system
  */
 export function FormField({ label, htmlFor, description, optional, children }: FormFieldProps) {
     return (

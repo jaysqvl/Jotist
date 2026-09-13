@@ -1,92 +1,121 @@
 name: Release
 
+# Explicit publication only. Importing historical Scriberr tags never releases them.
 on:
   workflow_call:
     inputs:
       tag:
-        description: Existing version tag to release.
+        description: Existing Jotist version tag to release.
         required: true
         type: string
+      variants:
+        description: Container variants to publish after artifact validation.
+        default: all
+        type: string
+      publish_latest:
+        description: Update latest aliases for a stable release only.
+        default: false
+        type: boolean
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing version tag to release, for example v1.5.12.
+        description: Existing version tag, for example v1.7.0-rc.1.
         required: true
-  push:
-    tags:
-      - 'v*.*.*'
+        type: string
+      variants:
+        description: Container variants to publish.
+        default: all
+        required: true
+        type: choice
+        options: [all, cpu, cuda, blackwell]
+      publish_latest:
+        description: Update latest aliases (ignored for prereleases).
+        default: false
+        type: boolean
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag }}
+  cancel-in-progress: false
 
 jobs:
-  release:
+  resolve:
+    name: Resolve immutable release source
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+      publish_latest: ${{ steps.version.outputs.publish_latest }}
+      sha: ${{ steps.source.outputs.sha }}
     steps:
-      - name: Resolve release tag
-        id: release
+      - name: Validate release inputs
+        id: version
         shell: bash
         env:
           INPUT_TAG: ${{ inputs.tag }}
+          INPUT_VARIANTS: ${{ inputs.variants }}
+          INPUT_LATEST: ${{ inputs.publish_latest }}
         run: |
-          tag="$INPUT_TAG"
-          if [[ -z "$tag" && "${{ github.event_name }}" == "push" ]]; then
-            tag="${GITHUB_REF_NAME}"
-          fi
-
-          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
-            echo "::error::Release tag must be semver with a leading v, for example v1.5.12."
+          if [[ ! "$INPUT_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Use a version tag such as v1.7.0 or v1.7.0-rc.1."
             exit 1
           fi
+          case "$INPUT_VARIANTS" in all|cpu|cuda|blackwell) ;; *) exit 1 ;; esac
+          latest=false
+          if [[ "$INPUT_LATEST" == true && "$INPUT_TAG" != *-* ]]; then latest=true; fi
+          echo "tag=$INPUT_TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${INPUT_TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "publish_latest=$latest" >> "$GITHUB_OUTPUT"
 
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
-
-      - name: Checkout
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v7
         with:
-          ref: ${{ steps.release.outputs.tag }}
+          ref: refs/tags/${{ steps.version.outputs.tag }}
           fetch-depth: 0
 
-      - name: Setup Go
-        uses: actions/setup-go@v6
+      - name: Capture and check release source
+        id: source
+        shell: bash
+        run: |
+          sha="$(git rev-parse HEAD)"
+          git merge-base --is-ancestor "$sha" origin/main
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+  validate:
+    name: Validate release source
+    needs: resolve
+    uses: ./.github/workflows/release-validation.yml
+    with:
+      source_ref: ${{ needs.resolve.outputs.sha }}
+
+  artifacts:
+    name: Publish release artifacts
+    needs: [resolve, validate]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ needs.resolve.outputs.tag }}
+          fetch-depth: 0
+
+      - name: Guard the validated commit
+        env:
+          EXPECTED_SHA: ${{ needs.resolve.outputs.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: '24'
-          cache: 'npm'
+          cache: npm
           cache-dependency-path: web/frontend/package-lock.json
-
-      - name: Install frontend dependencies
-        run: cd web/frontend && npm ci
-
-      - name: Audit frontend dependencies
-        run: cd web/frontend && npm audit
-
-      - name: Check frontend
-        run: cd web/frontend && npm test && npm run lint && npm run type-check
-
-      - name: Build frontend
-        run: cd web/frontend && npm run build
-
-      - name: Copy frontend assets
-        run: |
-          mkdir -p internal/web
-          rm -rf internal/web/dist
-          cp -r web/frontend/dist internal/web/
-
-      - name: Vet backend
-        run: go vet ./api-docs ./cmd/... ./internal/... ./pkg/... ./tests
-
-      - name: Scan Go dependencies
-        run: go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./cmd/... ./internal/... ./pkg/...
-
-      - name: Run backend tests
-        run: go test ./api-docs ./cmd/... ./internal/... ./pkg/... ./tests
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v7
@@ -96,3 +125,19 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  images:
+    name: Publish validated release images
+    needs: [resolve, validate, artifacts]
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/docker-dev-images.yml
+    with:
+      source_repository: ${{ github.repository }}
+      upstream_ref: ${{ needs.resolve.outputs.sha }}
+      image_channel: ${{ needs.resolve.outputs.version }}
+      variants: ${{ inputs.variants }}
+      publish_latest: ${{ needs.resolve.outputs.publish_latest == 'true' }}
+      validated_source_sha: ${{ needs.resolve.outputs.sha }}
+    secrets: inherit

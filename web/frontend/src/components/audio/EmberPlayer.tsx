@@ -181,7 +181,7 @@ export const EmberPlayer = forwardRef<EmberPlayerRef, EmberPlayerProps>(
                     <div className="flex items-center justify-between">
                         <button
                             onClick={togglePlay}
-                            className="flex h-12 w-12 items-center justify-center rounded-full bg-[image:var(--brand-gradient)] text-white shadow-lg shadow-orange-500/20 hover:scale-105 active:scale-95 transition-all focus:outline-none cursor-pointer"
+                            className="flex h-12 w-12 items-center justify-center rounded-full bg-[image:var(--brand-gradient)] text-white shadow-lg shadow-brand-500/20 hover:scale-105 active:scale-95 transition-all focus:outline-none cursor-pointer"
                         >
                             {isPlaying ? (
                                 <Pause size={20} fill="currentColor" />

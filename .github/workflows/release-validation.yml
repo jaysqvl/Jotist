@@ -1,0 +1,70 @@
+name: Validate release source
+
+on:
+  workflow_call:
+    inputs:
+      source_ref:
+        description: Immutable source commit to validate.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Frontend and backend checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.source_ref }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/frontend/package-lock.json
+
+      - name: Validate and build frontend
+        working-directory: web/frontend
+        run: npm ci && npm audit && npm test && npm run lint && npm run type-check && npm run build
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Embed validated frontend
+        run: |
+          rm -rf internal/web/dist
+          mkdir -p internal/web
+          cp -r web/frontend/dist internal/web/
+
+      - name: Vet and test backend
+        run: |
+          go vet ./api-docs ./cmd/... ./internal/... ./pkg/... ./tests
+          go test ./api-docs ./cmd/... ./internal/... ./pkg/... ./tests
+
+      - name: Scan Go dependencies
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./cmd/... ./internal/... ./pkg/...
+
+  python-adapter-envs:
+    name: Python adapter environments (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.source_ref }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - name: Verify Python adapter resolver surfaces
+        run: python scripts/verify-python-adapter-envs.py --mode lock --python ${{ matrix.python-version }}

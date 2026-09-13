@@ -8,7 +8,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Upload, Mic, Settings, LogOut, Home, Plus, Grip, Zap, Youtube, Video, Users, MonitorSpeaker } from "lucide-react";
-import { ScriberrLogo } from "./ScriberrLogo";
+import { JotistLogo } from "./JotistLogo";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { AudioRecorder } from "./AudioRecorder";
 import { SystemAudioRecorder } from "./SystemAudioRecorder";
@@ -142,7 +142,7 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 		<header className="sticky top-4 sm:top-6 z-50 glass rounded-[var(--radius-card)] px-4 py-3 sm:px-6 sm:py-4 transition-all duration-500 shadow-[var(--shadow-float)] border border-[var(--border-subtle)]">
 			<div className="flex items-center justify-between">
 				{/* Left side - Logo navigates home */}
-				<ScriberrLogo onClick={handleHomeClick} />
+				<JotistLogo onClick={handleHomeClick} />
 
 				{/* Right side - Plus (Add Audio), Grip Menu, Theme Switcher */}
 				<div className="flex items-center gap-2 sm:gap-3">
@@ -152,7 +152,7 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 							<Button
 								variant="default"
 								size="icon"
-								className="bg-gradient-to-br from-[#FFAB40] to-[#FF3D00] text-white shadow-[0_4px_12px_rgba(255,61,0,0.4)] hover:shadow-[0_6px_16px_rgba(255,61,0,0.5)] border-none h-8 w-8 sm:h-10 sm:w-10 rounded-lg transition-all hover:scale-105 active:scale-95 cursor-pointer"
+								className="bg-gradient-to-br from-[#6356E5] to-[#5143C6] text-white shadow-[0_4px_12px_rgba(99,86,229,0.4)] hover:shadow-[0_6px_16px_rgba(99,86,229,0.5)] border-none h-8 w-8 sm:h-10 sm:w-10 rounded-lg transition-all hover:scale-105 active:scale-95 cursor-pointer"
 							>
 								<Plus className="h-5 w-5 sm:h-6 sm:w-6" />
 								<span className="sr-only">Add audio</span>
@@ -166,7 +166,7 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 								onClick={handleQuickTranscriptionClick}
 								className="group flex items-center gap-3 px-3 py-3 cursor-pointer rounded-[var(--radius-btn)] focus:bg-[var(--brand-light)] focus:text-[var(--brand-solid)] transition-colors"
 							>
-								<div className="p-2 bg-amber-500/10 rounded-[var(--radius-btn)] text-amber-600 group-focus:text-[var(--brand-solid)]">
+								<div className="p-2 bg-brand-500/10 rounded-[var(--radius-btn)] text-brand-600 group-focus:text-[var(--brand-solid)]">
 									<Zap className="h-4 w-4" />
 								</div>
 								<div>
@@ -294,7 +294,7 @@ export function Header({ onFileSelect, onMultiTrackClick, onDownloadComplete }: 
 									Build
 								</div>
 								<div className="font-medium text-[var(--text-secondary)]">
-									Scriberr {appInfo.version}
+									Jotist {appInfo.version}
 								</div>
 								{appInfo.commit && (
 									<div className="mt-0.5 font-mono text-[11px] text-[var(--text-tertiary)]">

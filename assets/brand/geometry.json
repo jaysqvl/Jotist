@@ -1,0 +1,23 @@
+{
+  "canvas": {
+    "width": 319.63861455000693,
+    "height": 100
+  },
+  "visible_icon_height": 96,
+  "visible_j_dot_to_descender_height": 96,
+  "symbol_source_box": [
+    174,
+    45,
+    509,
+    624
+  ],
+  "wordmark_source_box": [
+    697,
+    105,
+    1298,
+    553
+  ],
+  "gap": 12.0,
+  "source": "jotist-lockup-source.png",
+  "format": "SVG layout with embedded generated raster artwork"
+}

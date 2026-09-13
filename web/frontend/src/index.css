@@ -48,18 +48,18 @@
   --color-black-900: #161616;
   --color-black-950: #000000;
 
-  /* Brand Palette (Orange #fe9a00) */
-  --brand-50: #fff8e6;
-  --brand-100: #ffedcc;
-  --brand-200: #ffdd99;
-  --brand-300: #ffcc66;
-  --brand-400: #ffbb33;
-  --brand-500: #fe9a00;
-  --brand-600: #e68a00;
-  --brand-700: #cc7a00;
-  --brand-800: #b36b00;
-  --brand-900: #995c00;
-  --brand-950: #663d00;
+  /* Jotist indigo palette */
+  --brand-50: #F4F2FF;
+  --brand-100: #EAE6FF;
+  --brand-200: #D7D0FE;
+  --brand-300: #B8ADFA;
+  --brand-400: #8D82F2;
+  --brand-500: #6356E5;
+  --brand-600: #5547CB;
+  --brand-700: #4538A7;
+  --brand-800: #392F86;
+  --brand-900: #30296B;
+  --brand-950: #1D1940;
 
   --color-brand-50: var(--brand-50);
   --color-brand-100: var(--brand-100);
@@ -117,12 +117,13 @@
 
 :root {
   /* --- BRAND IDENTITY --- */
-  /* Extracted from your logo */
-  /* --brand-gradient: linear-gradient(135deg, #FFAB40 0%, #FF3D00 100%); */
-  --brand-gradient: linear-gradient(135deg, #FF9800 0%, #FF3D00 100%);
-  --brand-solid: #FF6D20;
+  --brand-gradient: linear-gradient(135deg, #6356E5 0%, #5143C6 100%);
+  --brand-solid: #6356E5;
+  --brand-start: #6356E5;
+  --brand-end: #5143C6;
+  --brand-cyan: #22C7D8;
   /* The midpoint color for text/icons */
-  --brand-light: rgba(255, 171, 64, 0.12);
+  --brand-light: rgba(99, 86, 229, 0.12);
   /* For subtle backgrounds/hovers */
 
   /* --- SPACING & SHAPE (The "Premium" Feel) --- */
@@ -166,7 +167,7 @@
   --success: #10B981;
   --success-solid: #10B981;
   --success-translucent: rgba(16, 185, 129, 0.15);
-  /* Emerald Green (Goes well with orange) */
+  /* Emerald Green */
   --error: #EF4444;
   /* Soft Red */
   --warning: #F59E0B;
@@ -267,8 +268,8 @@
   --muted: #262626;
   --muted-foreground: var(--text-secondary);
 
-  --accent: rgba(255, 171, 64, 0.15);
-  --accent-foreground: #FFAB40;
+  --accent: rgba(99, 86, 229, 0.15);
+  --accent-foreground: #ADA5FF;
 
   --destructive: 0 62.8% 30.6%;
   /* Keeping original destructive for dark mode safety or use var(--error) */

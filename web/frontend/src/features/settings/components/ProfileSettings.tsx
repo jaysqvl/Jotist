@@ -348,7 +348,7 @@ export function ProfileSettings() {
 					<Button variant="outline" onClick={() => setPresetsOpen(true)}>Quick Add Presets</Button>
 					<Button
 						onClick={handleCreateProfile}
-						className="!bg-[var(--brand-gradient)] hover:!opacity-90 !text-black dark:!text-white shadow-lg shadow-orange-500/20 border-none"
+						className="!bg-[image:var(--brand-gradient)] hover:!opacity-90 !text-white shadow-lg shadow-brand-500/20 border-none"
 					>
 						Create New Profile
 					</Button>

@@ -5,7 +5,7 @@ set -e
 PUID=${PUID:-1000}
 PGID=${PGID:-1000}
 
-echo "=== Scriberr Container Setup ==="
+echo "=== Jotist Container Setup ==="
 echo "Requested UID: $PUID, GID: $PGID"
 # export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/x86_64-linux-gnu/
 # echo "LD_LIBRARY_PATH is: $LD_LIBRARY_PATH"
@@ -64,7 +64,7 @@ else
     mkdir -p /app/data/uploads /app/data/transcripts /app/whisperx-env 2>/dev/null || true
 
     echo "=== Setup Complete ==="
-    echo "Starting Scriberr application..."
+    echo "Starting Jotist application..."
 
     # Execute directly
     exec "$@"

@@ -79,10 +79,10 @@ website-serve: website-build ## Build and preview project website locally
 
 docs-serve: website-serve ## Alias for website-serve
 
-build: ## Build Scriberr binary with embedded frontend
-	@echo "Starting Scriberr build process..."
+build: ## Build Jotist binary with embedded frontend
+	@echo "Starting Jotist build process..."
 	@echo "Cleaning old build files..."
-	@rm -f scriberr
+	@rm -f jotist
 	@rm -rf internal/web/dist
 	@cd web/frontend && rm -rf dist/ && rm -rf assets/ 2>/dev/null || true
 	@echo "✓ Build files cleaned"
@@ -95,9 +95,9 @@ build: ## Build Scriberr binary with embedded frontend
 	@echo "✓ Assets copied"
 	@echo "Building Go binary..."
 	@go clean -cache
-	@go build -o scriberr cmd/server/main.go
+	@go build -o jotist cmd/server/main.go
 	@echo "✓ Binary built successfully"
-	@echo "Build complete. Run './scriberr' to start the server"
+	@echo "Build complete. Run './jotist' to start the server"
 
 build-cli: ## Build CLI binaries for Linux, macOS, and Windows
 	@echo "Building CLI binaries..."

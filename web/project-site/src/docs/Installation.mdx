@@ -1,10 +1,12 @@
 # Installation
 
-Get Scriberr running on your system in a few minutes.
+Install Jotist using its own release artifacts. Existing Scriberr data and configuration paths remain compatible.
 
-## Migrating from v1.1.0
+> Before upgrading an existing instance, back up your complete data directory and retain its volume bindings. A rebrand does not require a new database or a renamed Docker volume.
 
-If you are upgrading from v1.1.0, please follow these steps to ensure a smooth transition. Version 1.2.0 introduces a separation between application data (database, uploads) and model data (Python environments).
+## Legacy Scriberr v1.1.0 Migration
+
+This section applies only to legacy Scriberr v1.1.0 installations. It is not part of the Jotist rebrand migration. If you are upgrading from v1.1.0, follow these steps to ensure a smooth transition. Version 1.2.0 introduces a separation between application data (database, uploads) and model data (Python environments).
 
 ### 1. Update Volume Mounts
 
@@ -19,26 +21,15 @@ You will need to update your Docker volume configuration to split your data:
 
 The Python environment and models need to be reinitialized for v1.2.0. If the application detects an old environment, it may attempt to use it, leading to compatibility errors. Starting with a fresh `/app/whisperx-env` volume ensures the correct dependencies are installed.
 
-## Install with Homebrew (macOS & Linux)
+## Jotist Releases (macOS & Linux)
 
-The easiest way to install Scriberr is using Homebrew. If you don’t have Homebrew installed, [get it here first](https://brew.sh/).
+Download Jotist from the [Jotist releases page](https://github.com/jaysqvl/Jotist/releases). The first rebrand review release is **v1.7.0-rc.1**. Choose the artifact for your operating system and architecture, and follow the instructions included with that release.
 
-```bash
-# Add the Scriberr tap
-brew tap rishikanthc/scriberr
-
-# Install Scriberr (automatically installs UV dependency)
-brew install scriberr
-
-# Start the server
-scriberr
-```
-
-Open [http://localhost:8080](http://localhost:8080) in your browser.
+The upstream Scriberr Homebrew tap installs Scriberr, not Jotist. Jotist does not currently publish a Homebrew tap. Existing CLI commands retain the `scriberr` name for compatibility.
 
 ## Configuration
 
-Scriberr works out of the box. However, for Homebrew or manual installations, you can customize the application behavior using environment variables or a `.env` file placed in the same directory as the binary (or where you run the command from).
+Jotist works out of the box. For manual installations, you can customize the application behavior using environment variables or a `.env` file placed in the same directory as the binary (or where you run the command from).
 
 > **Docker Users:** You can ignore this section if you are using `docker-compose.yml`, as these values are already configured with sane defaults.
 
@@ -84,9 +75,9 @@ AUTH_RATE_LIMIT_ENABLED=true
 
 ### Login Abuse Protection
 
-Scriberr includes in-app login throttling by default. Failed logins are tracked by username/IP and by IP, fast retries receive `429 Too Many Requests` with `Retry-After`, and repeated failures are temporarily locked out.
+Jotist includes in-app login throttling by default. Failed logins are tracked by username/IP and by IP, fast retries receive `429 Too Many Requests` with `Retry-After`, and repeated failures are temporarily locked out.
 
-If Scriberr is behind a reverse proxy, set `TRUSTED_PROXIES` to the proxy IP or CIDR range so throttling and secure-cookie detection can safely use forwarded headers. Leave it empty when exposing Scriberr directly so forwarded headers cannot be spoofed.
+If Jotist is behind a reverse proxy, set `TRUSTED_PROXIES` to the proxy IP or CIDR range so throttling and secure-cookie detection can safely use forwarded headers. Leave it empty when exposing Jotist directly so forwarded headers cannot be spoofed.
 
 The auth logger emits stable fields such as `event=login`, `result=failure`, `reason=invalid_password`, and `ip=...`, so host-level tools like fail2ban can still be layered on top if desired.
 
@@ -96,18 +87,18 @@ For a containerized setup, you can use Docker. We provide two configurations: on
 
 > **Permissions:** Ensure you set the `PUID` and `PGID` environment variables to your host user's UID and GID (typically `1000` on Linux) to avoid permission issues with the SQLite database. You can find your UID/GID by running `id` on your host.
 >
-> **HTTP vs HTTPS:** Scriberr automatically uses HTTPS-only cookies for direct TLS requests and HTTP-compatible cookies for direct plain-HTTP requests. Forwarded scheme headers are honored only when the immediate proxy is listed in `TRUSTED_PROXIES`; `SECURE_COOKIES=true` or `false` can force either mode.
+> **HTTP vs HTTPS:** Jotist automatically uses HTTPS-only cookies for direct TLS requests and HTTP-compatible cookies for direct plain-HTTP requests. Forwarded scheme headers are honored only when the immediate proxy is listed in `TRUSTED_PROXIES`; `SECURE_COOKIES=true` or `false` can force either mode.
 
 ### Standard Deployment (CPU)
 
-Use this configuration for running Scriberr on any machine without a dedicated NVIDIA GPU.
+Use this configuration for running Jotist on any machine without a dedicated NVIDIA GPU.
 
 1.  Create a file named `docker-compose.yml`:
 
 ```yaml
 services:
   scriberr:
-    image: ghcr.io/rishikanthc/scriberr:v1.2.0
+    image: ghcr.io/jaysqvl/jotist:1.7.0-rc.1
     ports:
       - "8080:8080"
     volumes:
@@ -144,7 +135,7 @@ If you have a compatible NVIDIA GPU, this configuration enables hardware acceler
 ```yaml
 services:
   scriberr:
-    image: ghcr.io/rishikanthc/scriberr-cuda:v1.2.0
+    image: ghcr.io/jaysqvl/jotist:1.7.0-rc.1-cuda
     ports:
       - "8080:8080"
     volumes:
@@ -183,18 +174,18 @@ docker compose -f docker-compose.cuda.yml up -d
 
 ## App Startup
 
-When you run Scriberr for the first time, it may take several minutes to start. This is normal!
+When you run Jotist for the first time, it may take several minutes to start. This is normal!
 
 The application needs to initialize the Python environments and download the necessary machine learning models (NVIDIA Sortformer, NVIDIA Canary, NVIDIA Parakeet).
 
 **Subsequent runs will be much faster** because all models and environments are persisted to the `env_data` volume (or your local mapped folders).
 
-You will know the application is ready when you see the line: `msg="Scriberr is ready" url=http://0.0.0.0:8080`.
+The application is ready when you see the line: `msg="Jotist is ready" url=http://0.0.0.0:8080`.
 
 **Example Startup Log:**
 
 ```text
-scriberr  | === Scriberr Container Setup ===
+scriberr  | === Jotist Container Setup ===
 scriberr  | Requested UID: 10001, GID: 10001
 scriberr  | Setting up custom user with UID=10001, GID=10001...
 scriberr  | Group with GID 10001 already exists, using it
@@ -202,7 +193,7 @@ scriberr  | usermod: no changes
 scriberr  | Setting up data directories...
 scriberr  | === Setup Complete ===
 scriberr  | Switching to user appuser (UID=10001, GID=10001) and starting application...
-scriberr  | time=02:50:36 level="INFO " msg="Starting Scriberr" version=dev
+scriberr  | time=02:50:36 level="INFO " msg="Starting Jotist" version=dev
 scriberr  | [+] Loading configuration
 scriberr  | time=02:50:36 level="INFO " msg="Registering adapters with environment path" whisperx_env=/app/whisperx-env
 scriberr  | time=02:50:36 level="INFO " msg="Adapter registration complete"
@@ -250,5 +241,5 @@ scriberr  | time=02:55:54 level="INFO " msg="Model initialization completed"
 scriberr  | time=02:55:54 level="INFO " msg="Unified transcription service initialized successfully"
 scriberr  | [+] Initializing quick transcription service
 scriberr  | [+] Starting background processing
-scriberr  | time=02:55:54 level="INFO " msg="Scriberr is ready" url=http://0.0.0.0:8080
+scriberr  | time=02:55:54 level="INFO " msg="Jotist is ready" url=http://0.0.0.0:8080
 ```

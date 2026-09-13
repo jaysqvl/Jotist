@@ -66,12 +66,12 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
 
                 // Design System Colors
                 // Wave: Neutral Gray (Light: #D4D4D4, Dark: #404040)
-                // Progress: Brand Solid #FF6D20
-                // Cursor: Brand Solid #FF6D20 with opacity
+                // Progress: Brand Solid #6356E5
+                // Cursor: Brand Solid #6356E5 with opacity
 
                 const waveColor = isDark ? '#404040' : '#E5E5E5';
-                const progressColor = '#FF6D20'; // Brand Solid
-                const cursorColor = '#FF6D20';   // Brand Solid
+                const progressColor = '#6356E5'; // Brand Solid
+                const cursorColor = '#6356E5';   // Brand Solid
 
                 const ws = WaveSurfer.create({
                     container: containerRef.current!,
@@ -197,8 +197,8 @@ export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(({
                     disabled={isLoading}
                     className={`
                         group relative w-12 h-12 flex-shrink-0 flex items-center justify-center 
-                        rounded-full text-white shadow-lg shadow-orange-500/30 
-                        transition-all duration-300 hover:scale-105 hover:shadow-orange-500/40
+                        rounded-full text-white shadow-lg shadow-brand-500/30
+                        transition-all duration-300 hover:scale-105 hover:shadow-brand-500/40
                         active:scale-95 border-none outline-none
                         ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}
                     `}

@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
-  "bootstrap-sha": "22705cbcb61a72c7ae1b3d54734b7afbcee9ccf7",
+  "bootstrap-sha": "812adc53d0e530a085a59ab66c840080ac317b3c",
   "release-type": "go",
   "include-v-in-tag": true,
   "include-component-in-tag": false,
@@ -24,7 +24,7 @@
   ],
   "packages": {
     ".": {
-      "package-name": "Scriberr"
+      "package-name": "Jotist"
     }
   }
 }

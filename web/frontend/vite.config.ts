@@ -12,27 +12,21 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      includeAssets: ['jotist-icon.png', 'jotist-logo-light.svg', 'jotist-logo-dark.svg'],
       manifest: {
-        name: 'Scriberr',
-        short_name: 'Scriberr',
+        name: 'Jotist',
+        short_name: 'Jotist',
         description: 'Offline Audio Transcription',
-        theme_color: '#8936FF',
-        background_color: '#2EC6FE',
+        theme_color: '#6356E5',
+        background_color: '#171923',
         display: 'standalone',
         orientation: 'any',
         start_url: '/',
         id: 'scriberr-transcription',
         icons: [
           {
-            src: 'icon512_maskable.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'maskable'
-          },
-          {
-            src: 'icon512_rounded.png',
-            sizes: '512x512',
+            src: 'jotist-icon.png',
+            sizes: '1280x1280',
             type: 'image/png',
             purpose: 'any'
           }

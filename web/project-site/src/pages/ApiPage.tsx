@@ -3,7 +3,7 @@ import ApiReference from '../components/ApiReference';
 
 export default function ApiPage() {
     useEffect(() => {
-        document.title = 'Scriberr API Reference';
+        document.title = 'Jotist API Reference';
     }, []);
 
     return <ApiReference />;

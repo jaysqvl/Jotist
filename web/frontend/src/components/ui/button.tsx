@@ -22,7 +22,7 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
         // Brand variant with gradient and micro-animations
         brand:
-          "bg-gradient-to-r from-[var(--brand-start,#FFAB40)] to-[var(--brand-end,#FF3D00)] text-white shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]",
+          "bg-gradient-to-r from-[var(--brand-start,#6356E5)] to-[var(--brand-end,#5143C6)] text-white shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]",
       },
       size: {
         default: "h-9 px-4 py-2 has-[>svg]:px-3",

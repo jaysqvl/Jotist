@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ScriberrLogo } from './ScriberrLogo';
+import { JotistLogo } from './JotistLogo';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -95,16 +95,16 @@ export default function ApiReference() {
             <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-gray-100">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3">
                     <a href="/" className="flex items-center gap-3 select-none min-w-0">
-                        <ScriberrLogo />
+                        <JotistLogo />
                         <span className="text-gray-300 text-lg font-light">/</span>
-                        <span className="text-sm font-semibold text-[#FF6D20] tracking-wide uppercase pt-1">API Reference</span>
+                        <span className="text-sm font-semibold text-[#6356E5] tracking-wide uppercase pt-1">API Reference</span>
                     </a>
                     <div className="flex items-center gap-2 w-full sm:w-auto">
                         <input
                             placeholder="Search endpoints"
                             value={filter}
                             onChange={(e) => setFilter(e.target.value)}
-                            className="w-full sm:w-64 rounded-lg border border-gray-200 bg-gray-50/50 px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-[#FF6D20]/20 focus:border-[#FF6D20] transition-colors"
+                            className="w-full sm:w-64 rounded-lg border border-gray-200 bg-gray-50/50 px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-[#6356E5]/20 focus:border-[#6356E5] transition-colors"
                         />
                         <button
                             className="sm:hidden inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-gray-700 hover:bg-gray-50"
@@ -127,7 +127,7 @@ export default function ApiReference() {
                             {tagOrder.length > 0 ? (
                                 tagOrder.map((tag) => (
                                     <li key={`m-${tag}`}>
-                                        <a href={`#tag-${encodeURIComponent(tag)}`} className="text-gray-700 hover:text-[#FF6D20] transition-colors block py-1" onClick={() => setMobileTagsOpen(false)}>{tag}</a>
+                                        <a href={`#tag-${encodeURIComponent(tag)}`} className="text-gray-700 hover:text-[#6356E5] transition-colors block py-1" onClick={() => setMobileTagsOpen(false)}>{tag}</a>
                                     </li>
                                 ))
                             ) : (
@@ -145,7 +145,7 @@ export default function ApiReference() {
                 )}
 
                 <div className="mb-12">
-                    <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-gray-900 font-heading mb-2">{doc?.info?.title || 'Scriberr API'}</h1>
+                    <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-gray-900 font-heading mb-2">{doc?.info?.title || 'Jotist API'}</h1>
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                         <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 font-medium">v{doc?.info?.version || '1.0.0'}</span>
                         {doc && <BaseURL doc={doc} />}
@@ -272,7 +272,7 @@ function AuthIntro() {
                 <div className="grid lg:grid-cols-5">
                     <div className="lg:col-span-2 p-6 md:p-8 border-b lg:border-b-0 lg:border-r border-gray-100 flex flex-col justify-center">
                         <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                            <div className="p-2 rounded-lg bg-orange-100 text-[#FF6D20]">
+                            <div className="p-2 rounded-lg bg-brand-100 text-[#6356E5]">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
                             </div>
                             Authentication
@@ -367,7 +367,7 @@ function EndpointCard({ ep, doc }: { ep: Endpoint; doc: SwaggerDoc }) {
                             <code className="text-sm font-semibold text-gray-900 truncate font-mono">{ep.path}</code>
                             {ep.summary && <span className="text-gray-400">/</span>}
                             {ep.summary && <div className="text-sm text-gray-600 truncate">{ep.summary}</div>}
-                            <a href={`#${id}`} title="Permalink" className="ml-auto text-gray-300 hover:text-[#FF6D20] opacity-0 group-hover:opacity-100 transition-opacity p-1">#</a>
+                            <a href={`#${id}`} title="Permalink" className="ml-auto text-gray-300 hover:text-[#6356E5] opacity-0 group-hover:opacity-100 transition-opacity p-1">#</a>
                         </div>
                         {!expanded && ep.description && (
                             <div className="text-xs text-gray-500 mt-1 truncate max-w-2xl">{ep.description}</div>
@@ -399,7 +399,7 @@ function EndpointCard({ ep, doc }: { ep: Endpoint; doc: SwaggerDoc }) {
                                     <ParamGroups params={showAllParams ? parameters : parameters.slice(0, 8)} />
                                 </div>
                                 {parameters.length > 8 && (
-                                    <button onClick={() => setShowAllParams((v) => !v)} className="mt-2 text-xs font-medium text-[#FF6D20] hover:text-orange-700">
+                                    <button onClick={() => setShowAllParams((v) => !v)} className="mt-2 text-xs font-medium text-[#6356E5] hover:text-brand-700">
                                         {showAllParams ? 'Show less' : `Show all ${parameters.length} parameters`}
                                     </button>
                                 )}

@@ -47,12 +47,12 @@ export function APIKeySettings() {
 							API Keys
 						</h3>
 						<p className="text-sm text-[var(--text-secondary)] mt-1">
-							Manage your API keys for external access to Scriberr.
+							Manage your API keys for external access to Jotist.
 						</p>
 					</div>
 					<Button
 						onClick={handleCreateAPIKey}
-						className="!bg-[var(--brand-gradient)] hover:!opacity-90 !text-black dark:!text-white shadow-lg shadow-orange-500/20 border-none"
+						className="!bg-[image:var(--brand-gradient)] hover:!opacity-90 !text-white shadow-lg shadow-brand-500/20 border-none"
 					>
 						Create New API Key
 					</Button>

@@ -781,7 +781,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 										"group relative flex justify-between items-center p-4",
 										"bg-[var(--bg-card)] rounded-xl border border-[var(--border-subtle)]",
 										"shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer select-none",
-										rowSelection[file.id as keyof typeof rowSelection] && "border-[var(--brand-solid)] ring-1 ring-[var(--brand-solid)]/10 bg-orange-50 dark:bg-orange-950"
+										rowSelection[file.id as keyof typeof rowSelection] && "border-[var(--brand-solid)] ring-1 ring-[var(--brand-solid)]/10 bg-brand-50 dark:bg-brand-950"
 									)}
 									onClick={(e) => handleRowClick(file, e)}
 									onMouseDown={(e) => startLongPress(file.id, e)}
@@ -793,13 +793,13 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 								>
 									<div className="flex items-center gap-4 min-w-0 transition-[padding] duration-200">
 										{/* Icon (Tinted Pastel Square) - Lighter Shade */}
-										<div className="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-xl bg-[#FFFAF0] text-[#FF6D20] transition-opacity duration-200">
+										<div className="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-xl bg-[#F4F2FF] text-[#6356E5] transition-opacity duration-200">
 											<FileAudio className="h-6 w-6" strokeWidth={2} />
 										</div>
 
 										{/* Text */}
 										<div className="min-w-0">
-											<h4 className="font-normal text-gray-900 dark:text-gray-100 truncate text-lg leading-tight group-hover:text-[#FF6D20] transition-colors">
+											<h4 className="font-normal text-gray-900 dark:text-gray-100 truncate text-lg leading-tight group-hover:text-[#6356E5] transition-colors">
 												{file.title || getFileName(file.audio_path)}
 											</h4>
 											<div className="flex items-center gap-1.5 mt-1 text-sm text-gray-500">
@@ -823,7 +823,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 																variant="ghost"
 																size="icon"
 																onClick={() => handleTranscribeDClick(file.id)}
-																className="h-9 w-9 rounded-lg text-gray-400 hover:text-[var(--brand-solid)] hover:bg-orange-50 cursor-pointer transition-colors"
+																className="h-9 w-9 rounded-lg text-gray-400 hover:text-[var(--brand-solid)] hover:bg-brand-50 cursor-pointer transition-colors"
 															>
 																<Wand2 className="h-5 w-5" strokeWidth={2} />
 															</Button>
@@ -837,7 +837,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 																variant="ghost"
 																size="icon"
 																onClick={() => handleTranscribeClick(file.id)}
-																className="h-9 w-9 rounded-lg text-gray-400 hover:text-[var(--brand-solid)] hover:bg-orange-50 cursor-pointer transition-colors"
+																className="h-9 w-9 rounded-lg text-gray-400 hover:text-[var(--brand-solid)] hover:bg-brand-50 cursor-pointer transition-colors"
 															>
 																<WandAdvancedIcon className="h-5 w-5" strokeWidth={2} />
 															</Button>

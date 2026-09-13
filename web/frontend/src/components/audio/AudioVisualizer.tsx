@@ -126,11 +126,11 @@ export function AudioVisualizer({
         const TOTAL_ROW_HEIGHT = TILE_SIZE + ROW_GAP;
         const COL_WIDTH = TILE_SIZE + COL_GAP;
 
-        // --- THEME GRADIENT (Electric Ember) ---
+        // --- THEME GRADIENT (Jotist indigo and cyan) ---
         const gradient = ctx.createLinearGradient(0, 0, 0, dimensions.height);
-        gradient.addColorStop(0, "#FFAB40"); // Top: Amber
-        gradient.addColorStop(0.5, "#FF6D1F"); // Mid: Orange
-        gradient.addColorStop(1, "#FF3D00");   // Bottom: Deep Red
+        gradient.addColorStop(0, "#22C7D8"); // Cyan peaks
+        gradient.addColorStop(0.5, "#6356E5"); // Indigo
+        gradient.addColorStop(1, "#5143C6");   // Deep indigo
 
         const draw = () => {
             // Ensure we have data array buffer
@@ -194,7 +194,7 @@ export function AudioVisualizer({
                         ctx.globalAlpha = 1.0;
                     } else if (j === peakTile && peakTile > 0 && isPlaying) {
                         // Floating Peak
-                        ctx.fillStyle = "#FFAB40";
+                        ctx.fillStyle = "#22C7D8";
                         ctx.globalAlpha = 0.5;
                         ctx.beginPath();
                         if (ctx.roundRect) {

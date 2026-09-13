@@ -505,14 +505,14 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
               {(messages || []).map(message => (
                 <div key={message.id} className="group w-full">
                   {message.role === "user" ? (
-                    /* User Message - Scriberr Design System */
+                    /* User Message - Jotist Design System */
                     <div className="flex justify-end">
                       <div className="flex w-full px-2 mx-auto">
                         <div className="w-full flex justify-end">
                           <div className="flex gap-3 max-w-3xl">
                             <div className="flex-1 overflow-hidden">
                               {/* User card with brand gradient accent */}
-                              <div className="relative bg-gradient-to-br from-[#FFAB40]/8 to-[#FF6D20]/5 dark:from-[#FFAB40]/10 dark:to-[#FF6D20]/5 text-[var(--text-primary)] rounded-2xl rounded-tr-sm px-4 py-3 border border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.08)] shadow-[0_2px_4px_rgba(0,0,0,0.04),0_8px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_4px_rgba(0,0,0,0.2),0_8px_16px_rgba(0,0,0,0.1)] hover:shadow-[0_4px_8px_rgba(0,0,0,0.06),0_12px_24px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all duration-200">
+                              <div className="relative bg-gradient-to-br from-[#6356E5]/8 to-[#6356E5]/5 dark:from-[#6356E5]/10 dark:to-[#6356E5]/5 text-[var(--text-primary)] rounded-2xl rounded-tr-sm px-4 py-3 border border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.08)] shadow-[0_2px_4px_rgba(0,0,0,0.04),0_8px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_4px_rgba(0,0,0,0.2),0_8px_16px_rgba(0,0,0,0.1)] hover:shadow-[0_4px_8px_rgba(0,0,0,0.06),0_12px_24px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all duration-200">
                                 {/* Copy button */}
                                 <Button
                                   variant="ghost"
@@ -529,7 +529,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
                               </div>
                             </div>
                             {/* User avatar with brand accent */}
-                            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#FFAB40] to-[#FF6D20] flex items-center justify-center flex-shrink-0 shadow-md">
+                            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#6356E5] to-[#6356E5] flex items-center justify-center flex-shrink-0 shadow-md">
                               <User className="h-4 w-4 text-white" />
                             </div>
                           </div>
@@ -537,7 +537,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
                       </div>
                     </div>
                   ) : (
-                    /* Assistant Message - Scriberr Design System */
+                    /* Assistant Message - Jotist Design System */
                     <div className="flex justify-start">
                       <div className="flex w-full px-2 mx-auto">
                         <div className="w-full flex justify-start">
@@ -659,7 +659,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
           <div className="pb-4 pt-2 bg-gradient-to-t from-background via-background to-transparent sticky bottom-0 z-20 pb-[env(safe-area-inset-bottom)]">
             <div className="flex w-full px-3 mx-auto">
               <div className="w-full">
-                <div className="flex items-center gap-2 bg-[#F9FAFB] dark:bg-zinc-900 rounded-full p-2 mx-auto shadow-sm border border-transparent focus-within:border-[#FF6D20] focus-within:ring-1 focus-within:ring-[#FF6D20]/20 transition-all duration-300">
+                <div className="flex items-center gap-2 bg-[#F9FAFB] dark:bg-zinc-900 rounded-full p-2 mx-auto shadow-sm border border-transparent focus-within:border-[#6356E5] focus-within:ring-1 focus-within:ring-[#6356E5]/20 transition-all duration-300">
                   <Input
                     ref={inputRef}
                     value={inputMessage}
@@ -677,7 +677,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
                       "h-9 w-9 p-0 rounded-full shadow-sm transition-all duration-300 hover:scale-105 active:scale-95",
                       !inputMessage.trim() || isLoading
                         ? "bg-gray-200 text-gray-400 dark:bg-zinc-800 dark:text-zinc-600"
-                        : "bg-gradient-to-br from-[#FFAB40] to-[#FF3D00] text-white shadow-orange-500/20"
+                        : "bg-gradient-to-br from-[#6356E5] to-[#5143C6] text-white shadow-brand-500/20"
                     )}
                   >
                     <Send className="h-4 w-4" />
@@ -690,7 +690,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
                       <span className={cn(
                         "px-2 py-0.5 rounded-full font-medium",
                         contextInfo.used / contextInfo.limit > 0.8
-                          ? "bg-orange-500/10 text-orange-600 dark:text-orange-400"
+                          ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
                           : "bg-muted text-muted-foreground"
                       )}>
                         {Math.round((contextInfo.used / contextInfo.limit) * 100)}% context

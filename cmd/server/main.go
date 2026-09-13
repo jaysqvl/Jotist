@@ -28,9 +28,9 @@ import (
 	"scriberr/pkg/logger"
 )
 
-// @title Scriberr API
+// @title Jotist API
 // @version 1.0
-// @description Audio transcription service using WhisperX
+// @description Self-hosted audio transcription with local models and optional cloud providers
 // @termsOfService http://swagger.io/terms/
 
 // @contact.name API Support
@@ -58,7 +58,7 @@ func main() {
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Printf("Scriberr %s\n", appversion.Version)
+		fmt.Printf("Jotist %s\n", appversion.Version)
 		fmt.Printf("Commit: %s\n", appversion.Commit)
 		fmt.Printf("Built: %s\n", appversion.Date)
 		os.Exit(0)
@@ -66,7 +66,7 @@ func main() {
 
 	// Initialize structured logging first
 	logger.Init(os.Getenv("LOG_LEVEL"))
-	logger.Info("Starting Scriberr", "version", appversion.Version, "commit", appversion.Commit)
+	logger.Info("Starting Jotist", "version", appversion.Version, "commit", appversion.Commit)
 
 	// Load configuration
 	logger.Startup("config", "Loading configuration")
@@ -204,7 +204,7 @@ func main() {
 
 	// Give the server a moment to start
 	time.Sleep(100 * time.Millisecond)
-	logger.Info("Scriberr is ready",
+	logger.Info("Jotist is ready",
 		"url", fmt.Sprintf("http://%s:%s", cfg.Host, cfg.Port))
 	logger.Debug("API documentation available at /swagger/index.html")
 

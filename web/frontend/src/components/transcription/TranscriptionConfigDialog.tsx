@@ -515,7 +515,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                             options={modelChoices.map((choice) => ({ value: choice.value, label: choice.label, description: modelChoiceMetrics(choice, modelSort), disabled: false }))} />
                         {selectedChoice?.recommendationReason && <p className="text-sm leading-6 text-[var(--text-primary)]">Recommended #{selectedChoice.recommendationRank} · {selectedChoice.recommendationReason}</p>}
                         {modelSort === "recommended" && <p className="text-xs leading-5 text-[var(--text-secondary)]">Recommendation based on published results and meeting features; not measured on your recordings.</p>}
-                        <p className="text-xs leading-5 text-[var(--text-secondary)]">Local models run on your Scriberr server. Cloud APIs upload audio. Published WER is not accuracy on your recordings. RAM and VRAM are planning estimates for batch size 1. Unknown results sort last.</p>
+                        <p className="text-xs leading-5 text-[var(--text-secondary)]">Local models run on your Jotist server. Cloud APIs upload audio. Published WER is not accuracy on your recordings. RAM and VRAM are planning estimates for batch size 1. Unknown results sort last.</p>
                         {catalogLoading && <p role="status" className="text-xs text-[var(--text-secondary)]">Loading model capabilities…</p>}
                         {catalogError && <p role="alert" className="text-xs text-[var(--warning-solid)]">{catalogError}</p>}
                     </div>
@@ -523,7 +523,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                     {cloudSelected ? <InfoBanner variant="warning" title="Cloud · audio uploaded to OpenAI">
                         This model sends your recording to the OpenAI API for transcription. It runs on OpenAI’s servers and requires an API key.
                     </InfoBanner> : <>
-                        <p className="text-sm font-medium text-[var(--text-primary)]">{modelExecutionLocation(params.model_family, selectedCapability) === "local" ? "Local · runs on your Scriberr server" : "Check model execution location"}</p>
+                        <p className="text-sm font-medium text-[var(--text-primary)]">{modelExecutionLocation(params.model_family, selectedCapability) === "local" ? "Local · runs on your Jotist server" : "Check model execution location"}</p>
                         {selectedCapability && <ModelComparisonDetails model={selectedCapability} variant={params.model} device={params.device} precision={transcriptionPrecision(params)} batchSize={params.batch_size} />}
                         {selectedCapability && <PipelineMemoryDetails params={params} models={modelCapabilities} />}
                     </>}
@@ -596,7 +596,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                     <Button
                         onClick={handleSubmit}
                         disabled={loading || requiresCustomHFToken || adaptiveErrors.length > 0 || (isProfileMode && !profileName.trim())}
-                        className="rounded-xl text-white cursor-pointer bg-gradient-to-r from-[#FFAB40] to-[#FF3D00] hover:opacity-90 active:scale-[0.98] transition-all shadow-lg shadow-orange-500/20"
+                        className="rounded-xl text-white cursor-pointer bg-gradient-to-r from-[#6356E5] to-[#5143C6] hover:opacity-90 active:scale-[0.98] transition-all shadow-lg shadow-brand-500/20"
                     >
                         {loading ? (
                             <>

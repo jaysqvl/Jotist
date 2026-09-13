@@ -21,6 +21,7 @@ env-data
 
 # Build Artifacts and Binaries
 scriberr
+jotist
 server
 main
 *.exe
@@ -37,6 +38,8 @@ data
 data_bak
 scriberr-data
 scriberr_data
+jotist-data
+jotist_data
 .dockerdata
 *.log
 *.zip
@@ -52,7 +55,6 @@ manifest_and_icons
 manifest_and_icons.zip
 CLAUDE.md
 README.md
-LICENSE
 
 # Docker related (exclude other docker files from context)
 Dockerfile*

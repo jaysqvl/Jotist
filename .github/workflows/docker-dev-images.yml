@@ -1,241 +1,213 @@
-name: Publish Docker dev images
+name: Publish container images
 
+# No tag-push trigger: legacy tag imports cannot publish images.
 on:
   workflow_call:
     inputs:
       source_repository:
-        description: Source repository to build.
+        description: Must be this repository.
         required: true
         type: string
       upstream_ref:
-        description: Upstream branch, tag, or SHA to build.
+        description: Source branch, tag, or commit.
         required: true
         type: string
       image_channel:
-        description: Docker tag channel to publish.
+        description: Container tag without a leading v.
         required: true
         type: string
       variants:
-        description: Image variant to build.
-        required: false
         default: all
         type: string
       publish_latest:
-        description: Also publish latest tags for the selected variants.
-        required: false
         default: false
         type: boolean
+      validated_source_sha:
+        description: Exact commit already validated by the calling release workflow; omit to run validation here.
+        default: ''
+        type: string
   workflow_dispatch:
     inputs:
       source_repository:
-        description: Source repository to build.
+        description: Must be this repository.
         required: true
-        default: jaysqvl/Scriberr
+        default: jaysqvl/Jotist
+        type: string
       upstream_ref:
-        description: Upstream branch, tag, or SHA to build.
+        description: Source branch, tag, or commit.
         required: true
         default: main
+        type: string
       image_channel:
-        description: Docker tag channel to publish.
+        description: Container tag without a leading v, such as 1.7.0-rc.1.
         required: true
-        default: manual
+        default: preview
+        type: string
       variants:
-        description: Image variant to build.
         required: true
         default: all
         type: choice
-        options:
-          - all
-          - cpu
-          - cuda
-          - blackwell
+        options: [all, cpu, cuda, blackwell]
       publish_latest:
-        description: Also publish latest tags for the selected variants.
-        required: true
+        description: Update latest only for a matching stable version tag.
         default: false
         type: boolean
-  push:
-    tags:
-      - "v*.*.*"
-      - "docker-build-*"
 
 permissions:
   contents: read
-  packages: write
 
 concurrency:
-  group: docker-dev-images-${{ inputs.upstream_ref || vars.SCRIBERR_UPSTREAM_REF || github.ref_name }}
+  group: jotist-images-${{ inputs.image_channel }}
   cancel-in-progress: false
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAMESPACE: ${{ github.repository_owner }}
-
 jobs:
-  publish:
-    name: Publish ${{ matrix.variant }} image
+  resolve:
+    name: Resolve immutable image source
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - variant: cpu
-            dockerfile: Dockerfile
-            tag_suffix: ""
-          - variant: cuda
-            dockerfile: Dockerfile.cuda
-            tag_suffix: "-cuda"
-          - variant: blackwell
-            dockerfile: Dockerfile.cuda.12.9
-            tag_suffix: "-blackwell"
-
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+      short_sha: ${{ steps.source.outputs.short_sha }}
+      image_channel: ${{ steps.settings.outputs.image_channel }}
+      matrix: ${{ steps.settings.outputs.matrix }}
+      publish_latest: ${{ steps.source.outputs.publish_latest }}
+      already_validated: ${{ steps.source.outputs.already_validated }}
     steps:
-      - name: Resolve build settings
+      - name: Validate build inputs
         id: settings
         shell: bash
         env:
-          EVENT_NAME: ${{ github.event_name }}
-          REF_NAME: ${{ github.ref_name }}
-          INPUT_SOURCE_REPOSITORY: ${{ inputs.source_repository }}
-          INPUT_UPSTREAM_REF: ${{ inputs.upstream_ref }}
-          INPUT_IMAGE_CHANNEL: ${{ inputs.image_channel }}
-          INPUT_VARIANTS: ${{ inputs.variants }}
-          INPUT_PUBLISH_LATEST: ${{ inputs.publish_latest }}
-          VAR_SOURCE_REPOSITORY: ${{ vars.SCRIBERR_SOURCE_REPOSITORY }}
-          VAR_UPSTREAM_REF: ${{ vars.SCRIBERR_UPSTREAM_REF }}
-          VAR_IMAGE_CHANNEL: ${{ vars.SCRIBERR_IMAGE_CHANNEL }}
-          GITHUB_REPOSITORY_NAME: ${{ github.repository }}
+          SOURCE_REPOSITORY: ${{ inputs.source_repository }}
+          IMAGE_CHANNEL: ${{ inputs.image_channel }}
+          VARIANTS: ${{ inputs.variants }}
         run: |
-          source_repository="${INPUT_SOURCE_REPOSITORY:-${VAR_SOURCE_REPOSITORY:-$GITHUB_REPOSITORY_NAME}}"
-          source_ref="${INPUT_UPSTREAM_REF:-${VAR_UPSTREAM_REF:-main}}"
-          image_channel="${INPUT_IMAGE_CHANNEL:-${VAR_IMAGE_CHANNEL:-manual}}"
-          variants="${INPUT_VARIANTS:-all}"
-          publish_latest="${INPUT_PUBLISH_LATEST:-false}"
-          build_date="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-
-          if [[ "$EVENT_NAME" == "push" && "$REF_NAME" == docker-build-* ]]; then
-            image_channel="${REF_NAME#docker-build-}"
-            source_repository="$GITHUB_REPOSITORY_NAME"
-            source_ref="$image_channel"
-            variants="all"
-            publish_latest="true"
-          elif [[ "$EVENT_NAME" == "push" && "$REF_NAME" == v*.*.* ]]; then
-            image_channel="${REF_NAME#v}"
-            source_repository="$GITHUB_REPOSITORY_NAME"
-            source_ref="$REF_NAME"
-            variants="all"
-            publish_latest="true"
+          if [[ "$SOURCE_REPOSITORY" != "$GITHUB_REPOSITORY" ]]; then
+            echo "::error::Jotist images must be built from this repository."
+            exit 1
           fi
-
-          {
-            echo "source_repository=$source_repository"
-            echo "source_ref=$source_ref"
-            echo "image_channel=$image_channel"
-            echo "variants=$variants"
-            echo "publish_latest=$publish_latest"
-            echo "build_date=$build_date"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Check selected variant
-        id: variant
-        shell: bash
-        run: |
-          if [[ "${{ steps.settings.outputs.variants }}" != "all" && "${{ steps.settings.outputs.variants }}" != "${{ matrix.variant }}" ]]; then
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          if [[ ! "$IMAGE_CHANNEL" =~ ^[a-z0-9_][a-z0-9_.-]{0,79}$ || "$IMAGE_CHANNEL" == latest ]]; then
+            echo "::error::Use a lowercase version or preview channel, not latest."
+            exit 1
           fi
+          case "$VARIANTS" in all|cpu|cuda|blackwell) ;; *) exit 1 ;; esac
+          matrix='[{"variant":"cpu","dockerfile":"Dockerfile","suffix":""},{"variant":"cuda","dockerfile":"Dockerfile.cuda","suffix":"-cuda"},{"variant":"blackwell","dockerfile":"Dockerfile.cuda.12.9","suffix":"-blackwell"}]'
+          matrix="$(jq -c --arg variant "$VARIANTS" '{include: map(select($variant == "all" or .variant == $variant))}' <<< "$matrix")"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "image_channel=$IMAGE_CHANNEL" >> "$GITHUB_OUTPUT"
 
-      - name: Checkout upstream source
-        if: steps.variant.outputs.enabled == 'true'
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v7
         with:
-          repository: ${{ steps.settings.outputs.source_repository }}
-          ref: ${{ steps.settings.outputs.source_ref }}
-          fetch-depth: 1
+          ref: ${{ inputs.upstream_ref }}
+          fetch-depth: 0
 
-      - name: Check variant Dockerfile
-        if: steps.variant.outputs.enabled == 'true'
-        id: dockerfile
-        shell: bash
-        run: |
-          if [[ -f "${{ matrix.dockerfile }}" ]]; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Skipping ${{ matrix.variant }} because ${{ matrix.dockerfile }} does not exist in ${{ steps.settings.outputs.source_repository }}@${{ steps.settings.outputs.source_ref }}"
-            echo "Skipping ${{ matrix.variant }}: ${{ matrix.dockerfile }} does not exist in ${{ steps.settings.outputs.source_repository }}@${{ steps.settings.outputs.source_ref }}." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-      - name: Capture source metadata
-        if: steps.variant.outputs.enabled == 'true' && steps.dockerfile.outputs.exists == 'true'
+      - name: Guard source and stable aliases
         id: source
         shell: bash
+        env:
+          VALIDATED_SHA: ${{ inputs.validated_source_sha }}
+          IMAGE_CHANNEL: ${{ steps.settings.outputs.image_channel }}
+          INPUT_LATEST: ${{ inputs.publish_latest }}
         run: |
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          echo "short_sha=$(git rev-parse --short=12 HEAD)" >> "$GITHUB_OUTPUT"
+          sha="$(git rev-parse HEAD)"
+          already_validated=false
+          if [[ -n "$VALIDATED_SHA" ]]; then
+            if [[ ! "$VALIDATED_SHA" =~ ^[0-9a-f]{40}$ || "$VALIDATED_SHA" != "$sha" ]]; then
+              echo "::error::Image source differs from the validated release commit."
+              exit 1
+            fi
+            already_validated=true
+          fi
+          latest=false
+          if [[ "$INPUT_LATEST" == true && "$IMAGE_CHANNEL" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            test "$(git rev-parse "refs/tags/v${IMAGE_CHANNEL}^{commit}")" = "$sha"
+            latest=true
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${sha:0:12}" >> "$GITHUB_OUTPUT"
+          echo "publish_latest=$latest" >> "$GITHUB_OUTPUT"
+          echo "already_validated=$already_validated" >> "$GITHUB_OUTPUT"
 
-      - name: Set up Docker Buildx
-        if: steps.variant.outputs.enabled == 'true' && steps.dockerfile.outputs.exists == 'true'
-        uses: docker/setup-buildx-action@v4
+  validate:
+    name: Validate manually selected image source
+    needs: resolve
+    if: needs.resolve.outputs.already_validated != 'true'
+    uses: ./.github/workflows/release-validation.yml
+    with:
+      source_ref: ${{ needs.resolve.outputs.sha }}
 
-      - name: Log in to GitHub Container Registry
-        if: steps.variant.outputs.enabled == 'true' && steps.dockerfile.outputs.exists == 'true'
-        uses: docker/login-action@v4
+  publish:
+    name: Publish ${{ matrix.variant }} image
+    needs: [resolve, validate]
+    if: always() && needs.resolve.result == 'success' && (needs.validate.result == 'success' || (needs.validate.result == 'skipped' && needs.resolve.outputs.already_validated == 'true'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.resolve.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v7
         with:
-          registry: ${{ env.REGISTRY }}
+          ref: ${{ needs.resolve.outputs.sha }}
+
+      - name: Prepare image metadata
+        id: metadata
+        shell: bash
+        env:
+          OWNER: ${{ github.repository_owner }}
+          IMAGE_CHANNEL: ${{ needs.resolve.outputs.image_channel }}
+          SHORT_SHA: ${{ needs.resolve.outputs.short_sha }}
+          PUBLISH_LATEST: ${{ needs.resolve.outputs.publish_latest }}
+          SUFFIX: ${{ matrix.suffix }}
+        run: |
+          repo="ghcr.io/${OWNER,,}/jotist"
+          tags="${repo}:${IMAGE_CHANNEL}${SUFFIX}"
+          tags="${tags}"$'\n'"${repo}:${IMAGE_CHANNEL}${SUFFIX}-${SHORT_SHA}"
+          if [[ "$PUBLISH_LATEST" == true ]]; then tags="${tags}"$'\n'"${repo}:latest${SUFFIX}"; fi
+          echo "repository=$repo" >> "$GITHUB_OUTPUT"
+          echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+          {
+            echo 'tags<<EOF'
+            printf '%s\n' "$tags"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Prepare image tags
-        if: steps.variant.outputs.enabled == 'true' && steps.dockerfile.outputs.exists == 'true'
-        id: tags
-        shell: bash
-        env:
-          SHORT_SHA: ${{ steps.source.outputs.short_sha }}
-          IMAGE_CHANNEL: ${{ steps.settings.outputs.image_channel }}
-          PUBLISH_LATEST: ${{ steps.settings.outputs.publish_latest }}
-        run: |
-          channel="$(printf '%s' "$IMAGE_CHANNEL" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9_.-]+/-/g; s/^-+|-+$//g')"
-          if [[ -z "$channel" ]]; then
-            channel="nightly"
-          fi
-
-          namespace="$(printf '%s' "$IMAGE_NAMESPACE" | tr '[:upper:]' '[:lower:]')"
-          repo="${REGISTRY}/${namespace}/scriberr"
-          suffix="${{ matrix.tag_suffix }}"
-          tags="${repo}:${channel}${suffix}"
-          tags="${tags}"$'\n'"${repo}:${channel}${suffix}-${SHORT_SHA}"
-
-          if [[ "$PUBLISH_LATEST" == "true" ]]; then
-            if [[ -z "$suffix" ]]; then
-              tags="${tags}"$'\n'"${repo}:latest"
-            else
-              tags="${tags}"$'\n'"${repo}:latest${suffix}"
-            fi
-          fi
-
-          {
-            echo "tags<<EOF"
-            printf '%s\n' "$tags"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Build and push image
-        if: steps.variant.outputs.enabled == 'true' && steps.dockerfile.outputs.exists == 'true'
+      - name: Build and publish image
+        id: build
         uses: docker/build-push-action@v7
         with:
           context: .
           file: ${{ matrix.dockerfile }}
           platforms: linux/amd64
           push: true
-          tags: ${{ steps.tags.outputs.tags }}
+          tags: ${{ steps.metadata.outputs.tags }}
           build-args: |
-            VERSION=${{ steps.settings.outputs.image_channel }}
-            COMMIT=${{ steps.source.outputs.sha }}
-            DATE=${{ steps.settings.outputs.build_date }}
+            VERSION=${{ needs.resolve.outputs.image_channel }}
+            COMMIT=${{ needs.resolve.outputs.sha }}
+            DATE=${{ steps.metadata.outputs.date }}
           labels: |
-            org.opencontainers.image.title=Scriberr
-            org.opencontainers.image.source=https://github.com/${{ steps.settings.outputs.source_repository }}
-            org.opencontainers.image.revision=${{ steps.source.outputs.sha }}
-            org.opencontainers.image.ref.name=${{ steps.settings.outputs.source_ref }}
+            org.opencontainers.image.title=Jotist
+            org.opencontainers.image.description=Self-hosted audio transcription, derived from Scriberr
+            org.opencontainers.image.licenses=MIT
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ needs.resolve.outputs.sha }}
+            org.opencontainers.image.version=${{ needs.resolve.outputs.image_channel }}
+
+      - name: Record immutable deployment reference
+        env:
+          REPOSITORY: ${{ steps.metadata.outputs.repository }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+          REVISION: ${{ needs.resolve.outputs.sha }}
+          VARIANT: ${{ matrix.variant }}
+        run: |
+          echo "### Jotist $VARIANT" >> "$GITHUB_STEP_SUMMARY"
+          echo "Image: \`$REPOSITORY@$DIGEST\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Source: \`$REVISION\`" >> "$GITHUB_STEP_SUMMARY"

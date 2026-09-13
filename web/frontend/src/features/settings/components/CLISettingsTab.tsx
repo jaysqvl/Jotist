@@ -38,7 +38,7 @@ export function CLISettingsTab() {
                         Installation
                     </h2>
                     <p className="text-[var(--text-secondary)] mb-6">
-                        Run this command in your terminal to install the Scriberr CLI. This script will automatically detect your OS and architecture.
+                        Run this command in your terminal to install the Jotist CLI. This script detects your OS and architecture. The command remains scriberr for compatibility with existing scripts.
                     </p>
 
                     <div className="relative">

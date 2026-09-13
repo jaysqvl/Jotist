@@ -139,13 +139,13 @@ export function SummaryDialog({ audioId, isOpen, onClose, llmReady }: SummaryDia
     };
 
     if (showOutput) {
-        // Output View - Redesigned with Scriberr Design System
+        // Output View - Redesigned with Jotist Design System
         return (
             <Dialog open={isOpen} onOpenChange={handleOpenChange}>
                 <DialogContent className="w-[calc(100%-2rem)] max-w-4xl mx-auto bg-[var(--bg-card)] dark:bg-[#0A0A0A] border border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.08)] shadow-[0_2px_4px_rgba(0,0,0,0.04),0_24px_48px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_4px_rgba(0,0,0,0.3),0_24px_48px_rgba(0,0,0,0.3)] p-0 rounded-2xl max-h-[85vh] overflow-hidden">
                     <DialogHeader className="p-5 pb-4 border-b border-[rgba(0,0,0,0.06)] dark:border-[rgba(255,255,255,0.08)]">
                         <DialogTitle className="text-xl font-bold text-[var(--text-primary)] flex items-center gap-2">
-                            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#FFAB40] to-[#FF6D20] flex items-center justify-center shadow-md">
+                            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#6356E5] to-[#6356E5] flex items-center justify-center shadow-md">
                                 <Sparkles className="h-4 w-4 text-white" />
                             </div>
                             Summary
@@ -252,7 +252,7 @@ export function SummaryDialog({ audioId, isOpen, onClose, llmReady }: SummaryDia
         );
     }
 
-    // Template Selector View - Redesigned with Scriberr Design System
+    // Template Selector View - Redesigned with Jotist Design System
     return (
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
             <DialogContent
@@ -266,7 +266,7 @@ export function SummaryDialog({ audioId, isOpen, onClose, llmReady }: SummaryDia
             >
                 <DialogHeader className="p-5 pb-0">
                     <DialogTitle className="text-xl font-bold text-[var(--text-primary)] flex items-center gap-2">
-                        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#FFAB40] to-[#FF6D20] flex items-center justify-center shadow-md">
+                        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#6356E5] to-[#6356E5] flex items-center justify-center shadow-md">
                             <FileText className="h-4 w-4 text-white" />
                         </div>
                         Summarize Transcript
@@ -349,7 +349,7 @@ export function SummaryDialog({ audioId, isOpen, onClose, llmReady }: SummaryDia
                     <Button
                         disabled={!selectedTemplateId || !selectedTemplate?.model || !llmReady}
                         onClick={handleStartSummary}
-                        className="h-11 px-6 bg-gradient-to-br from-[#FFAB40] to-[#FF3D00] text-white hover:scale-[1.02] active:scale-[0.98] transition-transform shadow-md disabled:opacity-50 disabled:cursor-not-allowed rounded-full w-full sm:w-auto"
+                        className="h-11 px-6 bg-gradient-to-br from-[#6356E5] to-[#5143C6] text-white hover:scale-[1.02] active:scale-[0.98] transition-transform shadow-md disabled:opacity-50 disabled:cursor-not-allowed rounded-full w-full sm:w-auto"
                     >
                         <Sparkles className="h-4 w-4 mr-2" />
                         Generate Summary
