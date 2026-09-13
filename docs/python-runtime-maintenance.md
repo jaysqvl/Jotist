@@ -4,6 +4,11 @@ Jotist uses a shared PyTorch implementation across its model adapters. Separate
 Python environments isolate conflicting package requirements; they are not
 security sandboxes. Several models already share each environment.
 
+The corrected runtime candidate is RC3, pending publication and installed-state
+qualification. RC2 failed staging because existing lockfiles retained older
+dependencies and readiness left packages outside the resolved environment
+installed. Production remains on RC1 until the corrected candidate qualifies.
+
 ## Runtime groups
 
 | Environment | Models/integration | Runtime baseline |
@@ -21,6 +26,13 @@ and Hugging Face Hub 1.31.0. TorchAudio 2.11 uses PyTorch's stable ABI and suppo
 Torch 2.11 or later ([official compatibility table](https://docs.pytorch.org/audio/stable/installation.html)); their version numbers no longer need to match. Native
 companion wheels must still come from the same CPU/CUDA index. WhisperX also
 pins TorchVision 0.29.0.
+
+Every environment that uses Lightning directly pins both `lightning` and
+`pytorch-lightning` to 2.6.6. WhisperX and Canary-Qwen also directly pin NLTK
+3.10.3. Successful resolution must select these reviewed versions; the verifier
+rejects recipes that leave them to transitive resolution. The NLTK pin does not
+fix its remaining advisory: the caller-specific audit conditions below still
+apply.
 
 Python 3.12 supports all groups. DiariZen requires it. The other groups retain
 Python 3.11 support, and the Pyannote recipe also permits 3.10. Modern PyTorch
@@ -53,6 +65,22 @@ Requesting that retired integration raises an error; inference does not enable
 it. Original licenses are included in
 `THIRD_PARTY_NOTICES.md`.
 
+## Upgrading an existing environment
+
+A hash marker identifies each managed runtime's embedded project definition and
+reconciled Python pin. On first adoption, or when either changes, preparation
+removes the derived `uv.lock` so uv resolves the updated recipe. The marker is
+written atomically. Existing virtual environments, downloaded models and caches
+are preserved; ordinary preparation with unchanged inputs retains the resolved
+lock rather than refreshing all dependencies on every restart.
+
+Readiness synchronizes the installed environment exactly. Where readiness uses
+`uv run`, it passes `--exact`, removing packages that are no longer part of the
+resolved environment instead of leaving old orphan distributions importable.
+This applies even when an earlier attempt already rewrote the project file:
+the adoption/hash marker still requires the lock migration. A failed preparation
+does not establish readiness and must not be accepted for deployment.
+
 ## Checks required for a runtime update
 
 1. Update the full runtime group, including companion wheel indexes and local
@@ -80,8 +108,15 @@ it. Original licenses are included in
    CPU recovery where relevant. Preserve precision, model revisions, alignment
    and chunking settings. A short smoke test establishes integration, not WER,
    DER, or accuracy on a user's meetings.
-6. Run the backend tests and vulnerability check, publish from the reviewed
+6. Test migration using a private copy of existing runtime volumes as well as a
+   fresh environment. After exact readiness, compare the complete installed
+   package/version graph with the reviewed qualification graph and run the
+   installed audit. Review and requalify any difference, including extra
+   packages; checking only the directly pinned versions is insufficient.
+7. Run the backend tests and vulnerability check, publish from the reviewed
    source commit, and qualify the resulting image before production cutover.
+   After cutover, require the full live installed graph to equal the qualified
+   staged graph and repeat the installed audit with the actual caller files.
 
 CI resolves all supported backend/Python combinations and automatically runs
 Linux CPU imports, native decoding, and installed dependency audits for adapter pull requests. GPU and full

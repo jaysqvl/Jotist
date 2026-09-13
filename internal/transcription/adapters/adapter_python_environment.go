@@ -2,6 +2,7 @@ package adapters
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"io/fs"
 	"os"
@@ -52,7 +53,9 @@ func checkPythonEnvironmentReady(ctx context.Context, envPath, importStatement s
 	if ready {
 		return true
 	}
-	cmd := processutil.CommandContext(ctx, "uv", "run", "--system-certs", "--project", envPath, "python", "-c", importStatement)
+	// A successful import must not leave obsolete packages outside the newly
+	// resolved graph installed. uv run otherwise performs an inexact sync.
+	cmd := processutil.CommandContext(ctx, "uv", "run", "--exact", "--system-certs", "--project", envPath, "python", "-c", importStatement)
 	if err := cmd.Run(); err != nil {
 		return false
 	}
@@ -99,11 +102,26 @@ func refreshPythonProject(files fs.FS, embeddedPath, envPath string) error {
 	} else {
 		data = []byte(strings.Replace(string(data), "https://download.pytorch.org/whl/cu126", GetPyTorchWheelURL(), 1))
 	}
+	return refreshPythonProjectData(data, envPath)
+}
+
+// refreshPythonProjectData also serves runtimes which materialize their own
+// assets and have already selected the appropriate PyTorch package index.
+func refreshPythonProjectData(data []byte, envPath string) error {
 	if err := os.MkdirAll(envPath, 0755); err != nil {
 		return err
 	}
 	path := filepath.Join(envPath, "pyproject.toml")
 	previous, err := os.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	projectChanged := err != nil || string(previous) != string(data)
+	markerPath := filepath.Join(envPath, ".jotist-runtime-project.sha256")
+	marker, err := os.ReadFile(markerPath)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
 	changed := false
 	defer func() {
 		if changed {
@@ -118,18 +136,60 @@ func refreshPythonProject(files fs.FS, embeddedPath, envPath string) error {
 			envCacheMutex.Unlock()
 		}
 	}()
-	if err != nil || string(previous) != string(data) {
+	// Include the reconciled pin in the marker so an interruption after updating
+	// the pin still forces lock refresh on the next attempt.
+	pinChanged, err := reconcilePythonVersion(envPath, data)
+	changed = pinChanged
+	if err != nil {
+		return err
+	}
+	pin, err := os.ReadFile(filepath.Join(envPath, ".python-version"))
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	hashInput := append(append([]byte{}, data...), 0)
+	projectHash := fmt.Sprintf("%x\n", sha256.Sum256(append(hashInput, pin...)))
+	resetLock := projectChanged || string(marker) != projectHash
+	// uv normally retains previously allowed transitive versions. Re-resolve
+	// once when adopting an old runtime or changing its project, so a security
+	// upgrade cannot silently keep the old dependency graph. Remove the derived
+	// lock before writing the new project/marker: interruption at any point leaves
+	// either a pending migration or no lock, both safe to retry. Keep actual venvs,
+	// cached models and unchanged, previously refreshed locks intact.
+	if resetLock {
+		changed = true
+		if err := resetPythonDependencyLock(envPath); err != nil {
+			return err
+		}
+	}
+	if projectChanged {
 		if err := writePythonProject(path, data); err != nil {
 			return err
 		}
 		changed = true
 	}
-	// Old uv-created runtimes can retain a Python 3.10 pin even after their
-	// project moves to >=3.11. Reconcile this on every refresh: a prior startup
-	// may already have written the new TOML before failing at uv sync.
-	pinChanged, err := reconcilePythonVersion(envPath, data)
-	changed = changed || pinChanged
-	return err
+	if resetLock {
+		return writePythonProject(markerPath, []byte(projectHash))
+	}
+	return nil
+}
+
+func resetPythonDependencyLock(envPath string) error {
+	path := filepath.Join(envPath, "uv.lock")
+	info, err := os.Lstat(path)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("refuse to replace non-regular Python dependency lock: %s", path)
+	}
+	if err := os.Remove(path); err != nil {
+		return fmt.Errorf("refresh Python dependency lock: %w", err)
+	}
+	return nil
 }
 
 func reconcilePythonVersion(envPath string, project []byte) (bool, error) {

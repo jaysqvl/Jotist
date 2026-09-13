@@ -319,6 +319,12 @@ func (a *LocalASRAdapter) writeEnvironmentAssets(assets map[string][]byte) error
 		return err
 	}
 	for name, data := range assets {
+		if name == "pyproject.toml" {
+			if err := refreshPythonProjectData(data, a.envPath); err != nil {
+				return err
+			}
+			continue
+		}
 		if name == "runtime_failure.py" {
 			if err := writePythonProject(filepath.Join(a.envPath, name), data); err != nil {
 				return err

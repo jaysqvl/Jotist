@@ -2,12 +2,22 @@
 
 Jotist publishes server archives and Linux amd64 containers from [jaysqvl/Jotist](https://github.com/jaysqvl/Jotist). The first preview is `v1.7.0-rc.1`; the first stable Jotist version will be `v1.7.0`, continuing the inherited 1.6.1 version line.
 
-The runtime update candidate is `v1.7.0-rc.2`. Publish it with `variants=cuda`
-and `publish_latest=false`; its image is
-`ghcr.io/jaysqvl/jotist:1.7.0-rc.2-cuda`. CPU inference is qualified through
-updated source builds. Blackwell/CUDA 13 has resolver and native-library checks,
-but no actual Blackwell inference qualification. RC1 CPU and Blackwell images
-retain their older dependencies and are not part of the runtime update.
+The corrected runtime update candidate is `v1.7.0-rc.3`, pending publication
+and installed-state qualification. Its intended image is
+`ghcr.io/jaysqvl/jotist:1.7.0-rc.3-cuda`, with `variants=cuda` and
+`publish_latest=false`. Production remains on RC1 until the corrected candidate
+passes those checks.
+
+RC2 failed staging against copied existing environments: retained `uv.lock`
+selections kept older dependencies, and inexact readiness checks left packages
+outside the resolved graph installed. The gate stopped deployment. RC2 remains
+an immutable historical candidate; do not retag it with corrected bytes.
+
+CPU and CUDA 12.6 inference passed in fresh environments. The corrected candidate
+must additionally qualify existing-environment migration. Blackwell/CUDA 13 has
+resolver and native-library checks, but no actual Blackwell inference
+qualification. RC1 CPU and Blackwell images retain their older dependencies and
+are not part of the runtime update.
 
 ## Image names
 
@@ -23,12 +33,12 @@ Container tags omit the Git tag's leading `v`. Builds also publish `<version><va
 
 Stable aliases are `latest`, `latest-cuda`, and `latest-blackwell`. They update only when explicitly requested for a stable version tag pointing at the built source. Prereleases and preview channels never move them.
 
-## First preview publication
+## Corrected candidate publication
 
-After the reviewed source is on `main`, create and push the annotated `v1.7.0-rc.1` tag. Pushing a tag does not itself publish anything. In GitHub Actions, run **Release** with:
+After the corrected source passes review and is on `main`, create and push the annotated `v1.7.0-rc.3` tag. Pushing a tag does not itself publish anything. In GitHub Actions, run **Release** with:
 
-- `tag`: `v1.7.0-rc.1`
-- `variants`: `all`, or one of `cpu`, `cuda`, `blackwell`
+- `tag`: `v1.7.0-rc.3`
+- `variants`: `cuda`
 - `publish_latest`: `false`
 
 The workflow resolves the tag to an immutable commit and requires that commit to belong to `main`. Frontend checks, backend checks, dependency scans, and Python adapter resolver checks run against that commit. GoReleaser then publishes archives with the Jotist server executable, checksums, license, and attribution. Container publication follows successful artifact publication and builds the same validated commit.
@@ -57,4 +67,18 @@ Confirm that validation, artifact publication, and all selected image jobs compl
 
 Archives and images retain the MIT license and upstream attribution. Containers include `/app/LICENSE`, `/app/ATTRIBUTION.md`, and `/app/THIRD_PARTY_NOTICES.md`.
 
-Deployment remains a separate step. Follow the [migration guide](jotist-migration.md), preserve the existing stack's data/configuration, and verify the actual running image and application behavior. Keep the old fork and pre-upgrade backup until the preview and cutover are accepted.
+Deployment remains a separate step. Qualify the released image against a private
+copy of the existing runtime volumes, including their lockfiles and installed
+packages. Compare the complete installed package/version graph with the reviewed
+qualification graph, run native imports and the installed dependency audit, and
+exercise the selected model pipeline. A fresh-environment check alone does not
+validate migration.
+
+After cutover, require the complete live installed graph to equal the qualified
+staged graph and repeat the installed audit against the actual materialized
+callers. An unexpected package, version, or caller difference blocks acceptance.
+See [runtime maintenance](python-runtime-maintenance.md) for lock migration and
+exact synchronization. Follow the [migration guide](jotist-migration.md), preserve
+the existing stack's data/configuration, and verify the running image and
+application behavior. Keep the old fork and pre-upgrade backup until the preview
+and cutover are accepted.

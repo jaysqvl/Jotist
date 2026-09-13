@@ -8,6 +8,8 @@ dependencies = [
     "torchaudio==2.11.0",
     "huggingface-hub==1.31.0",
     "pyannote.audio==4.0.7",
+    "lightning==2.6.6",
+    "pytorch-lightning==2.6.6",
     "torchcodec==0.16.0",
     "soundfile>=0.12.1"
 ]
