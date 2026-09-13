@@ -37,6 +37,20 @@ func TestCanaryAlignmentResolvesNativeBatchAndOwnFP32Precision(t *testing.T) {
 	require.Equal(t, []string{"float32"}, stage.DevicePrecisions["cuda"])
 }
 
+func TestCanaryStageRejectsPreviousRuntimeContract(t *testing.T) {
+	a := NewCanaryAdapter(t.TempDir())
+	for _, kind := range []string{"recognition", "alignment"} {
+		stage, _ := a.RecoveryStage(kind)
+		if kind == "recognition" {
+			stage.ImplementationVersion = "canary-nemo-2.7.3-stages-v1"
+		} else {
+			stage.ImplementationVersion = "canary-nemo-2.7.3-ctc-v1"
+		}
+		_, err := a.RunStage(context.Background(), stage, interfaces.AudioInput{}, nil, interfaces.ProcessingContext{}, nil)
+		require.ErrorContains(t, err, "unsupported Canary stage contract")
+	}
+}
+
 func TestCanaryStageRunsOneProcessWithPrivateUpstreamAndCleanup(t *testing.T) {
 	bin := t.TempDir()
 	argsPath := filepath.Join(bin, "args")

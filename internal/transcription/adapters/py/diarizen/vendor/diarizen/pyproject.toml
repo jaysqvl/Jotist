@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=77,<85"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "diarizen"
+version = "0.0.1+jotist.1"
+description = "DiariZen at upstream 844f555 with reviewed modern runtime compatibility"
+requires-python = ">=3.11,<3.13"
+license = "MIT"
+license-files = ["LICENSE"]
+
+[tool.setuptools.packages.find]
+include = ["diarizen*"]

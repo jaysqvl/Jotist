@@ -58,6 +58,7 @@ archives:
       - README.md
       - LICENSE
       - ATTRIBUTION.md
+      - THIRD_PARTY_NOTICES.md
 
 # Checksum configuration
 checksum:

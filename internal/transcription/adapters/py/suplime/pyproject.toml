@@ -5,9 +5,10 @@ requires-python = ">=3.11,<3.13"
 dependencies = [
     "suplime==0.2.0",
     "pyannote.audio==4.0.7",
-    "torch==2.8.0",
-    "torchaudio==2.8.0",
-    "torchcodec==0.7.0",
+    "torch==2.14.0",
+    "torchaudio==2.11.0",
+    "torchcodec==0.16.0",
+    "huggingface-hub==1.31.0",
     "soundfile>=0.12.1",
 ]
 
@@ -18,6 +19,11 @@ torch = [
     { index = "pytorch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
 ]
 torchaudio = [
+    { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
+    { index = "pytorch-cpu", marker = "platform_machine != 'x86_64' and sys_platform != 'darwin'" },
+    { index = "pytorch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+]
+torchcodec = [
     { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
     { index = "pytorch-cpu", marker = "platform_machine != 'x86_64' and sys_platform != 'darwin'" },
     { index = "pytorch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },

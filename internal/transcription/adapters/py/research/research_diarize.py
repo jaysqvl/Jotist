@@ -1,6 +1,7 @@
 """Isolated DiariZen and SUPlime inference; model weights are non-commercial."""
 import argparse
 import json
+import math
 import os
 from pathlib import Path
 import subprocess
@@ -36,12 +37,21 @@ def resolve_device(requested, cuda_available):
     return ("cuda" if cuda_available else "cpu") if requested == "auto" else requested
 
 
-def serialize_output(output, model, device):
+def serialize_output(output, model, device, audio_duration=None):
     annotation = getattr(output, "speaker_diarization", output)
-    segments = [
-        {"start": float(turn.start), "end": float(turn.end), "speaker": str(speaker)}
-        for turn, _, speaker in annotation.itertracks(yield_label=True)
-    ]
+    if audio_duration is not None and (not math.isfinite(audio_duration) or audio_duration <= 0):
+        raise ValueError("audio duration must be finite and positive")
+    segments = []
+    for turn, _, speaker in annotation.itertracks(yield_label=True):
+        start, end = float(turn.start), float(turn.end)
+        if not math.isfinite(start) or not math.isfinite(end) or end < start:
+            raise ValueError("diarization returned invalid timestamps")
+        if audio_duration is not None:
+            # Sliding-window models may include padded frames after the audio.
+            # Keep every detected overlap, but never publish synthetic tail time.
+            start, end = max(0.0, min(start, audio_duration)), max(0.0, min(end, audio_duration))
+        if end > start:
+            segments.append({"start": start, "end": end, "speaker": str(speaker)})
     segments.sort(key=lambda segment: (segment["start"], segment["end"], segment["speaker"]))
     speakers = sorted({segment["speaker"] for segment in segments})
     return {"segments": segments, "speakers": speakers, "speaker_count": len(speakers), "model": model, "resolved_device": device}
@@ -77,16 +87,17 @@ def run(args):
     with tempfile.TemporaryDirectory(prefix="scriberr-diarization-") as directory:
         waveform_path = Path(directory) / "audio.wav"
         subprocess.run(["ffmpeg", "-nostdin", "-v", "error", "-i", args.audio_file, "-ac", "1", "-ar", "16000", str(waveform_path)], check=True)
+        import soundfile as sf
+        audio_duration = sf.info(waveform_path).duration
         with gpu_execution(device), torch.inference_mode():
             if args.engine == "diarizen":
                 output = pipeline(str(waveform_path))
             else:
                 # Decode explicitly to avoid torchcodec/FFmpeg ABI coupling.
-                import soundfile as sf
                 audio, sample_rate = sf.read(waveform_path, dtype="float32", always_2d=True)
                 constraints = {key: value for key in ("min_speakers", "max_speakers") if (value := getattr(args, key)) is not None}
                 output = pipeline({"waveform": torch.from_numpy(audio.T), "sample_rate": sample_rate}, **constraints)
-    Path(args.output).write_text(json.dumps(serialize_output(output, args.model, device), ensure_ascii=False))
+    Path(args.output).write_text(json.dumps(serialize_output(output, args.model, device, audio_duration), ensure_ascii=False))
 
 
 def main():

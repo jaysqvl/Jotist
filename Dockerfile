@@ -120,7 +120,7 @@ RUN groupadd -g 1000 appuser \
 COPY --from=go-builder /out/jotist /app/jotist
 # Retain the previous executable path for existing container overrides.
 RUN ln -s /app/jotist /app/scriberr
-COPY LICENSE ATTRIBUTION.md /app/
+COPY LICENSE ATTRIBUTION.md THIRD_PARTY_NOTICES.md /app/
 COPY --from=go-builder /out/bin/cli /app/bin/cli
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 

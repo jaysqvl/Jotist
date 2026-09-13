@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Durable Canary boundaries qualified against NeMo v2.7.3.
+"""Durable Canary boundaries pinned to NeMo v3.0.0.
 
 Recognition retains NeMo's timestamp prompt and native chunking. Only its CTC
 call is deferred; the original chunk hypotheses and merge inputs are saved.
@@ -30,6 +30,11 @@ import numpy as np
 import soundfile as sf
 import torch
 from omegaconf import OmegaConf, open_dict
+# Apply the guarded compatibility import by absolute path, including under -I.
+import runpy as _nvidia_runpy
+from pathlib import Path as _NvidiaPath
+_nvidia_runpy.run_path(str(_NvidiaPath(__file__).resolve().with_name("nvidia_compat.py")))
+
 import nemo.collections.asr as nemo_asr
 from nemo.collections.asr.models import aed_multitask_models as aed
 from nemo.collections.asr.data import audio_to_text_lhotse_prompted
@@ -44,10 +49,10 @@ SCHEMA = "canary-native-recognition-v1"
 MODEL_SHA256 = "ae5ef1bf06812a95a1594a8f5f0ee9c51f35418e5ba96939fa6b98ab00431094"
 CTC_SHA256 = "2155f5642f9d27d73bd0c41693ddbb2420a95b32acc11576c9b36638f7ece795"
 SOURCE_HASHES = {
-    "aed_multitask_models.py": "a7adc7aa8ac2323ae51f84e5513a71ab3717852e48d975a15e72f9cafcda0b66",
+    "aed_multitask_models.py": "003ca55ba61146cec555e463f7bbabe10eea0396c3c307f3e3f7f6465fed24e3",
     "chunking_utils.py": "43eab4c597ce15da7801098580b3b1c21edb9dd5518e57ca312d4bc1d1bd7013",
-    "timestamp_utils.py": "625a3b531a67af55f04173eff9d901a204347040d87e0815b82f3aa103ea234f",
-    "aligner_utils.py": "6e71d96cc5eca478395564666dcb55d73b32b88d4d22c3e3f5012f2498dd2830",
+    "timestamp_utils.py": "74015fdbba8c0af440c3ffcdc3f9dd06046a08177f1e2a09ceea2b70112a4531",
+    "aligner_utils.py": "d5d0a70490a1df9b9f62146bb1b7571f3a886a17c57c0a9f560a722eb09a358b",
     "audio_to_text_lhotse_prompted.py": "af5f4cab7eab6a86c8feb93a738bf69e896e75d90817f8feff122295afb912dc",
 }
 
@@ -64,7 +69,7 @@ def verify_runtime():
     for module in (aed, chunking_utils, timestamp_utils, aligner_utils, audio_to_text_lhotse_prompted):
         path = Path(module.__file__)
         if sha256_file(path) != SOURCE_HASHES[path.name]:
-            raise ValueError("Canary staged runtime differs from qualified NeMo v2.7.3; refresh the pinned environment")
+            raise ValueError("Canary staged runtime differs from pinned NeMo v3.0.0; refresh the pinned environment")
 
 
 def extract_assets(model_path, cache_root):

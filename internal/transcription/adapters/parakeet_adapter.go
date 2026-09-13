@@ -149,6 +149,9 @@ func (p *ParakeetAdapter) PrepareEnvironment(ctx context.Context) error {
 		return err
 	}
 	defer release()
+	if err := copyNvidiaPythonVendors(p.envPath); err != nil {
+		return fmt.Errorf("copy NVIDIA compatibility package: %w", err)
+	}
 	if err := refreshPythonProject(nvidiaScripts, "py/nvidia/pyproject.toml", p.envPath); err != nil {
 		return fmt.Errorf("refresh Python environment: %w", err)
 	}
@@ -164,7 +167,7 @@ func (p *ParakeetAdapter) PrepareEnvironment(ctx context.Context) error {
 	}
 
 	// Check if environment is already ready (using cache to speed up repeated checks)
-	if checkPythonEnvironmentReady(ctx, p.envPath, "import nemo.collections.asr") {
+	if checkPythonEnvironmentReady(ctx, p.envPath, nvidiaPythonImport(p.envPath, "import nemo.collections.asr")) {
 		modelPath := filepath.Join(p.envPath, "parakeet-tdt-0.6b-v3.nemo")
 		scriptPath := filepath.Join(p.envPath, "parakeet_transcribe.py")
 		bufferedScriptPath := filepath.Join(p.envPath, "parakeet_transcribe_buffered.py")
@@ -216,15 +219,10 @@ func (p *ParakeetAdapter) setupParakeetEnvironment(ctx context.Context) error {
 
 	// Replace the hardcoded PyTorch URL with the dynamic one based on environment
 	// The static file contains the default cu126 URL
-	contentStr := strings.Replace(
-		string(pyprojectContent),
-		"https://download.pytorch.org/whl/cu126",
-		GetPyTorchWheelURL(),
-		1,
-	)
+	contentStr := nvidiaPythonProject(pyprojectContent, GetPyTorchWheelURL())
 
 	pyprojectPath := filepath.Join(p.envPath, "pyproject.toml")
-	if err := writePythonProject(pyprojectPath, []byte(contentStr)); err != nil {
+	if err := writePythonProject(pyprojectPath, contentStr); err != nil {
 		return fmt.Errorf("failed to write pyproject.toml: %w", err)
 	}
 

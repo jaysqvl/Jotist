@@ -9,12 +9,17 @@ on:
 
 jobs:
   python-adapter-envs:
-    name: python adapter envs (${{ matrix.python-version }})
+    name: python adapter envs (${{ matrix.python-version }}, ${{ matrix.torch-index }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         python-version: ['3.11', '3.12']
+        torch-index: ['cpu', 'cu126', 'cu130']
+        include:
+          - {python-version: '3.10', torch-index: cpu}
+          - {python-version: '3.10', torch-index: cu126}
+          - {python-version: '3.10', torch-index: cu130}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -22,15 +27,31 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: '3.12' # Verifier uses tomllib; uv selects the target runtime below.
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
+      - name: Test runtime verifier policy
+        run: python -m unittest discover -s scripts -p 'test_*.py'
+
       - name: Verify Python adapter resolver surfaces
-        run: python scripts/verify-python-adapter-envs.py --mode lock --python ${{ matrix.python-version }}
+        env:
+          ADAPTER_PYTHON: ${{ matrix.python-version }}
+          TORCH_INDEX: ${{ matrix.torch-index }}
+        run: |
+          adapters=()
+          if [ "$ADAPTER_PYTHON" = "3.10" ]; then
+            adapters=(--adapter pyannote)
+          elif [ "$ADAPTER_PYTHON" = "3.11" ]; then
+            # DiariZen requires Python 3.12 after the coordinated runtime update.
+            for adapter in nvidia-asr canary-qwen pyannote whisperx suplime local-asr; do
+              adapters+=(--adapter "$adapter")
+            done
+          fi
+          python scripts/verify-python-adapter-envs.py --mode lock --python "$ADAPTER_PYTHON" --torch-index "$TORCH_INDEX" "${adapters[@]}"
 
   build:
     name: basics

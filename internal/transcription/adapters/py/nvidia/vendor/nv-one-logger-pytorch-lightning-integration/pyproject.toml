@@ -1,0 +1,24 @@
+[build-system]
+requires = ["hatchling>=1.26.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nv-one-logger-pytorch-lightning-integration"
+version = "2.3.1+jotist.1"
+description = "NVIDIA OneLogger integration with the Lightning 2.6 checkpoint signature"
+requires-python = ">=3.11,<3.13"
+license = "Apache-2.0"
+readme = "README.md"
+dependencies = [
+    "StrEnum>=0.4.0,<0.5.0",
+    "lightning==2.6.6",
+    "nv-one-logger-core==2.3.1",
+    "nv-one-logger-training-telemetry==2.3.1",
+    "setuptools>=79.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/NVIDIA/nv-one-logger"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nv_one_logger"]

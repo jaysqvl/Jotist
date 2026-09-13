@@ -1,0 +1,15 @@
+{
+  "package": "nv-one-logger-pytorch-lightning-integration",
+  "upstream_version": "2.3.1",
+  "local_version": "2.3.1+jotist.1",
+  "source": "https://pypi.org/project/nv-one-logger-pytorch-lightning-integration/2.3.1/",
+  "sdist_sha256": "b32d99b6a8f02a16538bcade939b0a7edd7249e936aacefe336b5519447340c3",
+  "modified_source": "src/nv_one_logger/training_telemetry/integration/pytorch_lightning.py",
+  "original_source_sha256": "70d04b515b014b030cefb7ccd494326543d13291ff36da29b60a4ed36c142069",
+  "modified_source_sha256": "3d3283d1f0b2975b8ecf4c71b627b38a55c34dc1e89a7e68690115adae695a5f",
+  "changes": [
+    "Match Lightning 2.6.6 save_checkpoint weights_only: Optional[bool] = None; retain @override and unchanged method body.",
+    "Local package metadata selects fixed Lightning and preserves NVIDIA package dependencies."
+  ],
+  "security_boundaries": "No checkpoint load changes, no override-check bypass, no vendor model or audio changes."
+}

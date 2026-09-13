@@ -123,6 +123,8 @@ esac
 func TestPythonPinMigrationPreservesSupportedAndCustomInterpreters(t *testing.T) {
 	for _, tc := range []struct{ name, requirement, pin, want string }{
 		{"old_3_10", ">=3.11,<3.13", "3.10.20\n", "3.12\n"},
+		{"diarizen_old_3_11", ">=3.12,<3.13", "3.11.16\n", "3.12\n"},
+		{"diarizen_supported_3_12", ">=3.12,<3.13", "3.12.14\n", "3.12.14\n"},
 		{"newer_unsupported", ">=3.11,<3.13", "3.13.2\n", "3.12\n"},
 		{"supported_3_11", ">=3.11,<3.13", "3.11.9\n", "3.11.9\n"},
 		{"supported_3_12", ">=3.11,<3.13", "3.12.11\n", "3.12.11\n"},

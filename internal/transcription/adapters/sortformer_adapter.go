@@ -156,6 +156,9 @@ func (s *SortformerAdapter) PrepareEnvironment(ctx context.Context) error {
 		return err
 	}
 	defer release()
+	if err := copyNvidiaPythonVendors(s.envPath); err != nil {
+		return fmt.Errorf("copy NVIDIA compatibility package: %w", err)
+	}
 	if err := refreshPythonProject(nvidiaScripts, "py/nvidia/pyproject.toml", s.envPath); err != nil {
 		return fmt.Errorf("refresh Python environment: %w", err)
 	}
@@ -167,7 +170,7 @@ func (s *SortformerAdapter) PrepareEnvironment(ctx context.Context) error {
 	}
 
 	// Check if environment is already ready (using cache to speed up repeated checks)
-	if checkPythonEnvironmentReady(ctx, s.envPath, "from nemo.collections.asr.models import SortformerEncLabelModel") {
+	if checkPythonEnvironmentReady(ctx, s.envPath, nvidiaPythonImport(s.envPath, "from nemo.collections.asr.models import SortformerEncLabelModel")) {
 		modelPath := filepath.Join(s.envPath, "diar_streaming_sortformer_4spk-v2.1.nemo")
 		if stat, err := os.Stat(modelPath); err == nil && stat.Size() > 1024*1024 {
 			scriptPath := filepath.Join(s.envPath, "sortformer_diarize.py")
@@ -207,15 +210,10 @@ func (s *SortformerAdapter) setupSortformerEnvironment(ctx context.Context) erro
 
 	// Replace the hardcoded PyTorch URL with the dynamic one based on environment
 	// The static file contains the default cu126 URL
-	contentStr := strings.Replace(
-		string(pyprojectContent),
-		"https://download.pytorch.org/whl/cu126",
-		GetPyTorchWheelURL(),
-		1,
-	)
+	contentStr := nvidiaPythonProject(pyprojectContent, GetPyTorchWheelURL())
 
 	pyprojectPath := filepath.Join(s.envPath, "pyproject.toml")
-	if err := writePythonProject(pyprojectPath, []byte(contentStr)); err != nil {
+	if err := writePythonProject(pyprojectPath, contentStr); err != nil {
 		return fmt.Errorf("failed to write pyproject.toml: %w", err)
 	}
 

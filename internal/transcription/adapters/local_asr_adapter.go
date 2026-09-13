@@ -275,7 +275,10 @@ func localASREnvironmentAssets() (map[string][]byte, string, error) {
 		}
 		if entry.Name() == "pyproject.toml" {
 			if cuda := os.Getenv("PYTORCH_CUDA_VERSION"); cuda != "" && cuda != "cpu" {
-				if cuda != "cu126" && cuda != "cu128" && cuda != "cu130" {
+				if cuda == "cu128" {
+					return nil, "", fmt.Errorf("PYTORCH_CUDA_VERSION=cu128 has no wheels for PyTorch 2.14; use cu126, or cu130 for Blackwell GPUs with a CUDA 13-compatible NVIDIA driver")
+				}
+				if cuda != "cu126" && cuda != "cu130" {
 					return nil, "", fmt.Errorf("unsupported PYTORCH_CUDA_VERSION")
 				}
 				data = []byte(strings.ReplaceAll(string(data), "https://download.pytorch.org/whl/cpu", "https://download.pytorch.org/whl/"+cuda))

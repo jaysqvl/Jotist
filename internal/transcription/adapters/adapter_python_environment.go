@@ -87,11 +87,18 @@ func writePythonProject(path string, data []byte) error {
 // refreshPythonProject makes installed environments use the embedded dependency
 // versions on their next uv invocation, including after an application upgrade.
 func refreshPythonProject(files fs.FS, embeddedPath, envPath string) error {
+	if err := validatePyTorchBackend(); err != nil {
+		return err
+	}
 	data, err := fs.ReadFile(files, embeddedPath)
 	if err != nil {
 		return err
 	}
-	data = []byte(strings.Replace(string(data), "https://download.pytorch.org/whl/cu126", GetPyTorchWheelURL(), 1))
+	if strings.HasPrefix(embeddedPath, "py/nvidia/") {
+		data = nvidiaPythonProject(data, GetPyTorchWheelURL())
+	} else {
+		data = []byte(strings.Replace(string(data), "https://download.pytorch.org/whl/cu126", GetPyTorchWheelURL(), 1))
+	}
 	if err := os.MkdirAll(envPath, 0755); err != nil {
 		return err
 	}
@@ -146,6 +153,8 @@ func reconcilePythonVersion(envPath string, project []byte) (bool, error) {
 	// custom PEP 440 constraints or overwrite custom interpreter/path requests.
 	minimum := 0
 	switch strings.ReplaceAll(spec.Project.RequiresPython, " ", "") {
+	case ">=3.12,<3.13":
+		minimum = 12
 	case ">=3.11,<3.13":
 		minimum = 11
 	case ">=3.10,<3.13":

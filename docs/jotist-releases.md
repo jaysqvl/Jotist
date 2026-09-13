@@ -34,7 +34,7 @@ Use **Publish container images** when rebuilding a particular variant or publish
 
 The workflow resolves the source once and validates it before building. It rejects other source repositories. Release workflow calls can reuse validation only when their supplied immutable commit exactly matches the image source; this option is not exposed in manual dispatch.
 
-Each matrix job builds its own Dockerfile and prints the resulting digest and source commit. CPU uses `Dockerfile`, CUDA uses `Dockerfile.cuda`, and Blackwell uses `Dockerfile.cuda.12.9`.
+Each matrix job builds its own Dockerfile and prints the resulting digest and source commit. CPU uses `Dockerfile`, CUDA uses `Dockerfile.cuda`, and Blackwell uses `Dockerfile.cuda.13.0`.
 
 ## Stable releases
 
@@ -48,6 +48,6 @@ Repository Actions must be allowed to create pull requests. Jobs request only th
 
 Confirm that validation, artifact publication, and all selected image jobs completed successfully for the intended commit. Check the image's `org.opencontainers.image.revision` and `org.opencontainers.image.version`, then record the digest. Ensure the GHCR package is linked to Jotist, public if advertised publicly, and can be pulled without authentication.
 
-Archives and images retain the MIT license and upstream attribution. Containers include `/app/LICENSE` and `/app/ATTRIBUTION.md`.
+Archives and images retain the MIT license and upstream attribution. Containers include `/app/LICENSE`, `/app/ATTRIBUTION.md`, and `/app/THIRD_PARTY_NOTICES.md`.
 
 Deployment remains a separate step. Follow the [migration guide](jotist-migration.md), preserve the existing stack's data/configuration, and verify the actual running image and application behavior. Keep the old fork and pre-upgrade backup until the preview and cutover are accepted.
