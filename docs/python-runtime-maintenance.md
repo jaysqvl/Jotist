@@ -4,10 +4,11 @@ Jotist uses a shared PyTorch implementation across its model adapters. Separate
 Python environments isolate conflicting package requirements; they are not
 security sandboxes. Several models already share each environment.
 
-The corrected runtime candidate is RC3, pending publication and installed-state
-qualification. RC2 failed staging because existing lockfiles retained older
-dependencies and readiness left packages outside the resolved environment
-installed. Production remains on RC1 until the corrected candidate qualifies.
+The published RC3 preview corrects an existing-install upgrade problem found
+while staging RC2: retained lockfiles kept older dependencies, and readiness
+left obsolete packages installed. Its preparation code passed migration of
+retained environments as well as fresh-install checks. Deployment acceptance
+still requires qualification of the actual published image and installed state.
 
 ## Runtime groups
 
@@ -70,9 +71,10 @@ it. Original licenses are included in
 A hash marker identifies each managed runtime's embedded project definition and
 reconciled Python pin. On first adoption, or when either changes, preparation
 removes the derived `uv.lock` so uv resolves the updated recipe. The marker is
-written atomically. Existing virtual environments, downloaded models and caches
-are preserved; ordinary preparation with unchanged inputs retains the resolved
-lock rather than refreshing all dependencies on every restart.
+written atomically. uv synchronizes the existing environment and may rebuild it
+when its Python interpreter changes. Downloaded models and application data are
+preserved; ordinary preparation with unchanged inputs retains the resolved lock
+rather than refreshing all dependencies on every restart.
 
 Readiness synchronizes the installed environment exactly. Where readiness uses
 `uv run`, it passes `--exact`, removing packages that are no longer part of the
