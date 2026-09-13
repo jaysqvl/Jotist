@@ -19,3 +19,4 @@ services:
 volumes:
   scriberr_data: {}
   env_data: {}
+# Legacy RC1 image: for the updated CPU runtimes, use docker-compose.build.yml.

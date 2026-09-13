@@ -2,11 +2,18 @@
 
 Jotist publishes server archives and Linux amd64 containers from [jaysqvl/Jotist](https://github.com/jaysqvl/Jotist). The first preview is `v1.7.0-rc.1`; the first stable Jotist version will be `v1.7.0`, continuing the inherited 1.6.1 version line.
 
+The runtime update candidate is `v1.7.0-rc.2`. Publish it with `variants=cuda`
+and `publish_latest=false`; its image is
+`ghcr.io/jaysqvl/jotist:1.7.0-rc.2-cuda`. CPU inference is qualified through
+updated source builds. Blackwell/CUDA 13 has resolver and native-library checks,
+but no actual Blackwell inference qualification. RC1 CPU and Blackwell images
+retain their older dependencies and are not part of the runtime update.
+
 ## Image names
 
 All variants share **one** container repository:
 
-| Variant | Preview tag | Stable tag |
+| Variant | First preview tag (RC1) | Stable tag |
 | --- | --- | --- |
 | CPU | `ghcr.io/jaysqvl/jotist:1.7.0-rc.1` | `ghcr.io/jaysqvl/jotist:1.7.0` |
 | CUDA | `ghcr.io/jaysqvl/jotist:1.7.0-rc.1-cuda` | `ghcr.io/jaysqvl/jotist:1.7.0-cuda` |
