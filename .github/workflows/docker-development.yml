@@ -1,0 +1,74 @@
+name: Publish development CUDA image
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      qualified_cuda_digest:
+        description: Optional existing Jotist CUDA image digest (sha256:...) qualified on the NAS; promotes it without rebuilding. Leave empty to build main.
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+# Active pushes and explicit promotions supersede unfinished development builds.
+# Paused push events cannot interrupt a coordinated promotion.
+concurrency:
+  group: jotist-development-cuda-${{ github.event_name == 'push' && vars.JOTIST_DEV_AUTOBUILD_ENABLED == 'false' && 'paused' || 'controller' }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Validate and publish development CUDA image
+    if: github.ref == 'refs/heads/main' && inputs.qualified_cuda_digest == '' && (github.event_name == 'workflow_dispatch' || vars.JOTIST_DEV_AUTOBUILD_ENABLED != 'false')
+    uses: ./.github/workflows/docker-dev-images.yml
+    with:
+      source_repository: ${{ github.repository }}
+      upstream_ref: ${{ github.sha }}
+      image_channel: dev
+      variants: cuda
+      publish_latest: false
+    secrets: inherit
+
+  promote-qualified:
+    name: Promote an existing qualified CUDA image
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.qualified_cuda_digest != ''
+    runs-on: ubuntu-latest
+    # Share the reusable publisher's lock, including manually dispatched builds.
+    concurrency:
+      group: jotist-images-dev
+      cancel-in-progress: false
+    steps:
+      - name: Validate immutable source
+        env:
+          DIGEST: ${{ inputs.qualified_cuda_digest }}
+        run: |
+          if [[ ! "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::Provide the SHA256 digest of the qualified Jotist CUDA image."
+            exit 1
+          fi
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Copy and verify the qualified image
+        env:
+          OWNER: ${{ github.repository_owner }}
+          DIGEST: ${{ inputs.qualified_cuda_digest }}
+        run: |
+          repo="ghcr.io/${OWNER,,}/jotist"
+          docker buildx imagetools create --prefer-index=false \
+            --metadata-file promoted-image.json \
+            --tag "${repo}:dev-cuda" "${repo}@${DIGEST}"
+          test "$(jq -r '."containerimage.descriptor".digest' promoted-image.json)" = "$DIGEST"
+          echo "Promoted unchanged image: \`${repo}@${DIGEST}\` to \`${repo}:dev-cuda\`." >> "$GITHUB_STEP_SUMMARY"
+          echo "This retags an existing qualified image; it does not build, qualify, or deploy it." >> "$GITHUB_STEP_SUMMARY"

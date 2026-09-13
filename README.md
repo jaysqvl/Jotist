@@ -58,6 +58,12 @@ Open [localhost:8080](http://localhost:8080), then create the first account. The
 
 Use a digest-pinned image for deployments you need to reproduce. Release workflow summaries report the exact image digest and source commit; see the [release guide](docs/jotist-releases.md).
 
+Maintainers who want to follow unreleased `main` changes can use
+`ghcr.io/jaysqvl/jotist:dev-cuda`. Successful development builds update this CUDA
+12.6 channel after validation; updating the running container remains a separate
+step. See the [development channel instructions](docs/jotist-releases.md#rolling-development-image)
+for adopting an already qualified image and retaining a rollback digest.
+
 ## Configuration
 
 The server reads environment variables and an optional `.env` file in its working directory. Docker images supply production defaults.
