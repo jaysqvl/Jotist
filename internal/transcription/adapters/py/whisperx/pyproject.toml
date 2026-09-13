@@ -9,7 +9,7 @@ dependencies = [
     "torchvision==0.23.0",
     "torchcodec==0.7.0",
     "pyannote.audio==4.0.7",
-    "transformers==4.57.6",
+    "transformers==5.10.1",
     "yt-dlp[default]",
 ]
 
