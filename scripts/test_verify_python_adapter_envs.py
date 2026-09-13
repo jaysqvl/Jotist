@@ -42,6 +42,16 @@ class NativeWheelPolicyTests(unittest.TestCase):
             with self.assertRaisesRegex(verifier.CheckError, "overrides differ"):
                 verifier.validate_pyproject(replace(adapter, pyproject=project))
 
+    def test_security_pin_cannot_be_left_to_fresh_transitive_resolution(self):
+        adapter = verifier.ADAPTERS_BY_KEY["pyannote"]
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory) / "pyproject.toml"
+            # The package would still be installed through pyannote.audio;
+            # without the direct pin an old lock can retain vulnerable 2.5.5.
+            project.write_text(adapter.pyproject.read_text().replace('    "lightning==2.6.6",\n', ""))
+            with self.assertRaisesRegex(verifier.CheckError, "lightning==2.6.6 must be a direct"):
+                verifier.validate_pyproject(replace(adapter, pyproject=project))
+
     def test_unpatched_upstream_cannot_satisfy_local_compatibility_version(self):
         adapter = replace(verifier.ADAPTERS_BY_KEY["whisperx"],
                           package_ranges=(verifier.PackageRange("whisperx", exact="3.8.7rc1+jotist.1"),))

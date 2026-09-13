@@ -12,8 +12,17 @@ import (
 func TestResearchDiarizationMaterializesVendoredRuntime(t *testing.T) {
 	fakeLocalASRUV(t)
 	adapter := NewDiariZenAdapter(t.TempDir())
+	if err := os.MkdirAll(adapter.envPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(adapter.envPath, "uv.lock"), []byte("old dependency graph"), 0644); err != nil {
+		t.Fatal(err)
+	}
 	if err := adapter.PrepareEnvironment(context.Background()); err != nil {
 		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(adapter.envPath, "uv.lock")); !os.IsNotExist(err) {
+		t.Fatal("research diarization upgrade retained old dependency resolutions")
 	}
 	for _, relative := range []string{
 		"vendor/diarizen/diarizen/__init__.py",

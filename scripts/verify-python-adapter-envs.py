@@ -14,6 +14,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SECURITY_DIRECT_PINS = {"lightning", "pytorch-lightning", "hydra-core", "nltk"}
 
 
 @dataclass(frozen=True)
@@ -91,6 +92,7 @@ ADAPTERS: tuple[AdapterSpec, ...] = (
             PackageRange("lightning", exact="2.6.6"),
             PackageRange("pytorch-lightning", exact="2.6.6"),
             PackageRange("hydra-core", exact="1.3.6"),
+            PackageRange("nltk", exact="3.10.3"),
             PackageRange("nv-one-logger-pytorch-lightning-integration", exact="2.3.1+jotist.1"),
             PackageRange("transformers", exact="5.17.0"),
             PackageRange("torchcodec", exact="0.16.0"),
@@ -118,6 +120,8 @@ ADAPTERS: tuple[AdapterSpec, ...] = (
         requires_python=">=3.10,<3.13",
         package_ranges=(
             PackageRange("pyannote.audio", exact="4.0.7"),
+            PackageRange("lightning", exact="2.6.6"),
+            PackageRange("pytorch-lightning", exact="2.6.6"),
             PackageRange("torch", exact="2.14.0"),
             PackageRange("torchaudio", exact="2.11.0"),
             PackageRange("torchcodec", exact="0.16.0"),
@@ -133,18 +137,18 @@ ADAPTERS: tuple[AdapterSpec, ...] = (
             "from whisperx.diarize import DiarizationPipeline"
         ), requires_python=">=3.11,<3.13",
         caller_scripts=("whisperx_run.py",),
-        package_ranges=(PackageRange("whisperx", exact="3.8.7rc1+jotist.1"), PackageRange("torch", exact="2.14.0"), PackageRange("torchaudio", exact="2.11.0"), PackageRange("torchvision", exact="0.29.0"), PackageRange("torchcodec", exact="0.16.0"), PackageRange("transformers", exact="5.17.0"), PackageRange("huggingface-hub", exact="1.31.0")),
+        package_ranges=(PackageRange("whisperx", exact="3.8.7rc1+jotist.1"), PackageRange("torch", exact="2.14.0"), PackageRange("torchaudio", exact="2.11.0"), PackageRange("torchvision", exact="0.29.0"), PackageRange("torchcodec", exact="0.16.0"), PackageRange("transformers", exact="5.17.0"), PackageRange("huggingface-hub", exact="1.31.0"), PackageRange("lightning", exact="2.6.6"), PackageRange("pytorch-lightning", exact="2.6.6"), PackageRange("nltk", exact="3.10.3")),
         torch_companions=("torchaudio", "torchvision", "torchcodec"),
     ),
     AdapterSpec(
         key="suplime", label="SUPlime research diarization", pyproject=ROOT / "internal/transcription/adapters/py/suplime/pyproject.toml",
         import_code="import suplime; from pyannote.audio import Pipeline", requires_python=">=3.11,<3.13",
-        package_ranges=(PackageRange("suplime", exact="0.2.0"), PackageRange("pyannote.audio", exact="4.0.7"), PackageRange("torch", exact="2.14.0"), PackageRange("torchaudio", exact="2.11.0"), PackageRange("torchcodec", exact="0.16.0"), PackageRange("huggingface-hub", exact="1.31.0")),
+        package_ranges=(PackageRange("suplime", exact="0.2.0"), PackageRange("pyannote.audio", exact="4.0.7"), PackageRange("torch", exact="2.14.0"), PackageRange("torchaudio", exact="2.11.0"), PackageRange("torchcodec", exact="0.16.0"), PackageRange("huggingface-hub", exact="1.31.0"), PackageRange("lightning", exact="2.6.6"), PackageRange("pytorch-lightning", exact="2.6.6")),
     ),
     AdapterSpec(
         key="diarizen", label="DiariZen research diarization", pyproject=ROOT / "internal/transcription/adapters/py/diarizen/pyproject.toml",
         import_code="from diarizen.pipelines.inference import DiariZenPipeline", requires_python=">=3.12,<3.13",
-        package_ranges=(PackageRange("diarizen", exact="0.0.1+jotist.1"), PackageRange("pyannote.audio", exact="3.1.1+jotist.1"), PackageRange("torch", exact="2.14.0"), PackageRange("torchaudio", exact="2.11.0"), PackageRange("torchcodec", exact="0.16.0"), PackageRange("transformers", exact="5.17.0"), PackageRange("huggingface-hub", exact="1.31.0"), PackageRange("accelerate", exact="1.15.0")),
+        package_ranges=(PackageRange("diarizen", exact="0.0.1+jotist.1"), PackageRange("pyannote.audio", exact="3.1.1+jotist.1"), PackageRange("torch", exact="2.14.0"), PackageRange("torchaudio", exact="2.11.0"), PackageRange("torchcodec", exact="0.16.0"), PackageRange("transformers", exact="5.17.0"), PackageRange("huggingface-hub", exact="1.31.0"), PackageRange("accelerate", exact="1.15.0"), PackageRange("lightning", exact="2.6.6"), PackageRange("pytorch-lightning", exact="2.6.6")),
         expected_sources=(SourceExpectation("diarizen", "path", "vendor/diarizen"), SourceExpectation("pyannote.audio", "path", "vendor/pyannote-audio")),
     ),
     AdapterSpec(
@@ -254,6 +258,19 @@ def validate_pyproject(spec: AdapterSpec) -> None:
             f"{spec.pyproject} has requires-python={requires_python!r}; "
             f"expected {spec.requires_python!r}"
         )
+
+    # A clean resolver may choose the fixed release even after a direct pin is
+    # removed, while an existing lockfile retains an older transitive version.
+    # Require policy-sensitive versions in the recipe as well as the lockfile.
+    direct_pins = {}
+    for dependency in project.get("dependencies", []):
+        match = re.fullmatch(r"\s*([A-Za-z0-9_.-]+)\s*==\s*([^\s;]+)\s*", dependency)
+        if match:
+            direct_pins[canonical_name(match.group(1))] = match.group(2)
+    for expected in spec.package_ranges:
+        name = canonical_name(expected.name)
+        if name in SECURITY_DIRECT_PINS and direct_pins.get(name) != expected.exact:
+            raise CheckError(f"{spec.key}: {name}=={expected.exact} must be a direct dependency pin")
 
     uv_settings = pyproject.get("tool", {}).get("uv", {})
     if sorted(uv_settings.get("override-dependencies", [])) != sorted(spec.expected_overrides):

@@ -258,8 +258,17 @@ func TestLocalASREmbeddedEnvironment(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("PYTORCH_CUDA_VERSION", "")
+	if err := os.MkdirAll(a.envPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(a.envPath, "uv.lock"), []byte("old dependency graph"), 0644); err != nil {
+		t.Fatal(err)
+	}
 	if err := a.materializeEnvironment(); err != nil {
 		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(a.envPath, "uv.lock")); !os.IsNotExist(err) {
+		t.Fatal("local ASR upgrade retained old dependency resolutions")
 	}
 	for _, name := range []string{"models.json", "transcribe.py", "backends.py", "qwen_backend.py", "pyproject.toml"} {
 		if _, err := os.Stat(filepath.Join(a.envPath, name)); err != nil {

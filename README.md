@@ -32,15 +32,15 @@ Local transcription processes audio on your server. Optional cloud transcription
 
 ## Run with Docker
 
-The runtime update preview is **1.7.0-rc.2**, continuing the previous 1.6.1 version line. This candidate publishes the tested CUDA 12.6 image. Preview builds use explicit version tags and do not update `latest`.
+The corrected runtime update candidate is **1.7.0-rc.3**, pending publication and installed-state qualification. RC2 failed staging: existing lockfiles retained older dependencies, and packages outside the new resolved environment remained installed. Production remains on RC1 until the corrected candidate qualifies. RC3 is intended to publish the CUDA 12.6 image; preview builds use explicit version tags and do not update `latest`.
 
 | Hardware | Image |
 | --- | --- |
 | CPU | Build the updated source with `docker-compose.build.yml` |
-| NVIDIA CUDA | `ghcr.io/jaysqvl/jotist:1.7.0-rc.2-cuda` |
-| NVIDIA Blackwell / RTX 50-series | RC2 image publication awaits GPU qualification |
+| NVIDIA CUDA | `ghcr.io/jaysqvl/jotist:1.7.0-rc.3-cuda` (pending) |
+| NVIDIA Blackwell / RTX 50-series | Updated image publication awaits GPU qualification |
 
-The older RC1 CPU and Blackwell images retain the previous runtime dependencies. The prebuilt `docker-compose.yml` and `docker-compose.blackwell.yml` files still describe those legacy images; they do not include this update. CPU runtime inference is tested. Blackwell source builds use CUDA 13, with dependency resolution and native library loading checked, but actual Blackwell inference remains unqualified.
+The older RC1 CPU and Blackwell images retain the previous runtime dependencies. The prebuilt `docker-compose.yml` and `docker-compose.blackwell.yml` files still describe those legacy images; they do not include this update. CPU and CUDA 12.6 model inference passed on freshly prepared environments; RC3 must also qualify upgrades of existing environments. Blackwell source builds use CUDA 13, with dependency resolution and native library loading checked, but actual Blackwell inference remains unqualified.
 
 Published container builds currently target **Linux amd64**. Release archives provide Linux, macOS, and Windows server binaries for amd64 and arm64; availability of optional model runtimes depends on the platform.
 
@@ -52,7 +52,7 @@ cd Jotist
 docker compose -f docker-compose.build.yml up -d --build
 ```
 
-Open [localhost:8080](http://localhost:8080), then create the first account. For the tested NVIDIA CUDA 12.6 image, use `docker compose -f docker-compose.cuda.yml up -d` with a compatible host driver and NVIDIA Container Toolkit.
+Open [localhost:8080](http://localhost:8080), then create the first account. The CUDA Compose file targets pending RC3. After that release is published and qualified, use `docker compose -f docker-compose.cuda.yml up -d` with a compatible host driver and NVIDIA Container Toolkit.
 
 **Existing Scriberr installation:** follow the [migration guide](docs/jotist-migration.md) before starting a stack from a new directory. Preserve the existing database, uploads, JWT secret, model storage, and Compose volume mapping. A different Compose project name can create empty named volumes instead of opening your existing data.
 

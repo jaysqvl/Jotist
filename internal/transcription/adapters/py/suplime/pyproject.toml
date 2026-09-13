@@ -5,6 +5,8 @@ requires-python = ">=3.11,<3.13"
 dependencies = [
     "suplime==0.2.0",
     "pyannote.audio==4.0.7",
+    "lightning==2.6.6",
+    "pytorch-lightning==2.6.6",
     "torch==2.14.0",
     "torchaudio==2.11.0",
     "torchcodec==0.16.0",

@@ -109,11 +109,8 @@ func (r *ResearchDiarizationAdapter) PrepareEnvironment(ctx context.Context) err
 			return fmt.Errorf("prepare bundled DiariZen source: %w", err)
 		}
 	}
-	if err := writePythonProject(filepath.Join(r.envPath, "pyproject.toml"), project); err != nil {
+	if err := refreshPythonProjectData(project, r.envPath); err != nil {
 		return err
-	}
-	if _, err := reconcilePythonVersion(r.envPath, project); err != nil {
-		return fmt.Errorf("reconcile %s Python version: %w", r.engine, err)
 	}
 	script, err := researchDiarizationScripts.ReadFile("py/research/research_diarize.py")
 	if err != nil {

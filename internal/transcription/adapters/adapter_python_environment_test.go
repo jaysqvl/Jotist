@@ -76,11 +76,15 @@ func TestWhisperPreparationReconcilesOldPythonPinBeforeSync(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(environment, ".python-version"), []byte("3.10.20\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(environment, "uv.lock"), []byte("old interpreter dependency graph"), 0644); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(filepath.Join(environment, "cached-model.bin"), []byte("retained model cache"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	stub := `#!/bin/sh
 test "$(cat "$CHECK_ROOT/WhisperX/.python-version")" = "3.12" || exit 31
+test ! -e "$CHECK_ROOT/WhisperX/uv.lock" || exit 34
 if [ "$1" = "sync" ]; then
   touch "$CHECK_ROOT/synced"
   exit 0
@@ -298,5 +302,112 @@ func TestPythonProjectReplacementNeverExposesPartialFile(t *testing.T) {
 	close(stop)
 	if err := <-readerResult; err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestRuntimeUpgradeRefreshesRetainedLockWithoutTouchingModels(t *testing.T) {
+	environment := t.TempDir()
+	project := []byte("[project]\nname = 'fixture'\nversion = '1'\nrequires-python = '>=3.11,<3.13'\n")
+	files := fstest.MapFS{"pyproject.toml": {Data: project}}
+	lockPath := filepath.Join(environment, "uv.lock")
+	modelPath := filepath.Join(environment, "cached-model.bin")
+	// Reproduce RC2's partially updated state: new TOML, old allowed lock,
+	// and a cached successful import do not imply a current dependency graph.
+	for name, contents := range map[string][]byte{
+		"pyproject.toml": project, "uv.lock": []byte("old allowed dependency versions"),
+		"cached-model.bin": []byte("preserve model weights"),
+	} {
+		if err := os.WriteFile(filepath.Join(environment, name), contents, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	key := environment + ":old import"
+	envCacheMutex.Lock()
+	envCache[key] = true
+	envCacheMutex.Unlock()
+	t.Cleanup(func() { envCacheMutex.Lock(); delete(envCache, key); envCacheMutex.Unlock() })
+	if err := refreshPythonProject(files, "pyproject.toml", environment); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(lockPath); !os.IsNotExist(err) {
+		t.Fatalf("legacy lock survived migration: %v", err)
+	}
+	envCacheMutex.RLock()
+	stale := envCache[key]
+	envCacheMutex.RUnlock()
+	if stale {
+		t.Fatal("legacy import readiness survived dependency migration")
+	}
+	// Once uv has resolved the migrated project, normal repeated preparation
+	// retains its lock rather than upgrading dependencies on every invocation.
+	if err := os.WriteFile(lockPath, []byte("new resolved dependency graph"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := refreshPythonProject(files, "pyproject.toml", environment); err != nil {
+		t.Fatal(err)
+	}
+	if data, err := os.ReadFile(lockPath); err != nil || string(data) != "new resolved dependency graph" {
+		t.Fatal("unchanged runtime did not retain its resolved lock")
+	}
+	files["pyproject.toml"].Data = append(project, []byte("dependencies = ['fixed-package==2']\n")...)
+	if err := refreshPythonProject(files, "pyproject.toml", environment); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(lockPath); !os.IsNotExist(err) {
+		t.Fatal("changed project did not re-resolve its dependency graph")
+	}
+	if data, err := os.ReadFile(modelPath); err != nil || string(data) != "preserve model weights" {
+		t.Fatal("dependency migration changed cached model data")
+	}
+}
+
+func TestRuntimeUpgradeRejectsUnsafeLockAndRetries(t *testing.T) {
+	environment := t.TempDir()
+	files := fstest.MapFS{"pyproject.toml": {Data: []byte("[project]\nname = 'fixture'\nrequires-python = '>=3.11,<3.13'\n")}}
+	lockPath := filepath.Join(environment, "uv.lock")
+	if err := os.Mkdir(lockPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := refreshPythonProject(files, "pyproject.toml", environment); err == nil {
+		t.Fatal("non-regular dependency lock must fail closed")
+	}
+	if err := os.Remove(lockPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(lockPath, []byte("retained old graph"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := refreshPythonProject(files, "pyproject.toml", environment); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(lockPath); !os.IsNotExist(err) {
+		t.Fatal("retry after interrupted migration retained stale lock")
+	}
+}
+
+func TestReadinessRequiresExactEnvironmentSync(t *testing.T) {
+	root := t.TempDir()
+	stub := `#!/bin/sh
+test "$1" = run && test "$2" = --exact || exit 41
+rm "$CHECK_ROOT/orphan-package"
+`
+	if err := os.WriteFile(filepath.Join(root, "uv"), []byte(stub), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "orphan-package"), []byte("obsolete distribution"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", root+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("CHECK_ROOT", root)
+	t.Cleanup(func() {
+		envCacheMutex.Lock()
+		delete(envCache, root+":import current_runtime")
+		envCacheMutex.Unlock()
+	})
+	if !checkPythonEnvironmentReady(context.Background(), root, "import current_runtime") {
+		t.Fatal("readiness did not request removal of obsolete distributions")
+	}
+	if _, err := os.Stat(filepath.Join(root, "orphan-package")); !os.IsNotExist(err) {
+		t.Fatal("readiness accepted an environment with an orphan package")
 	}
 }
