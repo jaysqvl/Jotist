@@ -5,7 +5,7 @@ requires-python = ">=3.11,<3.13"
 dependencies = [
     "suplime==0.2.0",
     "pyannote.audio==4.0.7",
-    "torch==2.8.0",
+    "torch==2.13.0",
     "torchaudio==2.8.0",
     "torchcodec==0.7.0",
     "soundfile>=0.12.1",
