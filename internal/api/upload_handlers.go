@@ -371,7 +371,7 @@ func (h *Handler) CompleteUploadSession(c *gin.Context) {
 		})
 	}
 
-	resultID, resultType, result, err := h.finalizeAssembledUpload(c, session, assembledFiles)
+	result, err := h.finalizeAssembledUpload(c, session, assembledFiles)
 	if err != nil {
 		var invalidParams invalidUploadParametersError
 		if errors.As(err, &invalidParams) {
@@ -382,14 +382,7 @@ func (h *Handler) CompleteUploadSession(c *gin.Context) {
 		return
 	}
 
-	if err := database.DB.Model(&models.UploadSession{}).Where("id = ?", session.ID).Updates(map[string]interface{}{
-		"status":      models.UploadSessionCompleted,
-		"result_id":   resultID,
-		"result_type": resultType,
-	}).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to complete upload session"})
-		return
-	}
+	// Finalization committed the result binding before starting any work.
 
 	_ = os.RemoveAll(h.uploadSessionRoot(session.ID))
 	c.JSON(http.StatusOK, result)

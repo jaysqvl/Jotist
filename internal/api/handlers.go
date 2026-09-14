@@ -309,7 +309,7 @@ func (h *Handler) UploadAudio(c *gin.Context) {
 		return
 	}
 
-	job, err := h.createUploadedAudioJob(c, filePath, c.PostForm(paramTitle))
+	job, err := h.createUploadedAudioJob(c, filePath, c.PostForm(paramTitle), "")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -352,7 +352,7 @@ func (h *Handler) UploadVideo(c *gin.Context) {
 		return
 	}
 
-	job, err := h.createUploadedVideoJob(c, videoPath, c.PostForm(paramTitle))
+	job, err := h.createUploadedVideoJob(c, videoPath, c.PostForm(paramTitle), "")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -439,7 +439,7 @@ func (h *Handler) UploadMultiTrack(c *gin.Context) {
 		})
 	}
 
-	job, err := h.createMultiTrackJobFromPaths(c, c.PostForm(paramTitle), aup, tracks)
+	job, err := h.createMultiTrackJobFromPaths(c, c.PostForm(paramTitle), aup, tracks, "")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -637,7 +637,7 @@ func (h *Handler) SubmitJob(c *gin.Context) {
 		return
 	}
 
-	job, err := h.createSubmittedJobWithParams(c, filePath, c.PostForm(paramTitle), params)
+	job, err := h.createSubmittedJobWithParams(c, filePath, c.PostForm(paramTitle), params, "")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -1200,74 +1200,42 @@ func (h *Handler) DeleteTranscriptionJob(c *gin.Context) {
 		}
 	}
 
-	// Delete files
-	if job.IsMultiTrack && job.MultiTrackFolder != nil {
-		_ = h.fileService.RemoveDirectory(*job.MultiTrackFolder)
-	} else {
-		_ = h.fileService.RemoveFile(job.AudioPath)
-	}
-
-	// Also remove .aup file if exists
-	if job.AupFilePath != nil {
-		_ = h.fileService.RemoveFile(*job.AupFilePath)
-	}
-
-	// Manually delete related records to handle legacy DBs without CASCADE constraints
-	// 1. Delete Chat Sessions (and their messages via GORM hooks or manual if needed, but let's assume messages are cascaded by session deletion or we delete them too)
-	// Actually, we should use the repositories if available, or direct DB calls if not exposed.
-	// Since we have repositories, let's try to use them or add methods.
-	// However, for speed and robustness here, we can use the jobRepo's DB instance if we had access, but we don't directly.
-	// We should add DeleteByJobID methods to repositories or use a transaction.
-	// Given the constraints, let's add a helper in jobRepo or just rely on the fact that we can't easily access other repos here without adding them to Handler if they aren't already.
-	// Wait, Handler HAS all repos.
-
-	ctx := c.Request.Context()
-
-	// Delete Chat Sessions
-	// We need a method in ChatRepository to delete by JobID or TranscriptionID
-	if err := h.chatRepo.DeleteByJobID(ctx, jobID); err != nil {
-		// Log error but continue? Or fail? Best to try to clean up as much as possible.
-		fmt.Printf("Failed to delete chat sessions for job %s: %v\n", jobID, err)
-	}
-
-	// Delete Notes
-	if err := h.noteRepo.DeleteByTranscriptionID(ctx, jobID); err != nil {
-		fmt.Printf("Failed to delete notes for job %s: %v\n", jobID, err)
-	}
-
-	// Delete Summaries
-	if err := h.summaryRepo.DeleteByTranscriptionID(ctx, jobID); err != nil {
-		fmt.Printf("Failed to delete summaries for job %s: %v\n", jobID, err)
-	}
-
-	// Delete Speaker Mappings
-	if err := h.speakerMappingRepo.DeleteByJobID(ctx, jobID); err != nil {
-		fmt.Printf("Failed to delete speaker mappings for job %s: %v\n", jobID, err)
-	}
-
-	// Delete Job Executions
-	if err := h.jobRepo.DeleteExecutionsByJobID(ctx, jobID); err != nil {
-		fmt.Printf("Failed to delete job executions for job %s: %v\n", jobID, err)
-	}
-
-	// Delete durable sequential-run records for legacy databases that may not
-	// have the current foreign-key cascade.
-	if err := h.taskQueue.DeleteSequentialRuns(ctx, jobID); err != nil {
-		fmt.Printf("Failed to delete queued runs for job %s: %v\n", jobID, err)
-	}
-
-	// Delete MultiTrack Files (DB records)
-	if err := h.jobRepo.DeleteMultiTrackFilesByJobID(ctx, jobID); err != nil {
-		fmt.Printf("Failed to delete multi-track file records for job %s: %v\n", jobID, err)
-	}
-
-	// Delete from database
-	if err := h.jobRepo.Delete(c.Request.Context(), jobID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete job: " + err.Error()})
+	// Commit the database aggregate before removing original media. A failed
+	// transaction leaves the recording and its source available for a retry.
+	if err := h.jobRepo.DeleteWithAssociations(c.Request.Context(), jobID); err != nil {
+		logger.Error("Failed to delete recording", "job_id", jobID, "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete job"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Job deleted successfully"})
+	response := gin.H{"message": "Job deleted successfully"}
+	if err := h.removeRecordingMedia(job); err != nil {
+		// Filesystem cleanup cannot roll back the database commit. Keep the
+		// tombstone's paths and report the incomplete cleanup explicitly.
+		logger.Error("Deleted recording media cleanup failed", "job_id", jobID, "error", err)
+		response["warning"] = "The job was deleted, but some media files could not be removed."
+	}
+	c.JSON(http.StatusOK, response)
+}
+
+// removeRecordingMedia attempts every independent removal. Missing paths are
+// already clean, including an AUP file removed with its multi-track directory.
+func (h *Handler) removeRecordingMedia(job *models.TranscriptionJob) error {
+	var cleanupErrors []error
+	keepError := func(err error) {
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			cleanupErrors = append(cleanupErrors, err)
+		}
+	}
+	if job.IsMultiTrack && job.MultiTrackFolder != nil {
+		keepError(h.fileService.RemoveDirectory(*job.MultiTrackFolder))
+	} else {
+		keepError(h.fileService.RemoveFile(job.AudioPath))
+	}
+	if job.AupFilePath != nil {
+		keepError(h.fileService.RemoveFile(*job.AupFilePath))
+	}
+	return errors.Join(cleanupErrors...)
 }
 
 // @Summary Get transcription job execution data

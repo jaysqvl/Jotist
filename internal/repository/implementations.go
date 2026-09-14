@@ -119,6 +119,7 @@ type JobRepository interface {
 	FindExecution(ctx context.Context, jobID, executionID string) (*models.TranscriptionJobExecution, error)
 	FindLatestExecution(ctx context.Context, jobID string) (*models.TranscriptionJobExecution, error)
 	SetPinnedExecution(ctx context.Context, jobID string, executionID *string) error
+	DeleteWithAssociations(ctx context.Context, jobID string) error
 	DeleteExecutionsByJobID(ctx context.Context, jobID string) error
 	DeleteMultiTrackFilesByJobID(ctx context.Context, jobID string) error
 	UpdateStatus(ctx context.Context, jobID string, status models.JobStatus) error
