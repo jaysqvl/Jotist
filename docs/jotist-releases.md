@@ -94,6 +94,16 @@ After review and validation, merge the version/changelog PR. Release Please call
 
 Repository Actions must be allowed to create pull requests. Jobs request only the contents, pull-request, issue, or package permissions they need. No custom PAT or Docker Hub credentials are required for this publication flow.
 
+## Writing release notes
+
+Before merging a release PR, edit its changelog entry into a short summary of
+user-visible changes. Include upgrade steps when commands, data, or requirements
+change, and link to relevant known limitations. Keep test counts, source hashes,
+image digests, and audit logs in workflow summaries or technical documentation.
+Use a few plain bullets and a full-changes link; avoid repeating the commit log.
+Review the entry again if Release Please updates the PR. Release Please uses the
+changelog entry for the release body, and GoReleaser preserves that body.
+
 ## Verify a published release
 
 Confirm that validation, artifact publication, and all selected image jobs completed successfully for the intended commit. Check the image's `org.opencontainers.image.revision` and `org.opencontainers.image.version`, then record the digest. Ensure the GHCR package is linked to Jotist, public if advertised publicly, and can be pulled without authentication.
