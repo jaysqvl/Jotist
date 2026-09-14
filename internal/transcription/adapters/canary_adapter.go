@@ -354,11 +354,11 @@ func (c *CanaryAdapter) copyTranscriptionScript() error {
 }
 
 // Transcribe processes audio using Canary
-func (c *CanaryAdapter) Transcribe(ctx context.Context, input interfaces.AudioInput, params map[string]interface{}, procCtx interfaces.ProcessingContext) (*interfaces.TranscriptResult, error) {
+func (c *CanaryAdapter) Transcribe(ctx context.Context, input interfaces.AudioInput, params map[string]interface{}, procCtx interfaces.ProcessingContext) (transcript *interfaces.TranscriptResult, processingErr error) {
 	startTime := time.Now()
 	c.LogProcessingStart(input, procCtx)
 	defer func() {
-		c.LogProcessingEnd(procCtx, time.Since(startTime), nil)
+		c.LogProcessingEnd(procCtx, time.Since(startTime), processingErr)
 	}()
 
 	// Validate input

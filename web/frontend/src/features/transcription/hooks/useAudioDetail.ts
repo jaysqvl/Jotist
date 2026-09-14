@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth/hooks/useAuth";
-import type { WhisperXParams } from "@/components/TranscriptionConfigDialog";
+import type { WhisperXParams } from "@/features/transcription/types";
 
 
 // Types

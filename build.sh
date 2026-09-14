@@ -1,40 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Jotist Build Script
-# This script builds the React frontend and embeds it in the Go binary
-
-set -e  # Exit on any error
-
-echo "🚀 Starting Jotist build process..."
-
-# Step 1: Clean up old files
-echo "🧹 Cleaning up old build files..."
-rm -f jotist
-rm -rf internal/web/dist
-cd web/frontend
-
-# Remove old build output and copied files
-rm -rf dist/
-rm -rf assets/ 2>/dev/null || true
-
-echo "✅ Old files cleaned"
-
-# Step 2: Build React frontend
-echo "📦 Building React frontend..."
-npm run build
-echo "✅ React frontend built successfully"
-
-# Step 3: Copy dist files to internal/web for embedding
-echo "📁 Copying dist files for Go embedding..."
-cd ../..
-rm -rf internal/web/dist
-cp -r web/frontend/dist internal/web/
-echo "✅ Dist files copied to internal/web"
-
-# Step 4: Clean Go build cache and rebuild binary
-echo "🔨 Building Go binary with embedded static files..."
-go clean -cache
-go build -o jotist cmd/server/main.go
-echo "✅ Go binary built successfully"
-
-echo "🎉 Build complete! Run './jotist' to start the server"
+# Compatibility entrypoint; the build steps live in scripts/build.sh.
+exec "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scripts/build.sh" "$@"

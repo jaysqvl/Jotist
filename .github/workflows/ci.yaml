@@ -100,9 +100,7 @@ jobs:
           cache: true
 
       - name: Copy Frontend Assets
-        run: |
-          mkdir -p internal/web
-          cp -r web/frontend/dist internal/web/
+        run: make embed
 
       - name: Build Go Project
         run: go build -v ./cmd/... ./internal/... ./pkg/...
@@ -124,11 +122,8 @@ jobs:
           cache: 'npm'
           cache-dependency-path: web/project-site/package-lock.json
 
-      - name: Install swag
-        run: go install github.com/swaggo/swag/cmd/swag@v1.16.6
-
       - name: Generate API documentation
-        run: swag init -g server/main.go -o web/project-site/public/api --outputTypes json --dir cmd,internal
+        run: make docs
 
       - name: Install dependencies
         working-directory: web/project-site

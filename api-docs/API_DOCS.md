@@ -1,26 +1,25 @@
-API documentation workflow
+# API documentation
 
-- Source of truth: handler annotations in `internal/api/*.go` (`@Summary`, `@Description`, `@Tags`, `@Param`, `@Success`, `@Failure`, `@Router`, etc.).
-- Generator: swag (github.com/swaggo/swag) parses annotations and emits Swagger/OpenAPI JSON/YAML.
-- Landing site: reads the static spec at `/api/swagger.json` and renders a searchable, developer‑friendly reference with parameters, request bodies, responses, curl examples, permalinks, and copy‑to‑clipboard.
+Handler annotations in `internal/api/*.go` and the server metadata in
+`cmd/server/main.go` are the source of truth. Generated files are committed so
+the Go application and project site use the same specification.
 
-Regenerate the spec
+From the repository root, run:
 
-1) Install swag (one time):
+```bash
+make docs
+```
 
-   go install github.com/swaggo/swag/cmd/swag@latest
+This uses the pinned Swag generator in `scripts/generate-api-docs.sh` to write
+`api-docs/docs.go`, `api-docs/swagger.json`, and `api-docs/swagger.yaml`. It copies
+that JSON to `web/project-site/public/api/swagger.json` and regenerates the
+site's endpoint index, `undocumented.json`. Do not edit those outputs by hand.
+Review and commit the generated changes with the handler changes.
 
-2) Generate into `docs/` from the server entrypoint:
+Use `make website-dev` to inspect the reference locally after installing the
+project site's dependencies (`cd web/project-site && npm ci`).
+`make website-build` writes the website to `web/project-site/dist`; the root
+`docs/` directory contains authored documentation and qualification records.
 
-   swag init -g cmd/server/main.go -o docs
-
-3) Run the landing site (copies the spec on dev/build):
-
-   cd web/landing && npm run dev
-
-Notes
-
-- The landing app copies `docs/swagger.json` to `web/landing/public/api/swagger.json` via `npm run sync:spec` (invoked on `dev` and `build`).
-- The renderer supports Swagger 2.0 and OpenAPI 3.0. For Swagger 2.0, request bodies and responses fall back to `parameters[in=body]` and `responses[*].schema` automatically.
-- Keep annotations up to date when adding/changing endpoints. Tags control grouping in the sidebar.
-
+CI runs the same generator and rejects uncommitted generated changes. Keep
+the API annotations current when changing routes, parameters, or responses.

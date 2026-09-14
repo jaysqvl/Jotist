@@ -26,7 +26,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { ExecutionRun } from "@/features/transcription/hooks/useAudioDetail";
 import type { TranscriptionQueueItem } from "@/features/transcription/hooks/transcriptionQueue";
-import type { WhisperXParams } from "@/components/TranscriptionConfigDialog";
+import type { WhisperXParams } from "@/features/transcription/types";
 import { transcriptionModelLabel } from "@/features/transcription/hooks/modelCapabilities";
 
 interface RunQueuePanelProps {

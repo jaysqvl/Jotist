@@ -32,7 +32,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { TranscriptionConfigDialog, type WhisperXParams } from "@/components/TranscriptionConfigDialog";
+import { TranscriptionConfigDialog } from "@/components/transcription/TranscriptionConfigDialog";
+import type { WhisperXParams } from "@/features/transcription/types";
 import { TranscribeDDialog } from "@/components/TranscribeDDialog";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/hooks/useAuth";
@@ -429,9 +430,11 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 			});
 
 			if (response.ok) {
-				refetch();
+				const result: { warning?: string } = await response.json();
 				setDeleteDialogOpen(false);
 				setSelectedFile(null);
+				await refetch();
+				if (result.warning) alert(result.warning);
 			} else {
 				alert("Failed to delete audio file");
 			}
@@ -520,21 +523,32 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 
 		setBulkActionLoading(true);
 		try {
-			// Process sequentially
+			const deletedIds = new Set<string>();
+			const warnings = new Set<string>();
+			// Process sequentially and retain failed rows for a retry.
 			for (const id of selectedIds) {
-				await fetch(`/api/v1/transcription/${id}`, {
-					method: "DELETE",
-					headers: {
-						...getAuthHeaders(),
-					},
-				});
+				try {
+					const response = await fetch(`/api/v1/transcription/${id}`, {
+						method: "DELETE",
+						headers: getAuthHeaders(),
+					});
+					if (!response.ok) continue;
+					const result: { warning?: string } = await response.json();
+					deletedIds.add(id);
+					if (result.warning) warnings.add(result.warning);
+				} catch (error) {
+					console.error("Failed to delete selected recording:", error);
+				}
 			}
 
-			// Clear selection and refresh
-			setRowSelection({});
+			setRowSelection(previous => Object.fromEntries(
+				Object.entries(previous).filter(([id]) => !deletedIds.has(id))
+			));
 			setBulkDeleteDialogOpen(false);
-			setBulkDeleteDialogOpen(false);
-			refetch();
+			await refetch();
+			const failedCount = selectedIds.length - deletedIds.size;
+			if (failedCount) warnings.add(`${failedCount} recording(s) could not be deleted and remain selected.`);
+			if (warnings.size) alert([...warnings].join("\n"));
 		} catch (error) {
 			console.error("Bulk delete error:", error);
 			alert("Error processing bulk delete");

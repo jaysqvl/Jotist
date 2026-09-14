@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"scriberr/internal/execution"
@@ -47,9 +46,7 @@ var (
 
 // TaskQueue manages transcription job processing
 type TaskQueue struct {
-	minWorkers     int
-	maxWorkers     int
-	currentWorkers int64 // Use atomic for thread-safe access
+	workerCount    int
 	jobChannel     chan queuedTask
 	ctx            context.Context
 	cancel         context.CancelFunc
@@ -60,8 +57,6 @@ type TaskQueue struct {
 	jobsMutex      sync.RWMutex
 	dispatchMutex  sync.Mutex
 	scheduledTasks map[queuedTask]struct{}
-	autoScale      bool
-	lastScaleTime  time.Time
 	jobRepo        repository.JobRepository
 	runQueueRepo   repository.TranscriptionQueueRepository
 	jobTimeout     time.Duration
@@ -83,55 +78,28 @@ type MultiTrackJobProcessor interface {
 	IsMultiTrackJob(jobID string) bool
 }
 
-// getOptimalWorkerCount calculates optimal worker count based on system resources
-func getOptimalWorkerCount() (min, max int) {
-	numCPU := runtime.NumCPU()
-
-	// Check for environment variable override
-	if workerStr := os.Getenv("QUEUE_WORKERS"); workerStr != "" {
-		if workers, err := strconv.Atoi(workerStr); err == nil && workers > 0 {
-			return workers, workers // Fixed worker count
-		}
+// configuredWorkerCount fixes concurrency for the lifetime of the queue.
+// A positive environment override wins; invalid values retain the caller's
+// default. Embedders without a default get a conservative CPU-based count.
+func configuredWorkerCount(defaultWorkers int) int {
+	if workers, err := strconv.Atoi(os.Getenv("QUEUE_WORKERS")); err == nil && workers > 0 {
+		return workers
 	}
-
-	// For transcription workloads, we typically want fewer workers than CPUs
-	// since each job is CPU and I/O intensive
-	if numCPU <= 2 {
-		return 1, 2
+	if defaultWorkers > 0 {
+		return defaultWorkers
 	}
-	if numCPU <= 4 {
-		return 1, 3
+	if runtime.NumCPU() <= 4 {
+		return 1
 	}
-	if numCPU <= 8 {
-		return 2, 4
-	}
-	return 2, 6 // Cap at 6 for very high CPU systems
+	return 2
 }
 
-// NewTaskQueue creates a new task queue with auto-scaling capabilities
-func NewTaskQueue(legacyWorkers int, processor JobProcessor, jobRepo repository.JobRepository) *TaskQueue {
+// NewTaskQueue creates a queue with a fixed number of transcription workers.
+func NewTaskQueue(defaultWorkers int, processor JobProcessor, jobRepo repository.JobRepository) *TaskQueue {
 	ctx, cancel := context.WithCancel(context.Background())
-
-	// Calculate optimal worker counts, fallback to legacy parameter
-	min, max := getOptimalWorkerCount()
-	// Only use legacy parameter as fallback when QUEUE_WORKERS env var is not set
-	// TODO: Deprecate `legacyWorkers` and rely on `getOptimalWorkerCount` instead.
-	if os.Getenv("QUEUE_WORKERS") == "" && legacyWorkers > 0 {
-		min = legacyWorkers
-		max = legacyWorkers
-	}
-
-	// Check if auto-scaling should be enabled
-	autoScale := os.Getenv("QUEUE_AUTO_SCALE") != "false"
-	if min == max {
-		autoScale = false // Disable auto-scaling if min == max
-	}
-
 	return &TaskQueue{
-		minWorkers:     min,
-		maxWorkers:     max,
-		currentWorkers: int64(min),
-		jobChannel:     make(chan queuedTask, 200), // Increased buffer for better throughput
+		workerCount:    configuredWorkerCount(defaultWorkers),
+		jobChannel:     make(chan queuedTask, 200),
 		ctx:            ctx,
 		cancel:         cancel,
 		processor:      processor,
@@ -139,8 +107,6 @@ func NewTaskQueue(legacyWorkers int, processor JobProcessor, jobRepo repository.
 		deletingJobs:   make(map[string]struct{}),
 		protectedJobs:  make(map[string]struct{}),
 		scheduledTasks: make(map[queuedTask]struct{}),
-		autoScale:      autoScale,
-		lastScaleTime:  time.Now(),
 		jobRepo:        jobRepo,
 		jobTimeout:     2 * time.Hour,
 		reconcileEvery: 5 * time.Second,
@@ -163,12 +129,8 @@ func (tq *TaskQueue) SetJobTimeout(timeout time.Duration) {
 
 // Start starts the task queue workers
 func (tq *TaskQueue) Start() error {
-	workers := int(atomic.LoadInt64(&tq.currentWorkers))
-	logger.Debug("Starting task queue",
-		"workers", workers,
-		"min_workers", tq.minWorkers,
-		"max_workers", tq.maxWorkers,
-		"auto_scale", tq.autoScale)
+	workers := tq.workerCount
+	logger.Debug("Starting task queue", "workers", workers)
 
 	// Recovery owns these recordings before any legacy terminalization, credential
 	// scrub or successor promotion is allowed to run.
@@ -200,11 +162,6 @@ func (tq *TaskQueue) Start() error {
 	// channel capacity was persisted.
 	tq.recoverPendingJobs()
 
-	// Start auto-scaling monitor if enabled
-	if tq.autoScale {
-		tq.wg.Add(1)
-		go tq.autoScaler()
-	}
 	if tq.runQueueRepo != nil {
 		tq.wg.Add(1)
 		go tq.sequentialReconciler()
@@ -436,13 +393,6 @@ func (tq *TaskQueue) ClearSequentialRuns(ctx context.Context, jobID string) ([]m
 	}
 	items, err := tq.runQueueRepo.List(ctx, jobID, false)
 	return items, cleared, err
-}
-
-func (tq *TaskQueue) DeleteSequentialRuns(ctx context.Context, jobID string) error {
-	if tq.runQueueRepo == nil {
-		return nil
-	}
-	return tq.runQueueRepo.DeleteByJobID(ctx, jobID)
 }
 
 // ReserveJobDeletion makes the read/check/delete admission decision atomic
@@ -968,64 +918,6 @@ func (tq *TaskQueue) GetJobStatus(jobID string) (*models.TranscriptionJob, error
 	return tq.jobRepo.FindByID(context.Background(), jobID)
 }
 
-// autoScaler monitors queue load and adjusts worker count
-func (tq *TaskQueue) autoScaler() {
-	defer tq.wg.Done()
-
-	ticker := time.NewTicker(30 * time.Second) // Check every 30 seconds
-	defer ticker.Stop()
-
-	log.Println("Auto-scaler started")
-
-	for {
-		select {
-		case <-ticker.C:
-			tq.checkAndScale()
-		case <-tq.ctx.Done():
-			log.Println("Auto-scaler stopped")
-			return
-		}
-	}
-}
-
-// checkAndScale evaluates current load and adjusts worker count
-func (tq *TaskQueue) checkAndScale() {
-	// Prevent too frequent scaling
-	if time.Since(tq.lastScaleTime) < 1*time.Minute {
-		return
-	}
-
-	queueSize := len(tq.jobChannel)
-	currentWorkers := int(atomic.LoadInt64(&tq.currentWorkers))
-
-	tq.jobsMutex.RLock()
-	runningJobsCount := len(tq.runningJobs)
-	tq.jobsMutex.RUnlock()
-
-	// Scale up if queue is building up and we have capacity
-	if queueSize > 10 && currentWorkers < tq.maxWorkers {
-		newWorkerCount := currentWorkers + 1
-		log.Printf("Scaling up workers: %d -> %d (queue size: %d)", currentWorkers, newWorkerCount, queueSize)
-
-		atomic.StoreInt64(&tq.currentWorkers, int64(newWorkerCount))
-		tq.wg.Add(1)
-		go tq.worker(newWorkerCount - 1)
-		tq.lastScaleTime = time.Now()
-
-		// Scale down if queue is empty and minimal jobs running
-	} else if queueSize == 0 && runningJobsCount <= 1 && currentWorkers > tq.minWorkers {
-		newWorkerCount := currentWorkers - 1
-		log.Printf("Scaling down workers: %d -> %d (queue size: %d, running: %d)",
-			currentWorkers, newWorkerCount, queueSize, runningJobsCount)
-
-		atomic.StoreInt64(&tq.currentWorkers, int64(newWorkerCount))
-		tq.lastScaleTime = time.Now()
-
-		// Note: We don't actively stop workers here. They will naturally exit
-		// when no more jobs are available and the queue empties.
-	}
-}
-
 // GetQueueStats returns queue statistics
 func (tq *TaskQueue) GetQueueStats() map[string]interface{} {
 	ctx := context.Background()
@@ -1041,10 +933,10 @@ func (tq *TaskQueue) GetQueueStats() map[string]interface{} {
 	return map[string]interface{}{
 		"queue_size":      len(tq.jobChannel),
 		"queue_capacity":  cap(tq.jobChannel),
-		"current_workers": int(atomic.LoadInt64(&tq.currentWorkers)),
-		"min_workers":     tq.minWorkers,
-		"max_workers":     tq.maxWorkers,
-		"auto_scale":      tq.autoScale,
+		"current_workers": tq.workerCount,
+		"min_workers":     tq.workerCount,
+		"max_workers":     tq.workerCount,
+		"auto_scale":      false,
 		"running_jobs":    runningJobsCount,
 		"pending_jobs":    pendingCount,
 		"processing_jobs": processingCount,

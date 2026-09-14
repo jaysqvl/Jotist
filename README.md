@@ -100,10 +100,10 @@ cd web/frontend
 npm ci
 cd ../..
 make build
-./jotist
+./bin/jotist
 ```
 
-The Go module name remains `scriberr` to avoid an unrelated import rewrite. `make docs` regenerates API documentation; `make build-cli` produces the compatible CLI downloads.
+The Go module name remains `scriberr` to avoid an unrelated import rewrite. `make dev` runs Vite and the backend, using Air when it is already installed. `make docs` regenerates API documentation; `make build-cli` produces the compatible CLI downloads. See [Contributing](CONTRIBUTING.md) for the development checks and [source ownership](docs/architecture.md) for where changes belong.
 
 See [local speech validation](docs/local-speech-validation.md), [recoverable transcription](docs/recoverable-transcription.md), and the [release guide](docs/jotist-releases.md) for implementation and validation details. A listed model or passing unit test is not a promise of successful inference on every machine.
 

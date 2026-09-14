@@ -284,11 +284,11 @@ func (s *SortformerAdapter) copyDiarizationScript() error {
 }
 
 // Diarize processes audio using Sortformer
-func (s *SortformerAdapter) Diarize(ctx context.Context, input interfaces.AudioInput, params map[string]interface{}, procCtx interfaces.ProcessingContext) (*interfaces.DiarizationResult, error) {
+func (s *SortformerAdapter) Diarize(ctx context.Context, input interfaces.AudioInput, params map[string]interface{}, procCtx interfaces.ProcessingContext) (diarization *interfaces.DiarizationResult, processingErr error) {
 	startTime := time.Now()
 	s.LogProcessingStart(input, procCtx)
 	defer func() {
-		s.LogProcessingEnd(procCtx, time.Since(startTime), nil)
+		s.LogProcessingEnd(procCtx, time.Since(startTime), processingErr)
 	}()
 
 	// Validate input

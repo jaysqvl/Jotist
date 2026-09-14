@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -665,6 +666,33 @@ func (suite *APIHandlerTestSuite) TestDeleteTranscriptionJob() {
 	// Verify the job was deleted
 	w = suite.makeAuthenticatedRequest("GET", fmt.Sprintf("/api/v1/transcription/%s", testJob.ID), nil, false)
 	assert.Equal(suite.T(), 404, w.Code)
+}
+
+func (suite *APIHandlerTestSuite) TestDeleteTranscriptionJobRetainsMediaOnDatabaseFailure() {
+	testJob := suite.helper.CreateTestTranscriptionJob(suite.T(), "Retained Job")
+	audioPath := filepath.Join(suite.T().TempDir(), "source.wav")
+	require.NoError(suite.T(), os.WriteFile(audioPath, []byte("original recording"), 0600))
+	require.NoError(suite.T(), suite.helper.DB.Model(testJob).Updates(map[string]any{"status": models.StatusCompleted, "audio_path": audioPath}).Error)
+	note := &models.Note{ID: "retained-note", TranscriptionID: testJob.ID, Quote: "quote", Content: "note"}
+	require.NoError(suite.T(), suite.helper.DB.Create(note).Error)
+	require.NoError(suite.T(), suite.helper.DB.Exec(`CREATE TRIGGER reject_recording_delete BEFORE UPDATE OF deleted_at ON transcription_jobs
+		BEGIN SELECT RAISE(ABORT, 'injected delete failure'); END`).Error)
+	defer suite.helper.DB.Exec("DROP TRIGGER IF EXISTS reject_recording_delete")
+
+	w := suite.makeAuthenticatedRequest("DELETE", fmt.Sprintf("/api/v1/transcription/%s", testJob.ID), nil, false)
+	require.Equal(suite.T(), http.StatusInternalServerError, w.Code)
+	content, err := os.ReadFile(audioPath)
+	require.NoError(suite.T(), err)
+	require.Equal(suite.T(), "original recording", string(content))
+	require.NoError(suite.T(), suite.helper.DB.First(&models.Note{}, "id = ?", note.ID).Error)
+	require.NoError(suite.T(), suite.helper.DB.First(&models.TranscriptionJob{}, "id = ?", testJob.ID).Error)
+
+	// Releasing queue ownership on failure allows the same request to succeed.
+	require.NoError(suite.T(), suite.helper.DB.Exec("DROP TRIGGER reject_recording_delete").Error)
+	w = suite.makeAuthenticatedRequest("DELETE", fmt.Sprintf("/api/v1/transcription/%s", testJob.ID), nil, false)
+	require.Equal(suite.T(), http.StatusOK, w.Code)
+	_, err = os.Stat(audioPath)
+	require.ErrorIs(suite.T(), err, os.ErrNotExist)
 }
 
 func (suite *APIHandlerTestSuite) TestDeleteTranscriptionJobRejectsPendingWork() {

@@ -105,6 +105,13 @@ func (qs *QuickTranscriptionService) UseSharedMediaSlots(slots chan struct{}) {
 
 // SubmitQuickJob creates and processes a temporary transcription job
 func (qs *QuickTranscriptionService) SubmitQuickJob(audioData io.Reader, filename string, params models.WhisperXParams) (*QuickTranscriptionJob, error) {
+	return qs.SubmitQuickJobWithCommit(audioData, filename, params, nil)
+}
+
+// SubmitQuickJobWithCommit prepares the file and reserves capacity, then commits
+// the caller's result binding before publishing or starting the job. A failed
+// commit leaves no job, temporary audio, or occupied processing slot.
+func (qs *QuickTranscriptionService) SubmitQuickJobWithCommit(audioData io.Reader, filename string, params models.WhisperXParams, commit func(jobID string) error) (*QuickTranscriptionJob, error) {
 	qs.jobsMutex.Lock()
 	if qs.closed {
 		qs.jobsMutex.Unlock()
@@ -173,6 +180,13 @@ func (qs *QuickTranscriptionService) SubmitQuickJob(audioData io.Reader, filenam
 		Parameters: params,
 		CreatedAt:  now,
 		ExpiresAt:  now.Add(6 * time.Hour),
+	}
+
+	if commit != nil {
+		if err := commit(jobID); err != nil {
+			_ = os.Remove(audioPath)
+			return nil, fmt.Errorf("failed to commit quick upload result: %w", err)
+		}
 	}
 
 	// Store in memory

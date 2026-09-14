@@ -13,9 +13,12 @@ import (
 	"strings"
 
 	"scriberr/internal/audio"
+	"scriberr/internal/database"
 	"scriberr/internal/models"
+	"scriberr/internal/repository"
 	"scriberr/internal/transcription"
 	"scriberr/internal/transcription/adapters"
+	"scriberr/pkg/logger"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -30,7 +33,7 @@ type assembledUploadFile struct {
 	Size         int64
 }
 
-func (h *Handler) finalizeAssembledUpload(c *gin.Context, session *models.UploadSession, files []assembledUploadFile) (string, string, interface{}, error) {
+func (h *Handler) finalizeAssembledUpload(c *gin.Context, session *models.UploadSession, files []assembledUploadFile) (interface{}, error) {
 	title := ""
 	if session.Title != nil {
 		title = *session.Title
@@ -40,91 +43,91 @@ func (h *Handler) finalizeAssembledUpload(c *gin.Context, session *models.Upload
 	case models.UploadKindAudio:
 		file, err := singleAssembledFile(files, models.UploadFileRoleAudio)
 		if err != nil {
-			return "", "", nil, err
+			return nil, err
 		}
 		path, err := h.moveAssembledToUpload(file)
 		if err != nil {
-			return "", "", nil, err
+			return nil, err
 		}
-		job, err := h.createUploadedAudioJob(c, path, title)
+		job, err := h.createUploadedAudioJob(c, path, title, session.ID)
 		if err != nil {
-			return "", "", nil, err
+			return nil, err
 		}
-		return job.ID, "transcription", job, nil
+		return job, nil
 	case models.UploadKindVideo:
 		file, err := singleAssembledFile(files, models.UploadFileRoleVideo)
 		if err != nil {
-			return "", "", nil, err
+			return nil, err
 		}
 		path, err := h.moveAssembledToUpload(file)
 		if err != nil {
-			return "", "", nil, err
+			return nil, err
 		}
-		job, err := h.createUploadedVideoJob(c, path, title)
+		job, err := h.createUploadedVideoJob(c, path, title, session.ID)
 		if err != nil {
-			return "", "", nil, err
+			return nil, err
 		}
-		return job.ID, "transcription", job, nil
+		return job, nil
 	case models.UploadKindQuick:
 		file, err := singleAssembledFile(files, models.UploadFileRoleAudio)
 		if err != nil {
-			return "", "", nil, err
+			return nil, err
 		}
 		params, err := h.quickParamsForUploadSession(c, session)
 		if err != nil {
-			return "", "", nil, err
+			return nil, err
 		}
 		if err := h.resolveTranscriptionContext(c, &params); err != nil {
-			return "", "", nil, err
+			return nil, err
 		}
 		if err := validateModelRunOptions(params); err != nil {
-			return "", "", nil, err
+			return nil, err
 		}
-		quickJob, err := h.createQuickTranscriptionFromPath(file.Path, file.OriginalName, params)
+		quickJob, err := h.createQuickTranscriptionFromPath(c.Request.Context(), file.Path, file.OriginalName, params, session.ID)
 		if err != nil {
-			return "", "", nil, err
+			return nil, err
 		}
-		return quickJob.ID, "quick", quickJob, nil
+		return quickJob, nil
 	case models.UploadKindSubmit:
 		file, err := singleAssembledFile(files, models.UploadFileRoleAudio)
 		if err != nil {
-			return "", "", nil, err
+			return nil, err
 		}
 		params, err := submitParamsFromJSON(session.ParametersJSON)
 		if err != nil {
-			return "", "", nil, invalidUploadParametersError{err}
+			return nil, invalidUploadParametersError{err}
 		}
 		if err := validateModelRunOptions(params); err != nil {
-			return "", "", nil, invalidUploadParametersError{err}
+			return nil, invalidUploadParametersError{err}
 		}
 		if err := h.resolveTranscriptionContext(c, &params); err != nil {
-			return "", "", nil, err
+			return nil, err
 		}
 		path, err := h.moveAssembledToUpload(file)
 		if err != nil {
-			return "", "", nil, err
+			return nil, err
 		}
-		job, err := h.createSubmittedJobWithParams(c, path, title, params)
+		job, err := h.createSubmittedJobWithParams(c, path, title, params, session.ID)
 		if err != nil {
-			return "", "", nil, err
+			return nil, err
 		}
-		return job.ID, "transcription", job, nil
+		return job, nil
 	case models.UploadKindMultiTrack:
 		aup, err := singleAssembledFile(files, models.UploadFileRoleAup)
 		if err != nil {
-			return "", "", nil, err
+			return nil, err
 		}
 		tracks := filesByRole(files, models.UploadFileRoleTrack)
 		if len(tracks) == 0 {
-			return "", "", nil, fmt.Errorf("Multi-track upload has no tracks")
+			return nil, fmt.Errorf("Multi-track upload has no tracks")
 		}
-		job, err := h.createMultiTrackJobFromPaths(c, title, aup, tracks)
+		job, err := h.createMultiTrackJobFromPaths(c, title, aup, tracks, session.ID)
 		if err != nil {
-			return "", "", nil, err
+			return nil, err
 		}
-		return job.ID, "transcription", job, nil
+		return job, nil
 	default:
-		return "", "", nil, fmt.Errorf("Unsupported upload kind")
+		return nil, fmt.Errorf("Unsupported upload kind")
 	}
 }
 
@@ -146,7 +149,16 @@ func (h *Handler) respondWithCompletedUpload(c *gin.Context, session *models.Upl
 	c.JSON(http.StatusOK, buildUploadSessionResponse(*session, ""))
 }
 
-func (h *Handler) createUploadedAudioJob(c *gin.Context, filePath, title string) (*models.TranscriptionJob, error) {
+// persistUploadedJob binds resumable sessions in the same transaction as the
+// recording. Multipart uploads retain their existing repository operation.
+func (h *Handler) persistUploadedJob(ctx context.Context, job *models.TranscriptionJob, sessionID string) error {
+	if sessionID == "" {
+		return h.jobRepo.Create(ctx, job)
+	}
+	return repository.CommitUploadResult(ctx, database.DB, sessionID, job)
+}
+
+func (h *Handler) createUploadedAudioJob(c *gin.Context, filePath, title, sessionID string) (*models.TranscriptionJob, error) {
 	finalPath, err := h.convertWebMToMP3IfNeeded(c.Request.Context(), filePath)
 	if err != nil {
 		_ = h.fileService.RemoveFile(filePath)
@@ -163,7 +175,7 @@ func (h *Handler) createUploadedAudioJob(c *gin.Context, filePath, title string)
 		job.Title = stringPtr(strings.TrimSpace(title))
 	}
 
-	if err := h.jobRepo.Create(c.Request.Context(), &job); err != nil {
+	if err := h.persistUploadedJob(c.Request.Context(), &job, sessionID); err != nil {
 		_ = h.fileService.RemoveFile(finalPath)
 		return nil, fmt.Errorf("Failed to create job")
 	}
@@ -172,7 +184,7 @@ func (h *Handler) createUploadedAudioJob(c *gin.Context, filePath, title string)
 	return &job, nil
 }
 
-func (h *Handler) createUploadedVideoJob(c *gin.Context, videoPath, title string) (*models.TranscriptionJob, error) {
+func (h *Handler) createUploadedVideoJob(c *gin.Context, videoPath, title, sessionID string) (*models.TranscriptionJob, error) {
 	jobID := filenameWithoutExt(videoPath)
 	audioPath := strings.TrimSuffix(videoPath, filepath.Ext(videoPath)) + ".mp3"
 
@@ -190,7 +202,7 @@ func (h *Handler) createUploadedVideoJob(c *gin.Context, videoPath, title string
 		job.Title = stringPtr(strings.TrimSpace(title))
 	}
 
-	if err := h.jobRepo.Create(c.Request.Context(), &job); err != nil {
+	if err := h.persistUploadedJob(c.Request.Context(), &job, sessionID); err != nil {
 		_ = h.fileService.RemoveFile(videoPath)
 		_ = h.fileService.RemoveFile(audioPath)
 		return nil, fmt.Errorf("Failed to create job")
@@ -233,7 +245,7 @@ func submitParamsFromJSON(parametersJSON *string) (models.WhisperXParams, error)
 	return params, nil
 }
 
-func (h *Handler) createSubmittedJobWithParams(c *gin.Context, filePath, title string, params models.WhisperXParams) (*models.TranscriptionJob, error) {
+func (h *Handler) createSubmittedJobWithParams(c *gin.Context, filePath, title string, params models.WhisperXParams, sessionID string) (*models.TranscriptionJob, error) {
 	clearClientLearningSnapshot(&params)
 	if err := validateModelRunOptions(params); err != nil {
 		return nil, err
@@ -253,12 +265,17 @@ func (h *Handler) createSubmittedJobWithParams(c *gin.Context, filePath, title s
 		job.Title = stringPtr(strings.TrimSpace(title))
 	}
 
-	if err := h.jobRepo.Create(c.Request.Context(), &job); err != nil {
+	if err := h.persistUploadedJob(c.Request.Context(), &job, sessionID); err != nil {
 		_ = h.fileService.RemoveFile(filePath)
 		return nil, fmt.Errorf("Failed to create job")
 	}
 	if err := h.taskQueue.EnqueueJob(jobID); err != nil {
-		return nil, fmt.Errorf("Failed to enqueue job")
+		if sessionID == "" {
+			return nil, fmt.Errorf("Failed to enqueue job")
+		}
+		// The session and pending job already committed. Startup recovery or
+		// the durable reconciler retries dispatch when capacity is available.
+		logger.Warn("Uploaded job persisted for later dispatch", "job_id", jobID, "error", err)
 	}
 	return &job, nil
 }
@@ -329,7 +346,7 @@ func submitParamsFromForm(c *gin.Context) (models.WhisperXParams, error) {
 	return params, nil
 }
 
-func (h *Handler) createMultiTrackJobFromPaths(c *gin.Context, title string, aup assembledUploadFile, tracks []assembledUploadFile) (*models.TranscriptionJob, error) {
+func (h *Handler) createMultiTrackJobFromPaths(c *gin.Context, title string, aup assembledUploadFile, tracks []assembledUploadFile, sessionID string) (*models.TranscriptionJob, error) {
 	jobID := uuidString()
 	jobDir := filepath.Join(h.config.UploadDir, jobID)
 	if err := h.fileService.CreateDirectory(jobDir); err != nil {
@@ -396,7 +413,7 @@ func (h *Handler) createMultiTrackJobFromPaths(c *gin.Context, title string, aup
 		MultiTrackFiles:  trackFiles,
 	}
 
-	if err := h.jobRepo.Create(c.Request.Context(), &job); err != nil {
+	if err := h.persistUploadedJob(c.Request.Context(), &job, sessionID); err != nil {
 		_ = h.fileService.RemoveDirectory(jobDir)
 		return nil, fmt.Errorf("Failed to create job")
 	}
@@ -476,14 +493,20 @@ func (h *Handler) quickParamsForUploadSession(c *gin.Context, session *models.Up
 	return params, nil
 }
 
-func (h *Handler) createQuickTranscriptionFromPath(path, filename string, params models.WhisperXParams) (*transcription.QuickTranscriptionJob, error) {
+func (h *Handler) createQuickTranscriptionFromPath(ctx context.Context, path, filename string, params models.WhisperXParams, sessionID string) (*transcription.QuickTranscriptionJob, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to open uploaded audio")
 	}
 	defer file.Close()
 
-	job, err := h.quickTranscription.SubmitQuickJob(file, filename, params)
+	job, err := h.quickTranscription.SubmitQuickJobWithCommit(file, filename, params, func(jobID string) error {
+		if err := repository.CommitQuickUploadResult(ctx, database.DB, sessionID, jobID); err != nil {
+			logger.Error("Failed to commit quick upload result", "session_id", sessionID, "error", err)
+			return fmt.Errorf("Failed to complete upload session")
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, fmt.Errorf("Failed to submit quick transcription: %w", err)
 	}

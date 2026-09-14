@@ -282,11 +282,11 @@ func (p *PyAnnoteAdapter) copyDiarizationScript() error {
 }
 
 // Diarize processes audio using PyAnnote
-func (p *PyAnnoteAdapter) Diarize(ctx context.Context, input interfaces.AudioInput, params map[string]interface{}, procCtx interfaces.ProcessingContext) (*interfaces.DiarizationResult, error) {
+func (p *PyAnnoteAdapter) Diarize(ctx context.Context, input interfaces.AudioInput, params map[string]interface{}, procCtx interfaces.ProcessingContext) (diarization *interfaces.DiarizationResult, processingErr error) {
 	startTime := time.Now()
 	p.LogProcessingStart(input, procCtx)
 	defer func() {
-		p.LogProcessingEnd(procCtx, time.Since(startTime), nil)
+		p.LogProcessingEnd(procCtx, time.Since(startTime), processingErr)
 	}()
 
 	// Validate input

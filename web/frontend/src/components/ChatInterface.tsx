@@ -332,11 +332,12 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
         return [...prev, assistantMessage];
       });
 
+      const decoder = new TextDecoder();
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = new TextDecoder().decode(value);
+        const chunk = decoder.decode(value, { stream: true });
         assistantContent += chunk;
 
         // Update message content while streaming
@@ -352,6 +353,7 @@ export const ChatInterface = memo(function ChatInterface({ transcriptionId, acti
           return newMessages;
         });
       }
+      assistantContent += decoder.decode();
 
       // Mark streaming as complete
       // setStreamingMessageId(null);

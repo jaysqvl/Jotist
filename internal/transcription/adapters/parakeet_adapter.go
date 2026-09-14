@@ -293,11 +293,11 @@ func (p *ParakeetAdapter) copyTranscriptionScript() error {
 }
 
 // Transcribe processes audio using Parakeet
-func (p *ParakeetAdapter) Transcribe(ctx context.Context, input interfaces.AudioInput, params map[string]interface{}, procCtx interfaces.ProcessingContext) (*interfaces.TranscriptResult, error) {
+func (p *ParakeetAdapter) Transcribe(ctx context.Context, input interfaces.AudioInput, params map[string]interface{}, procCtx interfaces.ProcessingContext) (transcript *interfaces.TranscriptResult, processingErr error) {
 	startTime := time.Now()
 	p.LogProcessingStart(input, procCtx)
 	defer func() {
-		p.LogProcessingEnd(procCtx, time.Since(startTime), nil)
+		p.LogProcessingEnd(procCtx, time.Since(startTime), processingErr)
 	}()
 
 	// Validate input

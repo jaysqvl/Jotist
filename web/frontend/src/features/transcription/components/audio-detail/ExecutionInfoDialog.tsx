@@ -25,7 +25,7 @@ import {
     type MultiTrackTiming,
     type Transcript,
 } from "@/features/transcription/hooks/useAudioDetail";
-import type { WhisperXParams } from "@/components/TranscriptionConfigDialog";
+import type { WhisperXParams } from "@/features/transcription/types";
 import { cn } from "@/lib/utils";
 import { transcriptionModelLabel as modelLabel } from "@/features/transcription/hooks/modelCapabilities";
 import { executionEvidenceRows, requestedExecutionPrecision } from "@/features/transcription/hooks/executionPresentation";

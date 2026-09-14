@@ -139,7 +139,7 @@ func TestResumableSubmitRejectsInvalidOptionsBeforeMovingAudio(t *testing.T) {
 			c, _ := gin.CreateTestContext(httptest.NewRecorder())
 			c.Request = httptest.NewRequest("POST", "/", nil)
 			session := &models.UploadSession{Kind: models.UploadKindSubmit, ParametersJSON: &body}
-			_, _, _, err := (&Handler{}).finalizeAssembledUpload(c, session, []assembledUploadFile{{Role: models.UploadFileRoleAudio, Path: path}})
+			_, err := (&Handler{}).finalizeAssembledUpload(c, session, []assembledUploadFile{{Role: models.UploadFileRoleAudio, Path: path}})
 			var invalidParams invalidUploadParametersError
 			require.ErrorAs(t, err, &invalidParams)
 			data, readErr := os.ReadFile(path)

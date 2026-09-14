@@ -16,7 +16,11 @@ import (
 	"scriberr/internal/processutil"
 )
 
-var pythonPreparationLocks sync.Map
+var (
+	pythonPreparationLocks sync.Map
+	envCacheMutex          sync.RWMutex
+	envCache               = make(map[string]bool)
+)
 
 // lockPythonPreparation serializes the entire preparation of shared runtime
 // directories. uv locks its own writes, but cannot protect our script/project

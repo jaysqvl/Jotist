@@ -36,6 +36,11 @@ func (m *MockJobRepository) Update(ctx context.Context, entity *models.Transcrip
 	return args.Error(0)
 }
 
+func (m *MockJobRepository) DeleteWithAssociations(ctx context.Context, jobID string) error {
+	args := m.Called(ctx, jobID)
+	return args.Error(0)
+}
+
 func (m *MockJobRepository) Delete(ctx context.Context, id interface{}) error {
 	args := m.Called(ctx, id)
 	return args.Error(0)

@@ -23,7 +23,6 @@ vite.config.ts.timestamp-*
 .dockerdata
 .aider*
 .env
-.env
 samples
 scriberr
 data
@@ -41,9 +40,9 @@ whisperx-env
 
 # internal/web
 env-data
-# main
+/main
 results.json
-# server
+/server
 !cmd/server/main.go
 test_word_conversion.go
 debug_whisperx_parsing.go
@@ -73,5 +72,17 @@ dhl.txt
 __pycache__/
 
 /jotist
+/bin/
+/startup_log.txt
+/internal/web/frontend/
+
+# The website builds into web/project-site/dist; docs/ contains authored material.
+/docs/assets/
+/docs/api/
+/docs/screenshots/
+/docs/docs/
+/docs/*.html
+/docs/scriberr-logo.png
+/docs/scriberr-thumb.png
 
 /output/

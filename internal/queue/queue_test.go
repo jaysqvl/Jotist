@@ -1,119 +1,110 @@
 package queue
 
 import (
+	"context"
+	"fmt"
+	"os/exec"
+	"sync/atomic"
 	"testing"
+	"time"
 
-	"github.com/stretchr/testify/assert"
+	"scriberr/internal/models"
+	"scriberr/internal/repository"
+
+	"github.com/stretchr/testify/require"
 )
 
-// TestGetOptimalWorkerCount_DefaultBehavior verifies that without QUEUE_WORKERS,
-// the function returns positive CPU-based defaults with min <= max.
-func TestGetOptimalWorkerCount_DefaultBehavior(t *testing.T) {
-	t.Setenv("QUEUE_WORKERS", "")
-
-	min, max := getOptimalWorkerCount()
-
-	assert.Positive(t, min, "min workers should be positive")
-	assert.Positive(t, max, "max workers should be positive")
-	assert.LessOrEqual(t, min, max, "min should be <= max")
-}
-
-// TestGetOptimalWorkerCount_RespectsEnvVar verifies that QUEUE_WORKERS env var
-// pins both min and max to the exact value specified.
-func TestGetOptimalWorkerCount_RespectsEnvVar(t *testing.T) {
-	tests := []struct {
+func TestConfiguredWorkerCount(t *testing.T) {
+	for _, tc := range []struct {
 		name     string
-		envValue string
+		env      string
+		fallback int
 		want     int
 	}{
-		{"single worker", "1", 1},
-		{"four workers", "4", 4},
-		{"ten workers", "10", 10},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("QUEUE_WORKERS", tt.envValue)
-
-			min, max := getOptimalWorkerCount()
-
-			assert.Equal(t, tt.want, min, "min workers")
-			assert.Equal(t, tt.want, max, "max workers")
-		})
-	}
-}
-
-// TestGetOptimalWorkerCount_IgnoresInvalidEnvVar verifies that non-numeric,
-// zero, and negative QUEUE_WORKERS values are ignored, falling back to
-// CPU-based defaults rather than crashing or using bad values.
-func TestGetOptimalWorkerCount_IgnoresInvalidEnvVar(t *testing.T) {
-	tests := []struct {
-		name     string
-		envValue string
-	}{
-		{"non-numeric", "abc"},
-		{"zero", "0"},
-		{"negative", "-1"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("QUEUE_WORKERS", tt.envValue)
-
-			min, max := getOptimalWorkerCount()
-
-			assert.Positive(t, min, "should fall back to positive CPU-based default")
-			assert.Positive(t, max, "should fall back to positive CPU-based default")
-		})
-	}
-}
-
-// TestNewTaskQueue_DefaultWorkerCount verifies that without QUEUE_WORKERS,
-// the legacy parameter (2) is used as default, preserving existing behavior.
-func TestNewTaskQueue_DefaultWorkerCount(t *testing.T) {
-	t.Setenv("QUEUE_WORKERS", "")
-
-	tq := NewTaskQueue(2, nil, nil)
-	defer tq.cancel()
-
-	assert.Equal(t, 2, tq.minWorkers, "default minWorkers should match legacy parameter")
-	assert.Equal(t, 2, tq.maxWorkers, "default maxWorkers should match legacy parameter")
-}
-
-// TestNewTaskQueue_EnvOverridesLegacy verifies that QUEUE_WORKERS takes
-// precedence over the hardcoded legacy parameter.
-func TestNewTaskQueue_EnvOverridesLegacy(t *testing.T) {
-	tests := []struct {
-		name          string
-		envValue      string
-		legacyWorkers int
-		want          int
-	}{
-		{"env=1 overrides legacy=2", "1", 2, 1},
-		{"env=4 overrides legacy=2", "4", 2, 4},
-		{"env=3 overrides legacy=2", "3", 2, 3},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("QUEUE_WORKERS", tt.envValue)
-
-			tq := NewTaskQueue(tt.legacyWorkers, nil, nil)
+		{"default", "", 2, 2},
+		{"environment override", "4", 2, 4},
+		{"invalid override", "invalid", 2, 2},
+		{"zero override", "0", 3, 3},
+		{"negative override", "-1", 3, 3},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("QUEUE_WORKERS", tc.env)
+			tq := NewTaskQueue(tc.fallback, nil, nil)
 			defer tq.cancel()
-
-			assert.Equal(t, tt.want, tq.minWorkers, "QUEUE_WORKERS should override legacy minWorkers")
-			assert.Equal(t, tt.want, tq.maxWorkers, "QUEUE_WORKERS should override legacy maxWorkers")
+			require.Equal(t, tc.want, tq.workerCount)
 		})
+	}
+	t.Setenv("QUEUE_WORKERS", "")
+	require.Positive(t, configuredWorkerCount(0))
+}
+
+type burstProcessor struct {
+	active  atomic.Int32
+	peak    atomic.Int32
+	started chan struct{}
+	release chan struct{}
+}
+
+func (p *burstProcessor) ProcessJob(ctx context.Context, jobID string) error {
+	return p.ProcessJobWithProcess(ctx, jobID, nil)
+}
+
+func (p *burstProcessor) ProcessJobWithProcess(ctx context.Context, _ string, _ func(*exec.Cmd)) error {
+	current := p.active.Add(1)
+	defer p.active.Add(-1)
+	for peak := p.peak.Load(); current > peak; peak = p.peak.Load() {
+		if p.peak.CompareAndSwap(peak, current) {
+			break
+		}
+	}
+	p.started <- struct{}{}
+	select {
+	case <-p.release:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }
 
-// TestNewTaskQueue_AutoScaleDisabledWithFixedWorkers verifies that
-// auto-scaling is disabled when QUEUE_WORKERS sets a fixed count.
-func TestNewTaskQueue_AutoScaleDisabledWithFixedWorkers(t *testing.T) {
-	t.Setenv("QUEUE_WORKERS", "3")
+func TestFixedWorkersRemainBoundedAcrossBursts(t *testing.T) {
+	t.Setenv("QUEUE_WORKERS", "2")
+	processor := &burstProcessor{started: make(chan struct{}, 32), release: make(chan struct{}, 32)}
+	tq, repo, _, _, _, _ := newSequentialQueueTest(t, models.StatusCompleted, func(repository.JobRepository) JobProcessor { return processor })
+	require.NoError(t, tq.Start())
+	defer tq.Stop()
 
-	tq := NewTaskQueue(2, nil, nil)
-	defer tq.cancel()
-
-	assert.False(t, tq.autoScale, "auto-scaling should be disabled when QUEUE_WORKERS sets fixed count")
+	const jobsPerBurst = 14
+	for burst := 0; burst < 2; burst++ {
+		for index := 0; index < jobsPerBurst; index++ {
+			job := &models.TranscriptionJob{ID: fmt.Sprintf("burst-%d-%d", burst, index), AudioPath: "audio.wav", Status: models.StatusPending}
+			require.NoError(t, repo.Create(context.Background(), job))
+			require.NoError(t, tq.EnqueueJob(job.ID))
+		}
+		for index := 0; index < 2; index++ {
+			select {
+			case <-processor.started:
+			case <-time.After(3 * time.Second):
+				t.Fatal("configured workers did not start")
+			}
+		}
+		require.Equal(t, int32(2), processor.active.Load())
+		for index := 0; index < jobsPerBurst; index++ {
+			processor.release <- struct{}{}
+		}
+		require.Eventually(t, func() bool {
+			completed, err := repo.CountByStatus(context.Background(), models.StatusCompleted)
+			return err == nil && completed == int64(1+(burst+1)*jobsPerBurst) && !tq.IsJobRunning(fmt.Sprintf("burst-%d-%d", burst, jobsPerBurst-1))
+		}, 3*time.Second, 10*time.Millisecond)
+		// Wait for complete worker cleanup before the next idle-to-busy cycle.
+		require.Eventually(t, func() bool { return processor.active.Load() == 0 && tq.GetQueueStats()["running_jobs"] == 0 }, time.Second, time.Millisecond)
+		for len(processor.started) > 0 {
+			<-processor.started
+		}
+		require.Equal(t, int32(2), processor.peak.Load())
+		stats := tq.GetQueueStats()
+		require.Equal(t, 2, stats["current_workers"])
+		require.Equal(t, 2, stats["min_workers"])
+		require.Equal(t, 2, stats["max_workers"])
+		require.Equal(t, false, stats["auto_scale"])
+	}
 }
