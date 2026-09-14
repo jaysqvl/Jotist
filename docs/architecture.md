@@ -11,6 +11,7 @@ behavior instead of introducing another implementation or generated copy.
 | Persistence | `internal/models`, `internal/repository`, `internal/database` | Stored models, queries, and schema changes |
 | Scheduling and execution | `internal/queue`, `internal/execution`, `internal/transcription` | Queue lifecycle, recovery, model selection, and transcription orchestration |
 | Model adapters | `internal/transcription/adapters` | Go-to-Python contracts and per-model execution |
+| Container deployment | `deploy/` | Dockerfiles, entrypoint, and alternate Compose configurations; the default CPU Compose file remains at the root |
 | Python runtimes | `internal/transcription/adapters/py` | Dependency recipes, embedded scripts, and vendored compatibility code |
 | Application frontend | `web/frontend/src` | User workflows and browser state |
 | Embedded frontend | `internal/web/static.go` | Serving the build generated from `web/frontend` |
@@ -22,13 +23,25 @@ behavior instead of introducing another implementation or generated copy.
 
 `Makefile` provides the supported local commands. `scripts/build.sh` owns the
 application frontend build, embedding, and local server output (`bin/jotist`).
-The root `build.sh` forwards to it. `make embed` only copies an already built
+`make embed` only copies an already built
 frontend and is shared with CI and archive builds. Docker retains its separate
 frontend stage so its dependency cache works independently of Go.
 
 `internal/web/dist` is generated and ignored; no other copied frontend bundle
 belongs in the Go tree. The website builds into its own ignored `dist/`; the
 root `docs/` is not a website build output.
+
+`assets/brand` owns the current artwork. Each web app keeps the public copies
+it serves; documentation screenshots belong to `web/project-site/public/screenshots`.
+Unused upstream logos, copied screenshots outside public directories, and
+starter-template art do not belong in the source tree.
+
+Tool configuration follows its consumer. Frontend formatting and each web app's
+npm settings live with those packages. Go modules, Air, release automation,
+Git rules, and the optional repository-wide Lefthook configuration remain at
+the root. Personal IDE and agent state is ignored. Python versions are selected
+by adapter recipes and explicit verification commands, not a global repository
+interpreter pin.
 
 API handler annotations generate `api-docs/docs.go`, JSON, and YAML via
 `scripts/generate-api-docs.sh`. The JSON is copied to

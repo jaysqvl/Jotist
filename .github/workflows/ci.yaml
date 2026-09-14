@@ -60,6 +60,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
+      - name: Validate deployment configurations
+        run: |
+          for file in docker-compose.yml deploy/compose/*.yaml; do
+            docker compose --project-directory . -f "$file" config --quiet
+          done
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:

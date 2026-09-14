@@ -10,12 +10,12 @@ CPU and CUDA share one container repository:
 
 | Variant | Versioned image | Stable alias |
 | --- | --- | --- |
-| CPU | `ghcr.io/jaysqvl/jotist:1.7.0` | `ghcr.io/jaysqvl/jotist:latest` |
-| CUDA 12.6 | `ghcr.io/jaysqvl/jotist:1.7.0-cuda` | `ghcr.io/jaysqvl/jotist:latest-cuda` |
+| CPU | `ghcr.io/jaysqvl/jotist:1.7.1` | `ghcr.io/jaysqvl/jotist:latest` |
+| CUDA 12.6 | `ghcr.io/jaysqvl/jotist:1.7.1-cuda` | `ghcr.io/jaysqvl/jotist:latest-cuda` |
 
 Container tags omit the Git tag's leading `v`. Builds also publish `<version><variant-suffix>-<12-character-commit>` and report a digest in the Actions summary. Use `ghcr.io/jaysqvl/jotist@sha256:...` for reproducible deployment. Confirm every selected image job finished before pulling the release.
 
-For Blackwell evaluation, build `Dockerfile.cuda.13.0` locally using `docker-compose.build.blackwell.yml`. The `docker-compose.blackwell.yml` entrypoint also builds from source while retaining its existing named-volume mappings. Both are explicitly unqualified for actual Blackwell model inference; neither recommends the old RC1 image. Automatic stable publication does not update `latest-blackwell`.
+For Blackwell evaluation, use the source-build configurations in [container deployment](../deploy/README.md). The named-volume and bind-mount variants preserve their existing storage mappings. Both are explicitly unqualified for actual Blackwell model inference; neither recommends the old RC1 image. Automatic stable publication does not update `latest-blackwell`.
 
 ## Preview history and qualification
 
@@ -80,13 +80,17 @@ The workflow resolves the source once and validates it before building. It rejec
 
 The `variants` choices are `cpu-cuda` (the default), `cpu`, `cuda`, `blackwell`, and `all`. `cpu-cuda` selects exactly the CPU and CUDA 12.6 jobs. `all` retains the explicit option to publish all three variants, including unqualified Blackwell; it is not used by the normal stable release call. If stable aliases are requested for an explicit `all` or `blackwell` build, the existing alias mechanism also publishes `latest-blackwell`. That is a publication choice, not evidence of hardware qualification.
 
-Each matrix job builds its own Dockerfile and prints the resulting digest and source commit. CPU uses `Dockerfile`, CUDA uses `Dockerfile.cuda`, and Blackwell uses `Dockerfile.cuda.13.0`.
+Each matrix job builds its own Dockerfile from the repository-root context and prints the resulting digest and source commit. CPU uses `deploy/docker/Dockerfile.cpu`, CUDA uses `deploy/docker/Dockerfile.cuda`, and Blackwell uses `deploy/docker/Dockerfile.blackwell`.
+
+When manually selecting an older source tag, the workflow uses that checkout's
+original root Dockerfile if the relocated file is absent. It does not transplant
+current build files into historical source or rewrite published tags.
 
 ## Stable releases
 
 Release Please opens a version/changelog PR from conventional commits on `main`. Its manifest records the stable release version. Bootstrap history begins at `812adc5`, before the imported feature snapshot, so the first Jotist release includes the new features without replaying the entire upstream history.
 
-After the audit and preview review, merge the reviewed stable release PR for `v1.7.0`. Release Please calls the same validation/artifact/image pipeline with `variants=cpu-cuda` and stable aliases enabled. The normal call publishes CPU and CUDA 12.6; Blackwell is not selected. The reusable workflow call is intentional: tags/releases created using `GITHUB_TOKEN` do not need to trigger another tag-push workflow.
+After review and validation, merge the version/changelog PR. Release Please calls the same validation/artifact/image pipeline with `variants=cpu-cuda` and stable aliases enabled. The normal call publishes CPU and CUDA 12.6; Blackwell is not selected. The reusable workflow call is intentional: tags/releases created using `GITHUB_TOKEN` do not need to trigger another tag-push workflow.
 
 Repository Actions must be allowed to create pull requests. Jobs request only the contents, pull-request, issue, or package permissions they need. No custom PAT or Docker Hub credentials are required for this publication flow.
 

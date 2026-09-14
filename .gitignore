@@ -10,6 +10,10 @@ node_modules
 .DS_Store
 Thumbs.db
 
+# Personal editor and agent state
+/.idea/
+/.serena/
+
 # Env
 # .env
 # .env.*

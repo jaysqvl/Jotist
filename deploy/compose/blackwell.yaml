@@ -1,0 +1,39 @@
+# Jotist. Legacy service and volume names preserve existing deployments.
+# Local CUDA 13 source build for Blackwell / RTX 50-series evaluation.
+# Actual Blackwell model inference remains unqualified; no stable image is recommended.
+# This file retains its existing named volumes. Build explicitly with --build.
+# Run from the repository root with --project-directory .; see deploy/README.md.
+services:
+  scriberr:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.blackwell
+    image: jotist:local-blackwell
+    pull_policy: build
+    ports:
+      - "8080:8080"
+    volumes:
+      - scriberr_data:/app/data
+      - env_data:/app/whisperx-env
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities:
+                - gpu
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      # Security: already set in container, but can be overridden
+      - APP_ENV=production
+      # CORS: comma-separated list of allowed origins for production
+      # - ALLOWED_ORIGINS=https://your-domain.com
+
+volumes:
+  scriberr_data: {}
+  env_data: {}

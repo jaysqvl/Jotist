@@ -1,0 +1,31 @@
+# Jotist. Legacy service and volume names preserve existing deployments.
+services:
+  scriberr:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.cuda
+    image: jotist:local-cuda
+    container_name: scriberr
+    ports:
+      - "8080:8080"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities:
+                - gpu
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      # Security: already set in container, but can be overridden
+      - APP_ENV=production
+      # CORS: comma-separated list of allowed origins for production
+      # - ALLOWED_ORIGINS=https://your-domain.com
+    volumes:
+      - ./scriberr_data:/app/data
+      - ./env-data:/app/whisperx-env
+    restart: unless-stopped

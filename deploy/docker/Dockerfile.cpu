@@ -1,0 +1,141 @@
+# Multi-stage build for Jotist: builds React UI and Go server, then
+# ships a slim runtime with Python, uv, and ffmpeg for WhisperX/yt-dlp.
+
+########################
+# UI build stage
+########################
+FROM node:24-alpine AS ui-builder
+WORKDIR /web
+
+# Install deps and build web/frontend
+COPY web/frontend/package*.json web/frontend/.npmrc ./frontend/
+RUN cd frontend \
+  && npm ci \
+  && npm audit
+
+COPY web/frontend ./frontend
+RUN cd frontend \
+  && npm run build
+
+
+########################
+# Go build stage
+########################
+FROM golang:1.26.6-bookworm AS go-builder
+WORKDIR /src
+ARG VERSION=dev
+ARG COMMIT=none
+ARG DATE=unknown
+
+# Pre-cache modules
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source
+COPY . .
+
+# Copy built UI into embed path
+RUN rm -rf internal/web/dist && mkdir -p internal/web
+COPY --from=ui-builder /web/frontend/dist internal/web/dist
+
+# Block image publication when reachable Go vulnerabilities are known.
+ARG GOVULNCHECK_VERSION=v1.6.0
+RUN go run golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION} ./cmd/... ./internal/... ./pkg/...
+
+# Build binary (arch matches builder platform)
+RUN CGO_ENABLED=0 \
+  go build -ldflags "-s -w -X scriberr/internal/version.Version=${VERSION} -X scriberr/internal/version.Commit=${COMMIT} -X scriberr/internal/version.Date=${DATE}" -o /out/jotist cmd/server/main.go
+
+# Build CLI binaries (cross-platform)
+RUN mkdir -p /out/bin/cli \
+  && GOOS=linux GOARCH=amd64 go build -o /out/bin/cli/scriberr-linux-amd64 ./cmd/scriberr-cli \
+  && GOOS=darwin GOARCH=amd64 go build -o /out/bin/cli/scriberr-darwin-amd64 ./cmd/scriberr-cli \
+  && GOOS=darwin GOARCH=arm64 go build -o /out/bin/cli/scriberr-darwin-arm64 ./cmd/scriberr-cli \
+  && GOOS=windows GOARCH=amd64 go build -o /out/bin/cli/scriberr-windows-amd64.exe ./cmd/scriberr-cli
+
+
+########################
+# Runtime stage
+########################
+FROM python:3.11-slim AS runtime
+
+ENV PYTHONUNBUFFERED=1 \
+  HOST=0.0.0.0 \
+  PORT=8080 \
+  DATABASE_PATH=/app/data/scriberr.db \
+  UPLOAD_DIR=/app/data/uploads \
+  WHISPERX_ENV=/app/whisperx-env \
+  APP_ENV=production \
+  PUID=1000 \
+  PGID=1000
+
+WORKDIR /app
+
+# CMake and C/C++ tools also build the optional CPU-only VibeASR.cpp runtime on first use.
+# System deps: curl for uv install, ca-certs, ffmpeg for yt-dlp, git for git+ installs, gosu for user switching
+# Build tools: gcc, g++, make for compiling Python C extensions (needed for NeMo dependencies like texterrors)
+RUN apt-get update \
+  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+  curl ca-certificates ffmpeg git gosu \
+  build-essential gcc g++ make cmake python3-dev unzip\
+  && rm -rf /var/lib/apt/lists/*
+
+# Install uv (fast Python package manager) directly to system PATH
+ARG UV_VERSION=0.11.25
+ARG UV_SHA256=1db18b5e76fa645a7f3865773139bdec8e2d46adbdbb35e7410b34fa8015ccd2
+RUN curl -fL "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-x86_64-unknown-linux-gnu.tar.gz" -o /tmp/uv.tar.gz \
+  && echo "${UV_SHA256}  /tmp/uv.tar.gz" | sha256sum -c - \
+  && tar -xzf /tmp/uv.tar.gz -C /tmp \
+  && install -m 755 /tmp/uv-x86_64-unknown-linux-gnu/uv /usr/local/bin/uv \
+  && rm -rf /tmp/uv.tar.gz /tmp/uv-x86_64-unknown-linux-gnu \
+  && uv --version
+
+# Install yt-dlp standalone binary
+ARG YT_DLP_VERSION=2026.06.09
+ARG YT_DLP_SHA256=e5d57466682cfa9d61e9cf7c8a4f09b00f4a62af37d3bbdc4bcffdf63615feac
+RUN curl -fL "https://github.com/yt-dlp/yt-dlp/releases/download/${YT_DLP_VERSION}/yt-dlp" -o /usr/local/bin/yt-dlp \
+  && echo "${YT_DLP_SHA256}  /usr/local/bin/yt-dlp" | sha256sum -c - \
+  && chmod a+rx /usr/local/bin/yt-dlp \
+  && yt-dlp --version
+
+# Install Deno (JavaScript runtime required for yt-dlp YouTube downloads)
+# YouTube now requires JS execution for video cipher decryption
+# See: https://github.com/yt-dlp/yt-dlp/issues/14404
+ARG DENO_VERSION=v2.9.0
+ARG DENO_SHA256=96c9c73fc05ea57603bc28d8071d41e861bd40bcf2a9f849dd5969ed1a2c8498
+RUN curl -fL "https://github.com/denoland/deno/releases/download/${DENO_VERSION}/deno-x86_64-unknown-linux-gnu.zip" -o /tmp/deno.zip \
+  && echo "${DENO_SHA256}  /tmp/deno.zip" | sha256sum -c - \
+  && unzip -q /tmp/deno.zip -d /usr/local/bin \
+  && chmod 755 /usr/local/bin/deno \
+  && rm -f /tmp/deno.zip \
+  && deno --version
+
+# Create default user (will be modified at runtime if needed)
+RUN groupadd -g 1000 appuser \
+  && useradd -m -u 1000 -g 1000 appuser \
+  && mkdir -p /app/data/uploads /app/data/transcripts \
+  && chown -R appuser:appuser /app
+
+# Copy binary and entrypoint script
+COPY --from=go-builder /out/jotist /app/jotist
+# Retain the previous executable path for existing container overrides.
+RUN ln -s /app/jotist /app/scriberr
+COPY LICENSE ATTRIBUTION.md THIRD_PARTY_NOTICES.md /app/
+COPY --from=go-builder /out/bin/cli /app/bin/cli
+COPY deploy/docker/entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+
+# Make entrypoint script executable and set up basic permissions
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh \
+  && chown appuser:appuser /app/jotist
+
+# Expose port and declare volume for persistence
+EXPOSE 8080
+VOLUME ["/app/data"]
+
+# Start as root to allow user ID changes, entrypoint script will switch users
+# Verify uv is available
+RUN uv --version
+
+# Use entrypoint script that handles user switching and permissions
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["/app/jotist"]
