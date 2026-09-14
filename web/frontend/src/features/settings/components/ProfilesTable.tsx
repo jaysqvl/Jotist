@@ -15,7 +15,7 @@ import {
 	AlertDialogTitle,
 	AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import type { WhisperXParams } from "@/components/TranscriptionConfigDialog";
+import type { WhisperXParams } from "@/features/transcription/types";
 
 interface TranscriptionProfile {
 	id: string;

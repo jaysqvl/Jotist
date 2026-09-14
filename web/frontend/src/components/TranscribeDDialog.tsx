@@ -17,7 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Loader2, SlidersHorizontal } from "lucide-react";
-import type { WhisperXParams } from "./TranscriptionConfigDialog";
+import type { WhisperXParams } from "@/features/transcription/types";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { sortProfilesByName } from "@/lib/profiles";
 import { CheckpointReuseField } from "./transcription/RecoveryPolicyFields";

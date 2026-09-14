@@ -30,7 +30,8 @@ import { useSpeakerMappings } from "@/features/transcription/hooks/useTranscript
 import { useTranscriptDownload } from "@/features/transcription/hooks/useTranscriptDownload";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useToast } from "@/components/ui/toast";
-import { TranscriptionConfigDialog, type WhisperXParams } from "@/components/TranscriptionConfigDialog";
+import { TranscriptionConfigDialog } from "@/components/transcription/TranscriptionConfigDialog";
+import type { WhisperXParams } from "@/features/transcription/types";
 import { TranscribeDDialog } from "@/components/TranscribeDDialog";
 
 // Sub-components

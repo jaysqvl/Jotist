@@ -14,8 +14,9 @@ import { Loader2, Check, XCircle } from "lucide-react";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { TranscriptionContextFields } from "./TranscriptionContextFields";
 import { RecoveryPolicyFields } from "./RecoveryPolicyFields";
-import { devicePolicyDescription, type RecoveryMode } from "@/features/transcription/hooks/recoveryPolicy";
-import { adaptivePolicyErrors, adaptiveStageChoices, alignmentMemoryForConfiguration, type AdaptiveExecutionPolicy } from "@/features/transcription/hooks/adaptivePolicy";
+import { devicePolicyDescription } from "@/features/transcription/hooks/recoveryPolicy";
+import { adaptivePolicyErrors, adaptiveStageChoices, alignmentMemoryForConfiguration } from "@/features/transcription/hooks/adaptivePolicy";
+import type { WhisperXParams } from "@/features/transcription/types";
 import {
     LEGACY_MODEL_FAMILIES, contextSupport, findModelCapability, modelDetailsApply, requestedDiarizationDevice, normalizeModelCapabilities, modelVariants, isTranscriptionModel, transcriptionPrecision, transcriptionModelChoices, sortModelChoices, modelChoiceMetrics, modelChoiceValue, isCloudASR, modelExecutionLocation, hfTokenSource, needsCustomHFToken, additionalBenchmarks, diarizationBenchmarkApplies, modelMemoryEstimate, gpuMemoryEstimate, referenceGPUFit, type ModelSort,
     type TranscriptionModelCapability,
@@ -29,76 +30,6 @@ import {
 // ============================================================================
 // Types & Constants
 // ============================================================================
-
-export interface WhisperXParams {
-    model_family: string;
-    recovery_mode?: RecoveryMode;
-    reuse_checkpoints?: boolean | null;
-    adaptive_policy?: AdaptiveExecutionPolicy | null;
-    model: string;
-    model_cache_only: boolean;
-    model_dir?: string;
-    device: string;
-    diarization_device?: string;
-    diarization_checkpoint?: string;
-    transcription_context?: string | null;
-    transcription_context_terms?: string | null;
-    audio_chunk_duration?: number | null;
-    device_index: number;
-    batch_size: number;
-    compute_type: string;
-    threads: number;
-    output_format: string;
-    verbose: boolean;
-    task: string;
-    language?: string;
-    align_model?: string;
-    interpolate_method: string;
-    no_align: boolean;
-    return_char_alignments: boolean;
-    vad_method: string;
-    vad_onset: number;
-    vad_offset: number;
-    chunk_size: number;
-    diarize: boolean;
-    min_speakers?: number;
-    max_speakers?: number;
-    diarize_model: string;
-    speaker_embeddings: boolean;
-    temperature: number;
-    best_of: number;
-    beam_size: number;
-    patience: number;
-    length_penalty: number;
-    suppress_tokens?: string;
-    suppress_numerals: boolean;
-    initial_prompt?: string;
-    condition_on_previous_text: boolean;
-    fp16: boolean;
-    temperature_increment_on_fallback: number;
-    compression_ratio_threshold: number;
-    logprob_threshold: number;
-    no_speech_threshold: number;
-    max_line_width?: number;
-    max_line_count?: number;
-    highlight_words: boolean;
-    segment_resolution: string;
-    hf_token?: string;
-    hf_token_source?: "default" | "custom" | "none";
-    has_hf_token?: boolean;
-    print_progress: boolean;
-    attention_context_left: number;
-    attention_context_right: number;
-    nvidia_chunk_duration: number;
-    nvidia_timestamps?: boolean;
-    nvidia_target_language?: string;
-    nvidia_precision: string;
-    nvidia_prompt?: string;
-    nvidia_use_chunking?: boolean;
-    is_multi_track_enabled: boolean;
-    api_key?: string;
-    max_new_tokens?: number;
-}
 
 interface TranscriptionConfigDialogProps {
     open: boolean;

@@ -6,9 +6,9 @@
         "noEmit": false,
         "outDir": ".test-dist",
         "rewriteRelativeImportExtensions": true,
-        "rootDir": "src/features/transcription/hooks",
+        "rootDir": "src",
         "tsBuildInfoFile": null,
         "types": ["node"]
     },
-    "include": ["src/features/transcription/hooks/*.test.ts"]
+    "include": ["src/**/*.test.ts"]
 }

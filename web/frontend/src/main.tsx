@@ -14,6 +14,7 @@ import { ChatEventsProvider } from './contexts/ChatEventsContext'
 import { GlobalUploadProvider } from './contexts/GlobalUploadContext'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { setupAuthInterceptor } from './lib/authInterceptor'
+import { AuthProvider } from './features/auth/components/AuthProvider'
 
 // Initialize the global fetch interceptor for auth
 setupAuthInterceptor();
@@ -28,11 +29,13 @@ createRoot(document.getElementById('root')!).render(
           <TooltipProvider>
             <ToastProvider>
               <ChatEventsProvider>
-                <ProtectedRoute>
-                  <GlobalUploadProvider>
-                    <App />
-                  </GlobalUploadProvider>
-                </ProtectedRoute>
+                <AuthProvider>
+                  <ProtectedRoute>
+                    <GlobalUploadProvider>
+                      <App />
+                    </GlobalUploadProvider>
+                  </ProtectedRoute>
+                </AuthProvider>
               </ChatEventsProvider>
             </ToastProvider>
           </TooltipProvider>

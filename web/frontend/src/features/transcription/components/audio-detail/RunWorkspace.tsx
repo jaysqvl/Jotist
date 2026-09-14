@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import type { WhisperXParams } from "@/components/TranscriptionConfigDialog";
+import type { WhisperXParams } from "@/features/transcription/types";
 import type { ExecutionRun, Transcript } from "@/features/transcription/hooks/useAudioDetail";
 import { transcriptionModelLabel as modelLabel } from "@/features/transcription/hooks/modelCapabilities";
 import type { ExecutionRecovery } from "@/features/transcription/hooks/recoveryPolicy";
