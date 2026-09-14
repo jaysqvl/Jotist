@@ -104,11 +104,13 @@ release:
     ### Installation
 
     #### Docker
+    Standard stable images use CPU and CUDA 12.6. Confirm the selected image jobs have finished before pulling.
     ```bash
     docker pull ghcr.io/jaysqvl/jotist:{{ .Version }}
     docker pull ghcr.io/jaysqvl/jotist:{{ .Version }}-cuda
-    docker pull ghcr.io/jaysqvl/jotist:{{ .Version }}-blackwell
     ```
+
+    Blackwell/CUDA 13 remains a source-build option without actual Blackwell inference qualification; it is not part of the default stable image publication.
 
     #### Manual Installation
     Download the appropriate archive for your platform below, extract it, and place the binary in your PATH.

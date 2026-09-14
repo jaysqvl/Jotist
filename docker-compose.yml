@@ -1,7 +1,8 @@
-# Jotist. Legacy service and volume names preserve existing deployments.
+# Jotist 1.7.0 CPU image. Confirm release publication before pulling.
+# Legacy service and volume names preserve existing deployments.
 services:
   scriberr:
-    image: ghcr.io/jaysqvl/jotist:1.7.0-rc.1
+    image: ghcr.io/jaysqvl/jotist:1.7.0
     ports:
       - "8080:8080"
     volumes:
@@ -19,4 +20,3 @@ services:
 volumes:
   scriberr_data: {}
   env_data: {}
-# Legacy RC1 image: for the updated CPU runtimes, use docker-compose.build.yml.

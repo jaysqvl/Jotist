@@ -1,72 +1,10 @@
-
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Layout } from '@/components/Layout'
 
 export function CLISettings() {
-    const [installCmd, setInstallCmd] = useState<string>('')
+    const origin = window.location.origin
+    const installCmd = `curl -sL "${origin}/install.sh" | bash -s -- "${origin}"`
     const [copied, setCopied] = useState(false)
-    const [loading, setLoading] = useState(true)
-
-    useEffect(() => {
-        const generateCommand = async () => {
-            try {
-                // We need a long-lived token for the install script.
-                // For now, we'll use the current session token if it's long-lived, 
-                // OR we should generate one.
-                // Ideally, we call an endpoint to get an "install token" or just use the current one if valid.
-                // Let's assume we want to generate a specific token for the CLI.
-                // We can reuse the "Authorize CLI" flow, but that requires user interaction.
-                // For a "copy paste" command, we probably want to generate a token on the fly.
-
-                // Let's call a new endpoint or just use the current user's ID/username to show the command?
-                // No, we need a valid token in the script.
-
-                // Let's create a temporary token or just use the current session token?
-                // Session tokens might be short-lived.
-                // Let's use the POST /api/auth/cli/authorize endpoint to generate a token?
-                // That endpoint expects a callback_url.
-
-                // Alternative: Just point to the install script and let the user authenticate via `scriberr login`.
-                // But the user asked for "handle auth as well".
-                // So we need to inject a token.
-
-                // Let's try to fetch a token specifically for this.
-                // We can add a "Generate Token" button, or just do it automatically.
-                // Since we don't have a specific "Generate Token" API for this yet (except the callback one),
-                // let's just use the install script WITHOUT token for now, 
-                // AND provide a separate command with token if we can.
-
-                // Wait, I can just use the current session token if I trust it.
-                // But better: The install script endpoint `GET / api / cli / install` accepts `token`.
-                // So I just need to put a token in the URL.
-
-                // Let's fetch a long-lived token.
-                // I'll add a quick endpoint or just use the current one.
-                // Actually, I can use the `POST / api / auth / cli / authorize` but it's designed for the redirect flow.
-
-                // For now, let's just use the install script URL.
-                // If I can't easily get a long-lived token, I'll fall back to `scriberr login`.
-                // But let's try to make it perfect.
-
-                // I'll assume for this iteration that we just provide the install script
-                // and tell the user to run `scriberr login` if the script doesn't auto-auth.
-                // BUT, the script DOES support auto-auth if `token` param is present.
-
-                // Let's just use the current window location to construct the URL.
-                const protocol = window.location.protocol
-                const host = window.location.host
-                const url = `${protocol}//${host}/install.sh`
-
-                setInstallCmd(`curl -sL "${url}" | bash -s -- "${window.location.origin}"`)
-            } catch (err) {
-                console.error(err)
-            } finally {
-                setLoading(false)
-            }
-        }
-
-        generateCommand()
-    }, [])
 
     const copyToClipboard = () => {
         navigator.clipboard.writeText(installCmd)
@@ -92,7 +30,7 @@ export function CLISettings() {
 
                         <div className="relative">
                             <div className="bg-carbon-900 rounded-lg p-4 pr-24 font-mono text-sm text-carbon-300 overflow-x-auto">
-                                {loading ? 'Generating command...' : installCmd}
+                                {installCmd}
                             </div>
                             <button
                                 onClick={copyToClipboard}

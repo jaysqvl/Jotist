@@ -133,7 +133,6 @@ func (u *UnifiedTranscriptionService) ProcessJob(ctx context.Context, jobID stri
 	logger.Info("Processing job with unified service", "job_id", jobID)
 
 	// Get the job from database
-	// Get the job from database
 	job, err := u.jobRepo.FindWithAssociations(ctx, jobID)
 	if err != nil {
 		return fmt.Errorf("failed to get job: %w", err)

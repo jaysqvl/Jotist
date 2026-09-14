@@ -32,15 +32,15 @@ Local transcription processes audio on your server. Optional cloud transcription
 
 ## Run with Docker
 
-The runtime update preview is **1.7.0-rc.3**, with a published CUDA 12.6 image. It corrects RC2's existing-install upgrade problems: retained lockfiles could keep older dependencies, and readiness could leave obsolete packages installed. Preview builds use explicit version tags and do not update `latest`. See the [release notes](https://github.com/jaysqvl/Jotist/releases/tag/v1.7.0-rc.3) for qualification details and known limits.
+**Jotist 1.7.0** provides CPU and CUDA 12.6 container variants. The release includes the corrected runtime upgrade path: retained lockfiles are refreshed and obsolete packages are removed during environment preparation. See the [release notes](https://github.com/jaysqvl/Jotist/releases/tag/v1.7.0) for installation and qualification details.
 
-| Hardware | Image |
+| Hardware | Versioned image |
 | --- | --- |
-| CPU | Build the updated source with `docker-compose.build.yml` |
-| NVIDIA CUDA | `ghcr.io/jaysqvl/jotist:1.7.0-rc.3-cuda` |
-| NVIDIA Blackwell / RTX 50-series | Updated image publication awaits GPU qualification |
+| CPU | `ghcr.io/jaysqvl/jotist:1.7.0` |
+| CUDA 12.6-compatible NVIDIA GPU | `ghcr.io/jaysqvl/jotist:1.7.0-cuda` |
+| Blackwell / RTX 50-series | Local CUDA 13 source build only; actual inference remains unqualified |
 
-The older RC1 CPU and Blackwell images retain the previous runtime dependencies. The prebuilt `docker-compose.yml` and `docker-compose.blackwell.yml` files still describe those legacy images; they do not include this update. CPU and CUDA 12.6 model inference passed on freshly prepared environments; the corrected application preparation code also passed migration checks against retained environments. Qualify the published image with your existing data and runtimes before cutover. Blackwell source builds use CUDA 13, with dependency resolution and native library loading checked, but actual Blackwell inference remains unqualified.
+Selected CPU and CUDA 12.6 model pipelines passed prior runtime qualification, including retained-environment migration checks. Qualify the selected released image with your own data and runtimes before cutover. Blackwell source builds have dependency-resolution and native-library checks, but no actual Blackwell inference qualification; they are excluded from the default stable image publication.
 
 Published container builds currently target **Linux amd64**. Release archives provide Linux, macOS, and Windows server binaries for amd64 and arm64; availability of optional model runtimes depends on the platform.
 
@@ -49,10 +49,10 @@ For a new CPU installation:
 ```bash
 git clone https://github.com/jaysqvl/Jotist.git
 cd Jotist
-docker compose -f docker-compose.build.yml up -d --build
+docker compose up -d
 ```
 
-Open [localhost:8080](http://localhost:8080), then create the first account. For the CUDA 12.6 preview, use `docker compose -f docker-compose.cuda.yml up -d` with a compatible host driver and NVIDIA Container Toolkit.
+Open [localhost:8080](http://localhost:8080), then create the first account. For CUDA 12.6, use `docker compose -f docker-compose.cuda.yml up -d` with a compatible host driver and NVIDIA Container Toolkit. To build locally, use `docker-compose.build.yml` or `docker-compose.build.cuda.yml` with `up -d --build`. The optional `docker-compose.build.blackwell.yml` is for unqualified Blackwell source-build evaluation.
 
 **Existing Scriberr installation:** follow the [migration guide](docs/jotist-migration.md) before starting a stack from a new directory. Preserve the existing database, uploads, JWT secret, model storage, and Compose volume mapping. A different Compose project name can create empty named volumes instead of opening your existing data.
 
