@@ -41,8 +41,6 @@ export function useTranscriptSelection(
 
             // If offsets are missing (no word-level data), we can't provide seek/timestamps
             if (!offsets || offsets.length === 0) {
-                // Determine if we should show a basic menu? User asked to disable if no timestamps.
-                // "If word-level timestamps aren't available... gracefully get disabled"
                 setShowSelectionMenu(false);
                 return;
             }
@@ -51,7 +49,6 @@ export function useTranscriptSelection(
             const endChar = range.endOffset;
 
             // Find start and end words based on character offsets
-            // Note: Use simple iteration or search. Offsets are sorted.
             const startWordIdx = offsets.findIndex(w => startChar >= w.startChar && startChar <= w.endChar) !== -1
                 ? offsets.findIndex(w => startChar >= w.startChar && startChar <= w.endChar)
                 // If not exactly on a word, find the one after startChar (or nearest)
@@ -61,7 +58,6 @@ export function useTranscriptSelection(
             let endWordIdx = offsets.findIndex(w => endChar >= w.startChar && endChar <= w.endChar);
             if (endWordIdx === -1) {
                 // If not on exact word, find one before
-                // We search backwards or just use findLastIndex if available (ES2023) or custom loop
                 for (let i = offsets.length - 1; i >= 0; i--) {
                     if (offsets[i].endChar <= endChar) {
                         endWordIdx = i;
@@ -78,8 +74,6 @@ export function useTranscriptSelection(
             const startWord = offsets[startWordIdx];
             const endWord = offsets[endWordIdx];
 
-            // Extract quote purely from the words we matched to ensure clean text
-            // Or use the selection text: range.toString()
             const quote = range.toString().trim();
 
             setPendingSelection({
@@ -91,43 +85,19 @@ export function useTranscriptSelection(
             });
             setShowSelectionMenu(true);
 
-            if (!isMobile) {
-                const rect = range.getBoundingClientRect();
-                const centerX = rect.left + rect.width / 2;
-                const clampedX = Math.min(window.innerWidth - 16, Math.max(16, centerX));
-                let bubbleY = rect.top - 10;
-                if (bubbleY < 12) {
-                    bubbleY = rect.bottom + 8;
-                }
-                setSelectionViewportPos({ x: clampedX, y: bubbleY });
+            const rect = range.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const clampedX = Math.min(window.innerWidth - 16, Math.max(16, centerX));
+            let bubbleY = rect.top - 10;
+            if (bubbleY < 12) {
+                bubbleY = rect.bottom + 8;
             }
+            setSelectionViewportPos({ x: clampedX, y: bubbleY });
         };
 
-        const onMouseUp = () => {
-            if (!isMobile) handleSelection();
-        };
-
-        const onTouchEnd = () => {
-            if (isMobile) setTimeout(handleSelection, 100);
-        };
-
-        // Mobile selection handles can move after touchend without another touch event.
-        const onSelectionChange = () => {
-            if (isMobile && !showEditor) handleSelection();
-        };
-
-        el.addEventListener('mouseup', onMouseUp);
-        el.addEventListener('touchend', onTouchEnd);
-        if (isMobile) {
-            document.addEventListener('selectionchange', onSelectionChange);
-        }
-
-        return () => {
-            el.removeEventListener('mouseup', onMouseUp);
-            el.removeEventListener('touchend', onTouchEnd);
-            if (isMobile) document.removeEventListener('selectionchange', onSelectionChange);
-        };
-    }, [offsets, isMobile, showEditor, transcriptRef]);
+        el.addEventListener('mouseup', handleSelection);
+        return () => el.removeEventListener('mouseup', handleSelection);
+    }, [offsets, isMobile, transcriptRef]);
 
     // Hide selection bubble when selection collapses
     useEffect(() => {
