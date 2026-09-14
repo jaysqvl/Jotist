@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.1](https://github.com/jaysqvl/Jotist/compare/v1.7.0...v1.7.1) (2026-09-14)
+
+
+### Bug Fixes
+
+* organize repository sources and deployment entrypoints ([d3bcafd](https://github.com/jaysqvl/Jotist/commit/d3bcafd703f219de37a760de810015cb250f39b0))
+
 ## [1.7.0](https://github.com/jaysqvl/Jotist/compare/v1.6.1...v1.7.0) (2026-09-14)
 
 
