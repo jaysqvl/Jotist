@@ -296,7 +296,7 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 	}
 
 	// Set up static file serving for React app
-	web.SetupStaticRoutes(router, authService)
+	web.SetupStaticRoutes(router)
 
 	return router
 }

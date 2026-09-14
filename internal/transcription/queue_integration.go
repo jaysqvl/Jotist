@@ -3,6 +3,7 @@ package transcription
 import (
 	"context"
 	"os/exec"
+	"sort"
 
 	"scriberr/internal/repository"
 	"scriberr/pkg/logger"
@@ -119,17 +120,7 @@ func (u *UnifiedJobProcessor) GetSupportedLanguages() []string {
 		languages = append(languages, lang)
 	}
 
-	// Sort for consistent output
-	sort := func(slice []string) {
-		for i := 0; i < len(slice)-1; i++ {
-			for j := i + 1; j < len(slice); j++ {
-				if slice[i] > slice[j] {
-					slice[i], slice[j] = slice[j], slice[i]
-				}
-			}
-		}
-	}
-	sort(languages)
+	sort.Strings(languages)
 
 	return languages
 }

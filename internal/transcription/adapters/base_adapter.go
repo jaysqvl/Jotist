@@ -6,25 +6,14 @@ import (
 
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"scriberr/internal/transcription/interfaces"
 	"scriberr/pkg/logger"
-
-	"golang.org/x/sync/singleflight"
-)
-
-// Environment readiness cache to avoid repeated expensive UV checks
-var (
-	envCacheMutex sync.RWMutex
-	envCache      = make(map[string]bool)
-	requestGroup  singleflight.Group
 )
 
 // GetPyTorchCUDAVersion returns the PyTorch CUDA wheel version to use.
@@ -54,43 +43,6 @@ func validatePyTorchBackend() error {
 	default:
 		return fmt.Errorf("unsupported PYTORCH_CUDA_VERSION %q: choose cpu, cu126, or cu130", GetPyTorchCUDAVersion())
 	}
-}
-
-// CheckEnvironmentReady checks if a UV environment is ready with caching and singleflight
-func CheckEnvironmentReady(envPath, importStatement string) bool {
-	cacheKey := fmt.Sprintf("%s:%s", envPath, importStatement)
-
-	// Check cache first
-	envCacheMutex.RLock()
-	if ready, exists := envCache[cacheKey]; exists {
-		envCacheMutex.RUnlock()
-		return ready
-	}
-	envCacheMutex.RUnlock()
-
-	// Use singleflight to prevent duplicate checks
-	result, _, _ := requestGroup.Do(cacheKey, func() (interface{}, error) {
-		// Check cache again (double-checked locking)
-		envCacheMutex.RLock()
-		if ready, exists := envCache[cacheKey]; exists {
-			envCacheMutex.RUnlock()
-			return ready, nil
-		}
-		envCacheMutex.RUnlock()
-
-		// Run the actual check
-		testCmd := exec.Command("uv", "run", "--system-certs", "--project", envPath, "python", "-c", importStatement)
-		ready := testCmd.Run() == nil
-
-		// Cache the result
-		envCacheMutex.Lock()
-		envCache[cacheKey] = ready
-		envCacheMutex.Unlock()
-
-		return ready, nil
-	})
-
-	return result.(bool)
 }
 
 // BaseAdapter provides common functionality for all model adapters

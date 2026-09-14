@@ -367,11 +367,11 @@ func materializeWhisperXVendor(environment string) error {
 }
 
 // Transcribe processes audio using WhisperX
-func (w *WhisperXAdapter) Transcribe(ctx context.Context, input interfaces.AudioInput, params map[string]interface{}, procCtx interfaces.ProcessingContext) (*interfaces.TranscriptResult, error) {
+func (w *WhisperXAdapter) Transcribe(ctx context.Context, input interfaces.AudioInput, params map[string]interface{}, procCtx interfaces.ProcessingContext) (transcript *interfaces.TranscriptResult, processingErr error) {
 	startTime := time.Now()
 	w.LogProcessingStart(input, procCtx)
 	defer func() {
-		w.LogProcessingEnd(procCtx, time.Since(startTime), nil)
+		w.LogProcessingEnd(procCtx, time.Since(startTime), processingErr)
 	}()
 
 	// Validate input

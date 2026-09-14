@@ -1,12 +1,13 @@
 package web
 
 import (
+	"bytes"
 	"embed"
 	"io/fs"
 	"net/http"
+	"path"
 	"strings"
-
-	"scriberr/internal/auth"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -14,132 +15,56 @@ import (
 //go:embed dist/*
 var staticFiles embed.FS
 
-// GetStaticHandler returns a handler for serving embedded static files
-func GetStaticHandler() http.Handler {
-	// Get the dist subdirectory from embedded files
-	distFS, err := fs.Sub(staticFiles, "dist")
+// SetupStaticRoutes serves the built frontend and falls back to its entry point
+// for client-side routes. API authentication belongs to the API router.
+func SetupStaticRoutes(router *gin.Engine) {
+	dist, err := fs.Sub(staticFiles, "dist")
 	if err != nil {
-		panic("failed to get dist subdirectory: " + err.Error())
+		panic("open embedded frontend: " + err.Error())
 	}
-
-	return http.FileServer(http.FS(distFS))
+	router.NoRoute(gin.WrapH(newSPAHandler(dist)))
 }
 
-// GetIndexHTML returns the index.html content
-func GetIndexHTML() ([]byte, error) {
-	return staticFiles.ReadFile("dist/index.html")
-}
-
-// SetupStaticRoutes configures static file serving in Gin
-func SetupStaticRoutes(router *gin.Engine, authService *auth.AuthService) {
-
-	// Serve static assets (CSS, JS, images) directly from embedded filesystem
-	router.GET("/assets/*filepath", func(c *gin.Context) {
-		// Extract the file path
-		filepath := c.Param("filepath")
-		// Remove leading slash if present
-		if filepath[0] == '/' {
-			filepath = filepath[1:]
+func newSPAHandler(files fs.FS) http.Handler {
+	assets := http.FileServer(http.FS(files))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api") {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":"API endpoint not found"}`))
+			return
 		}
-		fullPath := "assets/" + filepath
-
-		// Try to read the file from embedded filesystem
-		fileContent, err := staticFiles.ReadFile("dist/" + fullPath)
-		if err != nil {
-			c.Status(http.StatusNotFound)
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			w.Header().Set("Allow", "GET, HEAD")
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 
-		// Set appropriate content type based on file extension
-		if strings.Contains(fullPath, ".css") {
-			c.Data(http.StatusOK, "text/css", fileContent)
-		} else if strings.Contains(fullPath, ".js") {
-			c.Data(http.StatusOK, "application/javascript", fileContent)
-		} else {
-			c.Data(http.StatusOK, "application/octet-stream", fileContent)
-		}
-	})
-
-	// Serve vite.svg
-	router.GET("/vite.svg", func(c *gin.Context) {
-		fileContent, err := staticFiles.ReadFile("dist/vite.svg")
-		if err != nil {
-			c.Status(http.StatusNotFound)
+		name := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/"), "/")
+		if name != "" && !fs.ValidPath(name) {
+			http.Error(w, "Invalid asset path", http.StatusForbidden)
 			return
 		}
-		c.Data(http.StatusOK, "image/svg+xml", fileContent)
-	})
-
-	// Serve scriberr-logo.png
-	router.GET("/scriberr-logo.png", func(c *gin.Context) {
-		fileContent, err := staticFiles.ReadFile("dist/scriberr-logo.png")
-		if err != nil {
-			c.Status(http.StatusNotFound)
-			return
-		}
-		c.Data(http.StatusOK, "image/png", fileContent)
-	})
-
-	// Serve scriberr-thumb.png
-	router.GET("/scriberr-thumb.png", func(c *gin.Context) {
-		fileContent, err := staticFiles.ReadFile("dist/scriberr-thumb.png")
-		if err != nil {
-			c.Status(http.StatusNotFound)
-			return
-		}
-		c.Data(http.StatusOK, "image/png", fileContent)
-	})
-
-	// Serve index.html for root and any unmatched routes (SPA behavior)
-	router.NoRoute(func(c *gin.Context) {
-		// For API routes, return 404
-		if strings.HasPrefix(c.Request.URL.Path, "/api") {
-			c.JSON(404, gin.H{"error": "API endpoint not found"})
-			return
-		}
-
-		// Try to serve file from dist directly (for PWA assets like sw.js, manifest.webmanifest)
-		path := strings.TrimPrefix(c.Request.URL.Path, "/")
-
-		// Prevent directory traversal (basic check, though embed.FS is safe)
-		if strings.Contains(path, "..") {
-			c.Status(http.StatusForbidden)
-			return
-		}
-
-		// Try to read the file from embedded filesystem
-		fileContent, err := staticFiles.ReadFile("dist/" + path)
-		if err == nil {
-			// File exists, serve it
-			contentType := "application/octet-stream"
-			if strings.HasSuffix(path, ".css") {
-				contentType = "text/css"
-			} else if strings.HasSuffix(path, ".js") {
-				contentType = "application/javascript"
-			} else if strings.HasSuffix(path, ".png") {
-				contentType = "image/png"
-			} else if strings.HasSuffix(path, ".svg") {
-				contentType = "image/svg+xml"
-			} else if strings.HasSuffix(path, ".ico") {
-				contentType = "image/x-icon"
-			} else if strings.HasSuffix(path, ".webmanifest") {
-				contentType = "application/manifest+json"
-			} else if strings.HasSuffix(path, ".html") {
-				contentType = "text/html; charset=utf-8"
+		if info, err := fs.Stat(files, name); err == nil && !info.IsDir() {
+			// The standard server owns MIME types, HEAD, and byte-range handling.
+			// Some hosts do not register the PWA manifest extension.
+			if path.Ext(name) == ".webmanifest" {
+				w.Header().Set("Content-Type", "application/manifest+json")
 			}
-
-			c.Data(http.StatusOK, contentType, fileContent)
+			assets.ServeHTTP(w, r)
+			return
+		}
+		if name == "assets" || strings.HasPrefix(name, "assets/") || path.Ext(name) != "" {
+			// Missing bundles and PWA files must not receive HTML with status 200.
+			http.NotFound(w, r)
 			return
 		}
 
-		// For all other routes, serve the React app
-		// The React app will handle authentication client-side
-		indexHTML, err := GetIndexHTML()
+		index, err := fs.ReadFile(files, "index.html")
 		if err != nil {
-			c.String(http.StatusInternalServerError, "Error loading page")
+			http.Error(w, "Error loading page", http.StatusInternalServerError)
 			return
 		}
-
-		c.Data(http.StatusOK, "text/html; charset=utf-8", indexHTML)
+		http.ServeContent(w, r, "index.html", time.Time{}, bytes.NewReader(index))
 	})
 }
