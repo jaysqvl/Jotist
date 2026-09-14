@@ -949,15 +949,6 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                 )}
             </div>
 
-            {/* Mobile / Overlay Chat (If we want overlay behavior even on desktop, we can adjust logic) */}
-            {/* Note: User asked for sliding over on mobile. NotesSidebar handles this via portal internally often, or we do it here.
-                 Let's do it here for Chat.
-             */}
-            {/* If we define isMobile properly (using hook), we can conditional rendering.
-                 Since I don't have the hook imported in this snippet yet, I will add it.
-              */}
-
-
             {/* Dialogs */}
             <ExecutionInfoDialog
                 audioId={audioId}

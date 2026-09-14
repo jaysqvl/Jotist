@@ -60,8 +60,7 @@ export function findActiveWordIndex(
     while (low <= high) {
         const mid = Math.floor((low + high) / 2);
         if (offsets[mid].startTime <= currentTime) {
-            result = mid; // Candidate found, look effectively later for a tighter match? 
-            // Actually, since sorted by startTime, we want the LARGEST startTime <= currentTime.
+            result = mid;
             low = mid + 1;
         } else {
             high = mid - 1;

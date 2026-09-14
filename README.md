@@ -32,9 +32,9 @@ Local transcription processes audio on your server. Optional cloud transcription
 
 ## Run with Docker
 
-This checkout targets the first stable Jotist release, **1.7.0**, with CPU and CUDA 12.6 container variants. Confirm completed publication on the [releases page](https://github.com/jaysqvl/Jotist/releases) before pulling the versioned images below. The release includes the corrected runtime upgrade path: retained lockfiles are refreshed and obsolete packages are removed during environment preparation.
+**Jotist 1.7.0** provides CPU and CUDA 12.6 container variants. The release includes the corrected runtime upgrade path: retained lockfiles are refreshed and obsolete packages are removed during environment preparation. See the [release notes](https://github.com/jaysqvl/Jotist/releases/tag/v1.7.0) for installation and qualification details.
 
-| Hardware | Versioned image after publication |
+| Hardware | Versioned image |
 | --- | --- |
 | CPU | `ghcr.io/jaysqvl/jotist:1.7.0` |
 | CUDA 12.6-compatible NVIDIA GPU | `ghcr.io/jaysqvl/jotist:1.7.0-cuda` |

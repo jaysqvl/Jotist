@@ -44,13 +44,9 @@ func (u *UnifiedJobProcessor) CancelExecution(ctx context.Context, jobID, execut
 
 // ProcessJobWithProcess implements the enhanced JobProcessor interface with process registration
 func (u *UnifiedJobProcessor) ProcessJobWithProcess(ctx context.Context, jobID string, registerProcess func(*exec.Cmd)) error {
-	// Note: The new adapter architecture doesn't expose the underlying process in the same way
-	// For backward compatibility, we'll call the registerProcess function with nil
-	// In the future, we could modify adapters to support process registration if needed
-
 	logger.Info("Processing job with unified processor (with process registration)", "job_id", jobID)
 
-	// Register a nil process for backward compatibility
+	// Adapters own their subprocesses; this compatibility callback has no process handle.
 	registerProcess(nil)
 
 	return u.unifiedService.ProcessJob(ctx, jobID)

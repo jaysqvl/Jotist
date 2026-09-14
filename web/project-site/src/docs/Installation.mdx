@@ -23,7 +23,7 @@ The Python environment and models need to be reinitialized for v1.2.0. If the ap
 
 ## Jotist Releases (macOS & Linux)
 
-Download Jotist from the [Jotist releases page](https://github.com/jaysqvl/Jotist/releases). This checkout targets the first stable release, **v1.7.0**; confirm that the desired artifact and image jobs have finished publishing before installation. Choose the artifact for your operating system and architecture, and follow the instructions included with that release.
+Download **Jotist 1.7.0** from the [Jotist releases page](https://github.com/jaysqvl/Jotist/releases/tag/v1.7.0). Choose the artifact for your operating system and architecture, and follow the instructions included with the release.
 
 The upstream Scriberr Homebrew tap installs Scriberr, not Jotist. Jotist does not currently publish a Homebrew tap. Existing CLI commands retain the `scriberr` name for compatibility.
 
@@ -83,7 +83,7 @@ The auth logger emits stable fields such as `event=login`, `result=failure`, `re
 
 ## Docker Deployment
 
-The standard 1.7.0 container publication targets Linux amd64 with CPU and CUDA 12.6 variants. Confirm that both required image jobs have finished on the release page before pulling. Blackwell/CUDA 13 remains a local source-build option without actual Blackwell inference qualification and is excluded from the default stable publication.
+The standard 1.7.0 containers target Linux amd64 with CPU and CUDA 12.6 variants. Blackwell/CUDA 13 remains a local source-build option without actual Blackwell inference qualification and is excluded from the stable release.
 
 > **Permissions:** Ensure you set the `PUID` and `PGID` environment variables to your host user's UID and GID (typically `1000` on Linux) to avoid permission issues with the SQLite database. You can find your UID/GID by running `id` on your host.
 >

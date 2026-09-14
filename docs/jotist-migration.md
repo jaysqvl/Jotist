@@ -1,6 +1,6 @@
 # Migrating from Scriberr to Jotist
 
-Jotist is an independent repository at [jaysqvl/Jotist](https://github.com/jaysqvl/Jotist). Its first stable release target is `v1.7.0`, following the RC1–RC3 previews. This continuation changes the product identity, indigo/cyan styling, release ownership, and includes the preserved local-model and recoverable-execution work. It does not intentionally relocate existing data or replace API contracts.
+Jotist is an independent repository at [jaysqvl/Jotist](https://github.com/jaysqvl/Jotist). Its first stable release is `v1.7.0`, following the RC1–RC3 previews. This continuation changes the product identity, indigo/cyan styling, release ownership, and includes the preserved local-model and recoverable-execution work. It does not intentionally relocate existing data or replace API contracts.
 
 ## Repository transplant
 

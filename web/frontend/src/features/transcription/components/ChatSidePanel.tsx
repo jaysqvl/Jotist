@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { ChatSessionsSidebar } from "@/components/ChatSessionsSidebar";
 import { ChatInterface } from "@/components/ChatInterface";
 import { Button } from "@/components/ui/button";
@@ -17,21 +17,13 @@ export function ChatSidePanel({ transcriptionId, isOpen, onClose, isMobile }: Ch
     const [view, setView] = useState<'list' | 'chat'>('list');
     const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
-    // Reset view when closed or id changes
-    useEffect(() => {
-        if (!isOpen) {
-            // Optional: reset state? User might want persistence.
-            // Let's keep state for now so they don't lose place if they toggle quickly.
-        }
-    }, [isOpen]);
-
     const handleSessionSelect = (sessionId: string | null) => {
         if (sessionId) {
             setActiveSessionId(sessionId);
             setView('chat');
         } else {
             setActiveSessionId(null);
-            setView('list'); // Or keep at chat with "new chat" state?
+            setView('list');
         }
     };
 
@@ -40,7 +32,7 @@ export function ChatSidePanel({ transcriptionId, isOpen, onClose, isMobile }: Ch
         setActiveSessionId(null);
     };
 
-    if (!isOpen && !isMobile) return null; // For desktop split, we might handle visibility via parent layout, but helpful here too.
+    if (!isOpen && !isMobile) return null;
 
     return (
         <div className={cn(

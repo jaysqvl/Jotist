@@ -111,18 +111,8 @@ export function useTranscriptSelection(
             if (isMobile) setTimeout(handleSelection, 100);
         };
 
-        // Note: For text nodes, click/mouseup vs selectionchange is tricky.
-        // selectionchange is more reliable for text selection updates.
-        document.addEventListener('selectionchange', () => {
-            // Debounce or check? For now rely on mouseup for menu trigger to avoid flickering while dragging?
-            // Actually `selectionchange` fires continuously. The original code used it for mobile only.
-            // We'll stick to mouseup for desktop.
-        });
-
-        // However, if we only use mouseup, keyboard selection might be missed.
-        // Let's add selectionchange logic scoped to the element.
+        // Mobile selection handles can move after touchend without another touch event.
         const onSelectionChange = () => {
-            // Only if we already showing menu or mobile?
             if (isMobile && !showEditor) handleSelection();
         };
 

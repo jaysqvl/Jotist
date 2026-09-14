@@ -1,6 +1,6 @@
 # Jotist releases and deployment images
 
-Jotist publishes server archives and Linux amd64 containers from [jaysqvl/Jotist](https://github.com/jaysqvl/Jotist). **v1.7.0** is the first stable release target, continuing the inherited 1.6.1 version line. This checkout prepares its publication; a version in a Compose file is not evidence that an image has already been published.
+Jotist publishes server archives and Linux amd64 containers from [jaysqvl/Jotist](https://github.com/jaysqvl/Jotist). **v1.7.0** is the first stable Jotist release, continuing the inherited 1.6.1 version line.
 
 The standard stable publication selects **CPU and CUDA 12.6** using `variants=cpu-cuda`. It publishes `latest` and `latest-cuda` only after the existing validation and artifact jobs succeed. Blackwell/CUDA 13 is excluded from that default: dependency-resolution and native-library checks exist, but actual Blackwell inference remains unqualified.
 
@@ -8,7 +8,7 @@ The standard stable publication selects **CPU and CUDA 12.6** using `variants=cp
 
 CPU and CUDA share one container repository:
 
-| Variant | Versioned image after publication | Stable alias |
+| Variant | Versioned image | Stable alias |
 | --- | --- | --- |
 | CPU | `ghcr.io/jaysqvl/jotist:1.7.0` | `ghcr.io/jaysqvl/jotist:latest` |
 | CUDA 12.6 | `ghcr.io/jaysqvl/jotist:1.7.0-cuda` | `ghcr.io/jaysqvl/jotist:latest-cuda` |
@@ -19,7 +19,7 @@ For Blackwell evaluation, build `Dockerfile.cuda.13.0` locally using `docker-com
 
 ## Preview history and qualification
 
-The latest published preview before this stable preparation is [v1.7.0-rc.3](https://github.com/jaysqvl/Jotist/releases/tag/v1.7.0-rc.3). Its CUDA 12.6 image is `ghcr.io/jaysqvl/jotist:1.7.0-rc.3-cuda`, from commit `71d31c7c3becc91f217b7d5bca37f3a2db86bdd4`, with digest `sha256:a552e0d01345581aab17c9d31e1dc11303a79bc1964099c6956b106eac8b195f`. It was published with `variants=cuda` and `publish_latest=false`; those immutable references remain historical records.
+The final preview was [v1.7.0-rc.3](https://github.com/jaysqvl/Jotist/releases/tag/v1.7.0-rc.3). Its CUDA 12.6 image is `ghcr.io/jaysqvl/jotist:1.7.0-rc.3-cuda`, from commit `71d31c7c3becc91f217b7d5bca37f3a2db86bdd4`, with digest `sha256:a552e0d01345581aab17c9d31e1dc11303a79bc1964099c6956b106eac8b195f`. It was published with `variants=cuda` and `publish_latest=false`; those immutable references remain historical records.
 
 RC2 failed staging against copied existing environments: retained `uv.lock` selections kept older dependencies, and inexact readiness checks left packages outside the resolved graph installed. RC3 corrected that upgrade path. Do not retag RC1, RC2, or RC3 with new bytes.
 
@@ -84,7 +84,7 @@ Each matrix job builds its own Dockerfile and prints the resulting digest and so
 
 ## Stable releases
 
-Release Please opens a version/changelog PR from conventional commits on `main`. Its manifest remains at `1.6.1` until a stable release advances it. Bootstrap history begins at `812adc5`, before the imported feature snapshot, so the first Jotist release includes the new features without replaying the entire upstream history.
+Release Please opens a version/changelog PR from conventional commits on `main`. Its manifest records the stable release version. Bootstrap history begins at `812adc5`, before the imported feature snapshot, so the first Jotist release includes the new features without replaying the entire upstream history.
 
 After the audit and preview review, merge the reviewed stable release PR for `v1.7.0`. Release Please calls the same validation/artifact/image pipeline with `variants=cpu-cuda` and stable aliases enabled. The normal call publishes CPU and CUDA 12.6; Blackwell is not selected. The reusable workflow call is intentional: tags/releases created using `GITHUB_TOKEN` do not need to trigger another tag-push workflow.
 

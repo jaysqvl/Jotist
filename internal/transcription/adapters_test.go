@@ -233,11 +233,6 @@ func TestModelRegistry(t *testing.T) {
 	// Register mock models
 	registry.RegisterTranscriptionAdapter("mock-transcription", new(MockTranscriptionAdapter))
 	registry.RegisterDiarizationAdapter("mock-diarization", new(MockTranscriptionAdapter))
-	// We need a mock diarization adapter too, but for now let's just use transcription one if interface matches?
-	// No, interfaces are different.
-	// I'll create a MockDiarizationAdapter too.
-	// Or just reuse MockTranscriptionAdapter if I implement DiarizationAdapter interface on it.
-	// Let's implement DiarizationAdapter on MockTranscriptionAdapter.
 
 	// Get the global registry
 	reg := registry.GetRegistry()
