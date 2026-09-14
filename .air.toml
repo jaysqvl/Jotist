@@ -2,8 +2,8 @@ root = "."
 tmp_dir = "tmp"
 
 [build]
-  cmd = "go build -o ./tmp/main ./cmd/server/main.go"
-  bin = "./tmp/main"
+  cmd = "go build -o ./tmp/jotist-dev ./cmd/server"
+  bin = "./tmp/jotist-dev"
   full_bin = ""
   include_ext = ["go", "tpl", "tmpl", "html"]
   exclude_dir = ["data", "full_db_backups", "internal/web/dist", "web", "assets", "tmp", "vendor", "node_modules"]

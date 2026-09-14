@@ -36,10 +36,7 @@ jobs:
           cache: true
 
       - name: Embed validated frontend
-        run: |
-          rm -rf internal/web/dist
-          mkdir -p internal/web
-          cp -r web/frontend/dist internal/web/
+        run: make embed
 
       - name: Vet and test backend
         run: |

@@ -1,117 +1,50 @@
-.PHONY: help docs docs-serve docs-clean website website-dev website-build dev
+.PHONY: help dev frontend embed build build-cli test test-watch docs docs-clean docs-serve website-dev website-build website-serve clean
 
-help: ## Show this help message
-	@echo 'Usage: make [target]'
-	@echo ''
-	@echo 'Available targets:'
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+help: ## Show available commands
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-dev: ## Start development environment with Air (backend) and Vite (frontend)
-	@echo "🚀 Starting development environment..."
-	@# Ensure air is installed
-	@if ! command -v air >/dev/null 2>&1; then \
-		echo "⚠️  'air' command not found."; \
-		echo "📦 Auto-installing 'air' for live reload..."; \
-		GOPATH=$$(go env GOPATH); \
-		if [[ ":$$PATH:" != *":$$GOPATH/bin:"* ]]; then \
-			echo "⚠️  $$GOPATH/bin is not in your PATH. Adding it temporarily..."; \
-			export PATH=$$PATH:$$GOPATH/bin; \
-		fi; \
-		go install github.com/air-verse/air@latest; \
-		if ! command -v air >/dev/null 2>&1; then \
-			echo "❌ Failed to install 'air'. Falling back to 'go run'..."; \
-			USE_GO_RUN=true; \
-		else \
-			echo "✅ 'air' installed successfully."; \
-			USE_GO_RUN=false; \
-		fi; \
-	else \
-		USE_GO_RUN=false; \
-	fi; \
-	\
-	mkdir -p internal/web/dist; \
-	if [ -z "$$(ls -A internal/web/dist)" ]; then \
-		echo "📄 Creating placeholder files for Go embed..."; \
-		echo "<!-- Placeholder for development -->" > internal/web/dist/index.html; \
-		echo "placeholder" > internal/web/dist/dummy_asset; \
-	fi; \
-	\
-	trap 'echo ""; echo "🛑 Stopping development servers..."; kill 0; exit 0' INT TERM; \
-	\
-	if [ "$$USE_GO_RUN" = true ]; then \
-		echo "🔧 Starting Go backend (standard run)..."; \
-		go run cmd/server/main.go & \
-	else \
-		echo "🔥 Starting Go backend (with Air live reload)..."; \
-		air & \
-	fi; \
-	\
-	echo "⚛️  Starting React frontend (Vite)..."; \
-	cd web/frontend && npm run dev & \
-	\
-	wait
+dev: ## Run the backend and Vite; use Air if already installed
+	./scripts/dev.sh
 
-docs: ## Generate API documentation from Go code annotations
-	@echo "Generating API documentation..."
-	@command -v swag >/dev/null 2>&1 || { echo "Error: swag not installed. Run: go install github.com/swaggo/swag/cmd/swag@latest"; exit 1; }
-	swag init -g cmd/server/main.go -o api-docs
-	@echo "Syncing to project site..."
-	swag init -g server/main.go -o web/project-site/public/api --outputTypes json --dir cmd,internal
-	@echo "✓ API documentation generated in api-docs/ and web/project-site/public/api/"
+frontend: ## Build the application frontend
+	cd web/frontend && npm run build
 
-docs-clean: ## Clean generated API documentation
-	@echo "Cleaning API documentation..."
-	rm -rf api-docs/docs.go api-docs/swagger.json api-docs/swagger.yaml
-	@echo "✓ API documentation cleaned"
+embed: ## Copy an already built frontend into the Go embed directory
+	./scripts/build.sh --embed-only
 
-website-dev: docs ## Start local development server for project website
-	@echo "Starting website development server..."
-	cd web/project-site && npm run dev
+build: ## Build the frontend and server into bin/jotist
+	./scripts/build.sh
 
-website-build: docs ## Build project website for GitHub Pages
-	@echo "Building project website..."
-	cd web/project-site && npm run build
-	@echo "✓ Website built to /docs directory"
-
-website-serve: website-build ## Build and preview project website locally
-	@echo "Previewing website..."
-	cd web/project-site && npm run preview
-
-docs-serve: website-serve ## Alias for website-serve
-
-build: ## Build Jotist binary with embedded frontend
-	@echo "Starting Jotist build process..."
-	@echo "Cleaning old build files..."
-	@rm -f jotist
-	@rm -rf internal/web/dist
-	@cd web/frontend && rm -rf dist/ && rm -rf assets/ 2>/dev/null || true
-	@echo "✓ Build files cleaned"
-	@echo "Building React frontend..."
-	@cd web/frontend && npm run build
-	@echo "✓ Frontend built"
-	@echo "Copying frontend assets for embedding..."
-	@rm -rf internal/web/dist
-	@cp -r web/frontend/dist internal/web/
-	@echo "✓ Assets copied"
-	@echo "Building Go binary..."
-	@go clean -cache
-	@go build -o jotist cmd/server/main.go
-	@echo "✓ Binary built successfully"
-	@echo "Build complete. Run './jotist' to start the server"
-
-build-cli: ## Build CLI binaries for Linux, macOS, and Windows
-	@echo "Building CLI binaries..."
-	@mkdir -p bin/cli
+build-cli: ## Build compatible scriberr CLI downloads
+	mkdir -p bin/cli
 	GOOS=linux GOARCH=amd64 go build -o bin/cli/scriberr-linux-amd64 ./cmd/scriberr-cli
 	GOOS=darwin GOARCH=amd64 go build -o bin/cli/scriberr-darwin-amd64 ./cmd/scriberr-cli
 	GOOS=darwin GOARCH=arm64 go build -o bin/cli/scriberr-darwin-arm64 ./cmd/scriberr-cli
 	GOOS=windows GOARCH=amd64 go build -o bin/cli/scriberr-windows-amd64.exe ./cmd/scriberr-cli
-	@echo "✓ CLI binaries built in bin/cli/"
 
-test: ## Run tests using gotestsum (via go tool)
-	@echo "Running tests..."
-	go tool gotestsum --format pkgname -- -v ./...
+test: ## Run Go tests (requires make embed or make build first)
+	go tool gotestsum --format pkgname -- ./...
 
-test-watch: ## Run tests in watch mode using gotestsum (via go tool)
-	@echo "Running tests in watch mode..."
-	go tool gotestsum --watch -- -v ./...
+test-watch: ## Watch Go tests
+	go tool gotestsum --watch -- ./...
+
+docs: ## Generate the API package and project-site specifications
+	./scripts/generate-api-docs.sh
+
+docs-clean: ## Remove generated API specifications
+	rm -f api-docs/docs.go api-docs/swagger.json api-docs/swagger.yaml
+	rm -f web/project-site/public/api/swagger.json web/project-site/public/api/undocumented.json
+
+website-dev: docs ## Run the project website in Vite
+	cd web/project-site && npm run dev
+
+website-build: docs ## Build the project website into web/project-site/dist
+	cd web/project-site && npm run build
+
+website-serve: website-build ## Build and preview the project website
+	cd web/project-site && npm run preview
+
+docs-serve: website-serve ## Alias for website-serve
+
+clean: ## Remove local server, CLI, and frontend build outputs
+	rm -rf bin internal/web/dist web/frontend/dist web/project-site/dist

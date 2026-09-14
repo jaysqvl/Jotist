@@ -10,16 +10,14 @@ git:
 # Before hooks - run before building
 before:
   hooks:
-    # Build the frontend first (similar to your build.sh)
+    # Install dependencies, then use the shared embedding command.
     - sh -c "cd web/frontend && npm ci && npm run build"
-    # Copy frontend dist to internal/web for embedding
-    - rm -rf internal/web/dist
-    - cp -r web/frontend/dist internal/web/
+    - make embed
 
 # Build configuration
 builds:
   - id: jotist
-    main: ./cmd/server/main.go
+    main: ./cmd/server
     binary: jotist
     env:
       - CGO_ENABLED=0
