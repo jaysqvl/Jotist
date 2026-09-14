@@ -4,6 +4,12 @@ Jotist is an independent repository at [jaysqvl/Jotist](https://github.com/jaysq
 
 ## Repository transplant
 
+Container build sources and alternate Compose files now live in `deploy/`.
+Use the commands and old-to-new path table in [container deployment](../deploy/README.md).
+Keep the same Compose project name and `--project-directory .` when using an
+alternate configuration, so relocating a file does not select different volumes
+or bind directories. The default root `docker-compose.yml` remains available.
+
 The transplant retains Scriberr's commit ancestry and authorship. Commit `9262941` captures the completed local speech/model and recovery work on top of `812adc5`, before the Jotist rebrand. Keep the previous fork available while reviewing the preview.
 
 Create an empty independent repository and push the reviewed branch with its history. Do not initialize a fresh unrelated history, use GitHub's fork action, or force-push over an existing project. Keep the new checkout's `origin` on Jotist and the old fork/upstream as separate fetch remotes if wanted.

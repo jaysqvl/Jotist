@@ -5,6 +5,7 @@
 
 # IDEs and Editors
 .idea
+.serena
 .vscode
 .DS_Store
 **/.DS_Store
@@ -57,16 +58,16 @@ CLAUDE.md
 README.md
 
 # Docker related (exclude other docker files from context)
-Dockerfile*
-docker-compose*.yml
+deploy/docker/Dockerfile*
+deploy/compose
+deploy/README.md
+docker-compose.yml
 .dockerignore
 
 # Scripts and Configs (exclude local dev configs)
 .env
 *.env
 .prettier*
-.npmrc
 .goreleaser.yaml
 Makefile
-build.sh
 install_*.sh

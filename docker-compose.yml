@@ -1,8 +1,8 @@
-# Jotist 1.7.0 CPU image. Confirm release publication before pulling.
+# Jotist CPU image. See deploy/README.md for GPU and source-build configurations.
 # Legacy service and volume names preserve existing deployments.
 services:
   scriberr:
-    image: ghcr.io/jaysqvl/jotist:1.7.0
+    image: ghcr.io/jaysqvl/jotist:1.7.1
     ports:
       - "8080:8080"
     volumes:

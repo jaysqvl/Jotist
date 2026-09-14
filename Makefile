@@ -1,4 +1,4 @@
-.PHONY: help dev frontend embed build build-cli test test-watch docs docs-clean docs-serve website-dev website-build website-serve clean
+.PHONY: help dev frontend embed build build-cli vet test test-watch docs docs-clean docs-serve website-dev website-build website-serve clean
 
 help: ## Show available commands
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -21,6 +21,9 @@ build-cli: ## Build compatible scriberr CLI downloads
 	GOOS=darwin GOARCH=amd64 go build -o bin/cli/scriberr-darwin-amd64 ./cmd/scriberr-cli
 	GOOS=darwin GOARCH=arm64 go build -o bin/cli/scriberr-darwin-arm64 ./cmd/scriberr-cli
 	GOOS=windows GOARCH=amd64 go build -o bin/cli/scriberr-windows-amd64.exe ./cmd/scriberr-cli
+
+vet: ## Run the Go analysis used by CI (requires make embed or make build first)
+	go vet ./api-docs ./cmd/... ./internal/... ./pkg/... ./tests
 
 test: ## Run Go tests (requires make embed or make build first)
 	go tool gotestsum --format pkgname -- ./...

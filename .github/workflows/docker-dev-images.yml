@@ -89,7 +89,7 @@ jobs:
             exit 1
           fi
           case "$VARIANTS" in all|cpu-cuda|cpu|cuda|blackwell) ;; *) exit 1 ;; esac
-          matrix='[{"variant":"cpu","dockerfile":"Dockerfile","suffix":""},{"variant":"cuda","dockerfile":"Dockerfile.cuda","suffix":"-cuda"},{"variant":"blackwell","dockerfile":"Dockerfile.cuda.13.0","suffix":"-blackwell"}]'
+          matrix='[{"variant":"cpu","dockerfile":"deploy/docker/Dockerfile.cpu","legacy_dockerfile":"Dockerfile","suffix":""},{"variant":"cuda","dockerfile":"deploy/docker/Dockerfile.cuda","legacy_dockerfile":"Dockerfile.cuda","suffix":"-cuda"},{"variant":"blackwell","dockerfile":"deploy/docker/Dockerfile.blackwell","legacy_dockerfile":"Dockerfile.cuda.13.0","suffix":"-blackwell"}]'
           matrix="$(jq -c --arg variant "$VARIANTS" '{include: map(select($variant == "all" or .variant == $variant or ($variant == "cpu-cuda" and (.variant == "cpu" or .variant == "cuda"))))}' <<< "$matrix")"
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           echo "image_channel=$IMAGE_CHANNEL" >> "$GITHUB_OUTPUT"
@@ -150,6 +150,18 @@ jobs:
         with:
           ref: ${{ needs.resolve.outputs.sha }}
 
+      - name: Locate Dockerfile in the selected source
+        id: dockerfile
+        env:
+          CURRENT_PATH: ${{ matrix.dockerfile }}
+          LEGACY_PATH: ${{ matrix.legacy_dockerfile }}
+        run: |
+          # Manual builds can select a release from before the source-layout move.
+          path="$CURRENT_PATH"
+          if [[ ! -f "$path" ]]; then path="$LEGACY_PATH"; fi
+          test -f "$path"
+          echo "path=$path" >> "$GITHUB_OUTPUT"
+
       - name: Prepare image metadata
         id: metadata
         shell: bash
@@ -186,7 +198,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: ${{ matrix.dockerfile }}
+          file: ${{ steps.dockerfile.outputs.path }}
           platforms: linux/amd64
           push: true
           tags: ${{ steps.metadata.outputs.tags }}

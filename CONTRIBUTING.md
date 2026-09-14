@@ -37,7 +37,7 @@ cd web/frontend
 npm test && npm run lint && npm run type-check
 cd ../..
 make build
-go vet ./api-docs ./cmd/... ./internal/... ./pkg/... ./tests
+make vet
 make test
 ```
 
@@ -49,6 +49,16 @@ The generator version is pinned in `scripts/generate-api-docs.sh`.
 For Python runtime changes, follow [runtime maintenance](docs/python-runtime-maintenance.md).
 Passing a resolver or import check does not establish model inference quality
 or validate migration of an existing installation.
+
+The optional `lefthook.yml` runs the same Go vet and frontend checks using
+installed tools. The obsolete golangci-lint v1 configuration is removed; CI's
+Go vet, tests, and vulnerability scan remain the supported Go checks. Frontend
+formatter settings live in `web/frontend`; editor and agent project state is
+personal and ignored.
+
+Container build sources and alternate configurations are described in
+[container deployment](deploy/README.md). The repository root remains the
+Docker build context. Use `make build` instead of the former root `build.sh`.
 
 ## Review and release
 
