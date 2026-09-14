@@ -1,10 +1,10 @@
 # Jotist. Legacy service and volume names preserve existing deployments.
-# Published RC3 CUDA 12.6 preview. Validate existing data/runtime migration before cutover.
-# RC3 corrects RC2's retained-lock and obsolete-package upgrade issues.
+# Jotist 1.7.0 CUDA 12.6 image. Confirm release publication before pulling.
+# Validate existing data/runtime migration before cutover.
 version: "3.9"
 services:
   scriberr:
-    image: ghcr.io/jaysqvl/jotist:1.7.0-rc.3-cuda
+    image: ghcr.io/jaysqvl/jotist:1.7.0-cuda
     ports:
       - "8080:8080"
     volumes:

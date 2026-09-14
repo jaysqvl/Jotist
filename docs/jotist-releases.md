@@ -1,40 +1,29 @@
 # Jotist releases and deployment images
 
-Jotist publishes server archives and Linux amd64 containers from [jaysqvl/Jotist](https://github.com/jaysqvl/Jotist). The first preview is `v1.7.0-rc.1`; the first stable Jotist version will be `v1.7.0`, continuing the inherited 1.6.1 version line.
+Jotist publishes server archives and Linux amd64 containers from [jaysqvl/Jotist](https://github.com/jaysqvl/Jotist). **v1.7.0** is the first stable release target, continuing the inherited 1.6.1 version line. This checkout prepares its publication; a version in a Compose file is not evidence that an image has already been published.
 
-The corrected runtime update preview is [v1.7.0-rc.3](https://github.com/jaysqvl/Jotist/releases/tag/v1.7.0-rc.3).
-Its published image is `ghcr.io/jaysqvl/jotist:1.7.0-rc.3-cuda`, built from
-`71d31c7c3becc91f217b7d5bca37f3a2db86bdd4` with `variants=cuda` and
-`publish_latest=false`. Its immutable image digest is
-`sha256:a552e0d01345581aab17c9d31e1dc11303a79bc1964099c6956b106eac8b195f`.
-The release notes record qualification results and known limits; each deployment
-must also qualify its own retained runtime/data state before cutover.
-
-RC2 failed staging against copied existing environments: retained `uv.lock`
-selections kept older dependencies, and inexact readiness checks left packages
-outside the resolved graph installed. The gate stopped deployment. RC2 remains
-an immutable historical candidate; do not retag it with corrected bytes.
-
-CPU and CUDA 12.6 inference passed in fresh environments. The corrected source
-also passed migration of retained environments, including exact installed
-versions, native decoding and full dependency audits. Blackwell/CUDA 13 has
-resolver and native-library checks, but no actual Blackwell inference
-qualification. RC1 CPU and Blackwell images retain their older dependencies and
-are not part of the runtime update.
+The standard stable publication selects **CPU and CUDA 12.6** using `variants=cpu-cuda`. It publishes `latest` and `latest-cuda` only after the existing validation and artifact jobs succeed. Blackwell/CUDA 13 is excluded from that default: dependency-resolution and native-library checks exist, but actual Blackwell inference remains unqualified.
 
 ## Image names
 
-All variants share **one** container repository:
+CPU and CUDA share one container repository:
 
-| Variant | First preview tag (RC1) | Stable tag |
+| Variant | Versioned image after publication | Stable alias |
 | --- | --- | --- |
-| CPU | `ghcr.io/jaysqvl/jotist:1.7.0-rc.1` | `ghcr.io/jaysqvl/jotist:1.7.0` |
-| CUDA | `ghcr.io/jaysqvl/jotist:1.7.0-rc.1-cuda` | `ghcr.io/jaysqvl/jotist:1.7.0-cuda` |
-| Blackwell | `ghcr.io/jaysqvl/jotist:1.7.0-rc.1-blackwell` | `ghcr.io/jaysqvl/jotist:1.7.0-blackwell` |
+| CPU | `ghcr.io/jaysqvl/jotist:1.7.0` | `ghcr.io/jaysqvl/jotist:latest` |
+| CUDA 12.6 | `ghcr.io/jaysqvl/jotist:1.7.0-cuda` | `ghcr.io/jaysqvl/jotist:latest-cuda` |
 
-Container tags omit the Git tag's leading `v`. Builds also publish `<version><variant-suffix>-<12-character-commit>` and report a digest in the Actions summary. Use `ghcr.io/jaysqvl/jotist@sha256:...` for reproducible deployment.
+Container tags omit the Git tag's leading `v`. Builds also publish `<version><variant-suffix>-<12-character-commit>` and report a digest in the Actions summary. Use `ghcr.io/jaysqvl/jotist@sha256:...` for reproducible deployment. Confirm every selected image job finished before pulling the release.
 
-Stable aliases are `latest`, `latest-cuda`, and `latest-blackwell`. They update only when explicitly requested for a stable version tag pointing at the built source. Prereleases and preview channels never move them.
+For Blackwell evaluation, build `Dockerfile.cuda.13.0` locally using `docker-compose.build.blackwell.yml`. The `docker-compose.blackwell.yml` entrypoint also builds from source while retaining its existing named-volume mappings. Both are explicitly unqualified for actual Blackwell model inference; neither recommends the old RC1 image. Automatic stable publication does not update `latest-blackwell`.
+
+## Preview history and qualification
+
+The latest published preview before this stable preparation is [v1.7.0-rc.3](https://github.com/jaysqvl/Jotist/releases/tag/v1.7.0-rc.3). Its CUDA 12.6 image is `ghcr.io/jaysqvl/jotist:1.7.0-rc.3-cuda`, from commit `71d31c7c3becc91f217b7d5bca37f3a2db86bdd4`, with digest `sha256:a552e0d01345581aab17c9d31e1dc11303a79bc1964099c6956b106eac8b195f`. It was published with `variants=cuda` and `publish_latest=false`; those immutable references remain historical records.
+
+RC2 failed staging against copied existing environments: retained `uv.lock` selections kept older dependencies, and inexact readiness checks left packages outside the resolved graph installed. RC3 corrected that upgrade path. Do not retag RC1, RC2, or RC3 with new bytes.
+
+Selected CPU and CUDA 12.6 model pipelines passed the runtime qualification recorded with RC3, including checks against retained environments, installed versions, and native decoding. Those results are prior evidence; they do not replace validation of the final stable source or qualification against each deployment's retained data and runtime state. Blackwell inference remains unqualified.
 
 ## Rolling development image
 
@@ -76,7 +65,7 @@ with the cutover record so rollback does not depend on the moving alias.
 RC3 is already published; never replace its existing tag or image. For a future preview, create a new annotated version tag after the reviewed source is on `main`. Pushing a tag does not itself publish anything. In GitHub Actions, run **Release** with:
 
 - `tag`: the new version tag
-- `variants`: `cuda`
+- `variants`: `cpu-cuda` (or one explicitly selected variant)
 - `publish_latest`: `false`
 
 The workflow resolves the tag to an immutable commit and requires that commit to belong to `main`. Frontend checks, backend checks, dependency scans, and Python adapter resolver checks run against that commit. GoReleaser then publishes archives with the Jotist server executable, checksums, license, and attribution. Container publication follows successful artifact publication and builds the same validated commit.
@@ -89,13 +78,15 @@ Use **Publish container images** when rebuilding a particular variant or publish
 
 The workflow resolves the source once and validates it before building. It rejects other source repositories. Release workflow calls can reuse validation only when their supplied immutable commit exactly matches the image source; this option is not exposed in manual dispatch.
 
+The `variants` choices are `cpu-cuda` (the default), `cpu`, `cuda`, `blackwell`, and `all`. `cpu-cuda` selects exactly the CPU and CUDA 12.6 jobs. `all` retains the explicit option to publish all three variants, including unqualified Blackwell; it is not used by the normal stable release call. If stable aliases are requested for an explicit `all` or `blackwell` build, the existing alias mechanism also publishes `latest-blackwell`. That is a publication choice, not evidence of hardware qualification.
+
 Each matrix job builds its own Dockerfile and prints the resulting digest and source commit. CPU uses `Dockerfile`, CUDA uses `Dockerfile.cuda`, and Blackwell uses `Dockerfile.cuda.13.0`.
 
 ## Stable releases
 
 Release Please opens a version/changelog PR from conventional commits on `main`. Its manifest remains at `1.6.1` until a stable release advances it. Bootstrap history begins at `812adc5`, before the imported feature snapshot, so the first Jotist release includes the new features without replaying the entire upstream history.
 
-After preview review, merge the reviewed stable release PR. Release Please calls the same validation/artifact/image pipeline with stable aliases enabled. The reusable workflow call is intentional: tags/releases created using `GITHUB_TOKEN` do not need to trigger another tag-push workflow.
+After the audit and preview review, merge the reviewed stable release PR for `v1.7.0`. Release Please calls the same validation/artifact/image pipeline with `variants=cpu-cuda` and stable aliases enabled. The normal call publishes CPU and CUDA 12.6; Blackwell is not selected. The reusable workflow call is intentional: tags/releases created using `GITHUB_TOKEN` do not need to trigger another tag-push workflow.
 
 Repository Actions must be allowed to create pull requests. Jobs request only the contents, pull-request, issue, or package permissions they need. No custom PAT or Docker Hub credentials are required for this publication flow.
 

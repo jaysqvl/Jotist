@@ -1,6 +1,6 @@
 # Migrating from Scriberr to Jotist
 
-Jotist is an independent repository at [jaysqvl/Jotist](https://github.com/jaysqvl/Jotist). Its first preview release is `v1.7.0-rc.1`; stable `v1.7.0` follows review. The preview changes the product identity, indigo/cyan styling, release ownership, and includes the preserved local-model and recoverable-execution work. It does not intentionally relocate existing data or replace API contracts.
+Jotist is an independent repository at [jaysqvl/Jotist](https://github.com/jaysqvl/Jotist). Its first stable release target is `v1.7.0`, following the RC1–RC3 previews. This continuation changes the product identity, indigo/cyan styling, release ownership, and includes the preserved local-model and recoverable-execution work. It does not intentionally relocate existing data or replace API contracts.
 
 ## Repository transplant
 
@@ -34,7 +34,7 @@ Keeping an existing URL preserves browser-origin storage. Moving to a different 
 1. Inspect the actual deployment manager: Unraid DockerMan template, Compose/Portainer stack, or another runtime. Record image and digest, ports, environment names, bind mounts or named volumes, UID/GID, GPU access, proxy routing, health checks, restart behavior, and autostart settings without publishing secrets. For Unraid, preserve the user template, WebUI/icon settings, extra parameters, and autostart ordering so updates and host reboots retain the configuration.
 2. Back up the database, uploads, transcripts, and signing secret using a consistent database backup or a stopped application. Keep the old image digest and deployment definition/template with the backup.
 3. Create a preview with a **separate writable copy** of application data and a separate port. Never run two server versions against the same SQLite file or writable model environment. Large model caches may be copied/reflinked as supported by the host, while writable runtime state remains isolated.
-4. Pull the selected `ghcr.io/jaysqvl/jotist:1.7.0-rc.1` variant, record its digest and OCI revision, and configure the preview with that digest.
+4. After confirming publication, pull the selected stable CPU (`ghcr.io/jaysqvl/jotist:1.7.0`) or CUDA 12.6 (`ghcr.io/jaysqvl/jotist:1.7.0-cuda`) image, record its digest and OCI revision, and configure the preview with that digest. Blackwell inference remains unqualified and is not part of the default stable publication.
 5. Verify startup and health, sign-in, recording list, existing transcript playback, profile settings, uploads, and the workflow you actually use. Inspect desktop/mobile and light/dark appearance. Model inference must be checked separately on the target hardware.
 
 A healthy container alone does not verify audio playback, migration data, or transcription execution. The preview is also not the production cutover.

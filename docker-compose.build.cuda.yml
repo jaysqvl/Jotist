@@ -1,7 +1,7 @@
 # Jotist. Legacy service and volume names preserve existing deployments.
 services:
   scriberr:
-    # Build from local Dockerfile; replace with `image: ghcr.io/jaysqvl/jotist:1.7.0-rc.2-cuda`
+    # Build from local Dockerfile; replace with `image: ghcr.io/jaysqvl/jotist:1.7.0-cuda`
     # if you prefer pulling a prebuilt image.
     build:
       context: .
