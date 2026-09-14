@@ -179,10 +179,6 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
         if ((mode !== 'expanded' && !(mode === 'compact' && hasSegmentRows)) || !expandedData.length || !isPlaying) return;
         if (typeof CSS === 'undefined' || !CSS.highlights) return;
 
-        // Find the active segment and word
-        // Optimization: We could binary search segments, but N is usually small (<1000). Linear is okay or optimize later.
-        // Actually for real-time validation, let's just find the active word in the relevant segment.
-
         let found = false;
 
         // Search backwards to find the LATEST segment that has started
@@ -190,8 +186,6 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
         for (let i = expandedData.length - 1; i >= 0; i--) {
             const seg = expandedData[i];
 
-            // Optimization: If segment hasn't started yet, skip it
-            // (heuristic using segment start time)
             if (seg.start > currentTime) continue;
 
             const activeIndex = findActiveWordIndex(seg.offsets, currentTime);

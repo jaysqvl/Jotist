@@ -10,7 +10,7 @@ on:
         type: string
       variants:
         description: Container variants to publish after artifact validation.
-        default: all
+        default: cpu-cuda
         type: string
       publish_latest:
         description: Update latest aliases for a stable release only.
@@ -19,15 +19,15 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing version tag, for example v1.7.0-rc.1.
+        description: Existing version tag, for example v1.7.0.
         required: true
         type: string
       variants:
         description: Container variants to publish.
-        default: all
+        default: cpu-cuda
         required: true
         type: choice
-        options: [all, cpu, cuda, blackwell]
+        options: [cpu-cuda, cpu, cuda, blackwell, all]
       publish_latest:
         description: Update latest aliases (ignored for prereleases).
         default: false
@@ -59,10 +59,10 @@ jobs:
           INPUT_LATEST: ${{ inputs.publish_latest }}
         run: |
           if [[ ! "$INPUT_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
-            echo "::error::Use a version tag such as v1.7.0 or v1.7.0-rc.1."
+            echo "::error::Use a version tag such as v1.7.0 or a new prerelease version."
             exit 1
           fi
-          case "$INPUT_VARIANTS" in all|cpu|cuda|blackwell) ;; *) exit 1 ;; esac
+          case "$INPUT_VARIANTS" in all|cpu-cuda|cpu|cuda|blackwell) ;; *) exit 1 ;; esac
           latest=false
           if [[ "$INPUT_LATEST" == true && "$INPUT_TAG" != *-* ]]; then latest=true; fi
           echo "tag=$INPUT_TAG" >> "$GITHUB_OUTPUT"

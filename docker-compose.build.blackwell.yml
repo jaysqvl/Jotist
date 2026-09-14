@@ -1,7 +1,7 @@
 # Jotist. Legacy service and volume names preserve existing deployments.
-# Docker Compose for building Jotist with Blackwell GPU support locally
+# Local source build for Blackwell evaluation; actual model inference is unqualified.
 # Uses Dockerfile.cuda.13.0 for RTX 50-series (Blackwell architecture, sm_120)
-# For legacy GPUs (GTX 10-series through RTX 40-series), use docker-compose.build.cuda.yml instead
+# For CUDA 12.6-compatible GPUs, use docker-compose.build.cuda.yml instead
 services:
   scriberr:
     build:

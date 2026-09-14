@@ -17,7 +17,7 @@ on:
         required: true
         type: string
       variants:
-        default: all
+        default: cpu-cuda
         type: string
       publish_latest:
         default: false
@@ -39,15 +39,15 @@ on:
         default: main
         type: string
       image_channel:
-        description: Container tag without a leading v, such as 1.7.0-rc.1.
+        description: Container tag without a leading v, such as 1.7.0.
         required: true
         default: preview
         type: string
       variants:
         required: true
-        default: all
+        default: cpu-cuda
         type: choice
-        options: [all, cpu, cuda, blackwell]
+        options: [cpu-cuda, cpu, cuda, blackwell, all]
       publish_latest:
         description: Update latest only for a matching stable version tag.
         default: false
@@ -88,9 +88,9 @@ jobs:
             echo "::error::Use a lowercase version or preview channel, not latest."
             exit 1
           fi
-          case "$VARIANTS" in all|cpu|cuda|blackwell) ;; *) exit 1 ;; esac
+          case "$VARIANTS" in all|cpu-cuda|cpu|cuda|blackwell) ;; *) exit 1 ;; esac
           matrix='[{"variant":"cpu","dockerfile":"Dockerfile","suffix":""},{"variant":"cuda","dockerfile":"Dockerfile.cuda","suffix":"-cuda"},{"variant":"blackwell","dockerfile":"Dockerfile.cuda.13.0","suffix":"-blackwell"}]'
-          matrix="$(jq -c --arg variant "$VARIANTS" '{include: map(select($variant == "all" or .variant == $variant))}' <<< "$matrix")"
+          matrix="$(jq -c --arg variant "$VARIANTS" '{include: map(select($variant == "all" or .variant == $variant or ($variant == "cpu-cuda" and (.variant == "cpu" or .variant == "cuda"))))}' <<< "$matrix")"
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           echo "image_channel=$IMAGE_CHANNEL" >> "$GITHUB_OUTPUT"
 

@@ -33,6 +33,7 @@ jobs:
     uses: ./.github/workflows/release.yml
     with:
       tag: ${{ needs.release-please.outputs.tag_name }}
-      variants: all
+      # Standard stable releases publish only the CPU and CUDA 12.6 variants.
+      variants: cpu-cuda
       publish_latest: true
     secrets: inherit
