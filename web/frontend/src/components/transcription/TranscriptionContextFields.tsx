@@ -25,7 +25,7 @@ export function TranscriptionContextFields({
 }: ContextFieldsProps) {
     const fields = [
         { key: "context", label: "Meeting context", value: context, defaultValue: defaultContext, supported: proseSupported, change: onContextChange, placeholder: CONTEXT_EXAMPLE, rows: 3, maxLength: 4000,
-            help: "Briefly describe the topic and background. Use factual context, not instructions to summarize or rewrite speech." },
+            help: "Briefly describe the topic and background. Use factual context, not instructions to summarize or rewrite speech. For Whisper, try Vocabulary first: paragraph prompts can make it omit speech. Compare a short recording before saving a broad default." },
         { key: "terms", label: "Vocabulary", value: terms, defaultValue: defaultTerms, supported: termsSupported, change: onTermsChange, placeholder: TERMS_EXAMPLE, rows: 5, maxLength: 8000,
             help: "One name, acronym, product, or technical term per line. Include the exact spelling you want the model to recognize." },
     ];

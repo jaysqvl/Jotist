@@ -185,7 +185,7 @@ const PARAM_DESCRIPTIONS = {
     model: "For Whisper, start with small or medium. Use large-v3 when quality matters more than speed and you have enough VRAM.",
     language: "Pick the known language when you can. Auto-detect is convenient but can misread short, noisy, or multilingual clips.",
     task: "Use transcribe for same-language output. Use translate only when you want the model to produce another supported language.",
-    device: "Choose where transcription runs. CPU uses system RAM; GPU (CUDA) uses an NVIDIA GPU. Auto tries an available GPU and retries on CPU after a GPU execution failure.",
+    device: "Choose where transcription runs. CPU uses system RAM; GPU (CUDA) uses an NVIDIA GPU. Auto behavior follows the selected recovery policy.",
     compute_type: "For Whisper on NVIDIA GPUs, float16 is the usual speed/quality choice. Use int8 to save VRAM; use float32 mostly for CPU or troubleshooting.",
     batch_size: "Higher can be faster but costs VRAM. On a 12GB RTX 3060, use 1 for Canary/Canary-Qwen, 1-2 for Parakeet, and raise only after a clean run.",
     diarize: "Adds speaker labels but uses more time and memory. Leave off while debugging model/VRAM failures.",
@@ -598,7 +598,7 @@ function DiarizationSection({ id, params, updateParam, description, integrated =
                         ) : (
                             <SelectField
                                 label="Diarization device"
-                                description="Same as transcription follows the actual transcription device after any fallback. Auto tries an available GPU and retries on CPU after a GPU execution failure."
+                                description={`Same as transcription follows the actual transcription device after any fallback. ${devicePolicyDescription(params.recovery_mode)}`}
                                 value={device}
                                 onValueChange={(value) => updateParam('diarization_device', value)}
                                 options={[{ value: "same", label: "Same as transcription" }, { value: "cpu", label: "CPU" }, { value: "cuda", label: "GPU (CUDA)" }, { value: "auto", label: params.recovery_mode ? "Auto · choose once" : "Auto · GPU, then CPU" }]}
