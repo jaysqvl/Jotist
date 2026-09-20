@@ -2,6 +2,8 @@ import { Button } from "@/components/ui/button";
 import { canResumeExecution, partialRecoveryDownload, partialRecoveryText, recoveryAttemptErrorLabel, recoveryAttemptReasonLabel, recoveryMemoryRows, recoveryModeLabel, stageLabel, type ExecutionRecovery, type RecoveryAttempt, type RecoveryParameters } from "@/features/transcription/hooks/recoveryPolicy";
 import { adaptiveSettingsSummary, measuredMemory } from "@/features/transcription/hooks/adaptiveLearning";
 import { ADAPTIVE_STAGE_LABELS, stagePolicy, type AdaptiveStageKind } from "@/features/transcription/hooks/adaptivePolicy";
+import type { Transcript } from "@/features/transcription/hooks/useAudioDetail";
+import { RunModelSummary } from "./RunModelSummary";
 
 function AttemptSettings({ attempt }: { attempt: RecoveryAttempt }) {
     const settings = [
@@ -27,9 +29,10 @@ function AttemptMeasurements({ attempt }: { attempt: RecoveryAttempt }) {
     </div>;
 }
 
-export function RunRecoveryPanel({ executionID, parameters, recovery, loading, error, resuming, otherRunActive, onResume, onNewSubmission, onSelectRun, onRetry }: {
+export function RunRecoveryPanel({ executionID, parameters, transcript, recovery, loading, error, resuming, otherRunActive, onResume, onNewSubmission, onSelectRun, onRetry }: {
     executionID: string;
     parameters?: RecoveryParameters;
+    transcript?: Transcript | null;
     recovery?: ExecutionRecovery | null;
     loading?: boolean;
     error?: string;
@@ -42,10 +45,12 @@ export function RunRecoveryPanel({ executionID, parameters, recovery, loading, e
 }) {
     if (loading) return <p role="status" className="text-xs text-[var(--text-secondary)]">Loading saved stages and recovery status…</p>;
     if (error) return <div role="alert" className="flex items-center gap-3 text-sm text-[var(--warning-solid)]"><span>{error}</span><Button variant="outline" size="sm" onClick={onRetry}>Retry</Button></div>;
-    if (!recovery || recovery.available === false) return <p className="text-xs leading-5 text-[var(--text-secondary)]">This run has no recoverable stage records. Historical output remains available; recovery is not inferred from logs.</p>;
+    if (!recovery || recovery.available === false) return <p className="text-xs text-[var(--text-secondary)]">Stage details were not recorded for this run.</p>;
     if (recovery.execution_id !== executionID) return null;
     const partialText = partialRecoveryText(recovery);
     const resumable = canResumeExecution(recovery, executionID, otherRunActive);
+    const completed = recovery.stages.filter((stage) => stage.status === "succeeded").length;
+    const current = recovery.stages.find((stage) => ["running", "processing", "failed", "interrupted"].includes(stage.status));
     const downloadPartialText = () => {
         const download = partialRecoveryDownload(recovery, executionID);
         if (!download) return;
@@ -58,7 +63,16 @@ export function RunRecoveryPanel({ executionID, parameters, recovery, loading, e
         link.remove();
         window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     };
-    return <section aria-label="Execution recovery" className="space-y-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-main)]/40 p-4">
+    return <section aria-label="Execution recovery" className="space-y-2 border-t border-[var(--border-subtle)] pt-2">
+        {(recovery.resumable || partialText !== undefined) && <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-[var(--text-secondary)]">{partialText !== undefined ? "Partial transcript saved; requested output is incomplete." : "Saved work is available for recovery."}</p>
+            {recovery.resumable && <Button variant="outline" size="sm" onClick={() => onResume(executionID)} disabled={!resumable || resuming}>{resuming ? "Resuming…" : "Resume saved execution"}</Button>}
+        </div>}
+        <details>
+        <summary className="cursor-pointer text-xs font-medium text-[var(--text-primary)]">
+            Stages &amp; recovery <span className="ml-2 font-normal text-[var(--text-secondary)]">{completed}/{recovery.stages.length} completed{current ? ` · ${stageLabel(current)}: ${current.status}` : ` · ${recovery.status}`}</span>
+        </summary>
+        <div className="mt-3 space-y-3 rounded-lg bg-[var(--bg-main)]/40 p-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
                 <h3 className="text-sm font-semibold text-[var(--text-primary)]">Stages and recovery</h3>
@@ -66,10 +80,10 @@ export function RunRecoveryPanel({ executionID, parameters, recovery, loading, e
                 {partialText !== undefined && <p className="mt-2 text-sm text-[var(--text-primary)]">Text is available from a saved checkpoint. Requested output is still incomplete.</p>}
             </div>
             <div className="flex flex-wrap gap-2">
-                {recovery.resumable && <Button variant="outline" size="sm" onClick={() => onResume(executionID)} disabled={!resumable || resuming}>{resuming ? "Resuming…" : "Resume saved execution"}</Button>}
                 <Button variant="outline" size="sm" onClick={onNewSubmission}>New submission…</Button>
             </div>
         </div>
+        <RunModelSummary parameters={parameters || {}} transcript={transcript} detailed />
         <p className="text-xs leading-5 text-[var(--text-secondary)]">Resume keeps this execution’s saved plan and selected checkpoints. New submissions can reuse work only when every model revision, runtime and setting is verified to match; otherwise they compute fresh output.</p>
         {recovery.resume_unavailable_reason && <p className="text-xs text-[var(--warning-solid)]">{recovery.resume_unavailable_reason}</p>}
         {recovery.resumable && otherRunActive && <p className="text-xs text-[var(--text-secondary)]">Wait for the active run to finish before resuming this execution.</p>}
@@ -108,5 +122,7 @@ export function RunRecoveryPanel({ executionID, parameters, recovery, loading, e
             <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-[var(--bg-card)] p-3 font-sans text-sm leading-6 text-[var(--text-primary)]">{partialText || "The saved transcript contains no recognized speech."}</pre>
         </details>}
         <p className="text-xs leading-5 text-[var(--text-secondary)]">{recovery.learning?.reason || "Only qualified measured stages can inform learned starts. Reused output is not a new memory or quality measurement."}</p>
+        </div>
+        </details>
     </section>;
 }

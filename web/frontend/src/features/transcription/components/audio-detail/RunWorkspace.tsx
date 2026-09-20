@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Activity, AlertCircle, Download, FileText, GitCompareArrows, Info, Loader2, MoreVertical, Pin, PinOff, RefreshCw, ScrollText, Settings2, StopCircle } from "lucide-react";
+import { Activity, AlertCircle, Download, FileText, GitCompareArrows, Info, Loader2, MoreVertical, Pin, PinOff, RefreshCw, ScrollText, StopCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -22,7 +22,8 @@ import type { ExecutionRun, Transcript } from "@/features/transcription/hooks/us
 import { transcriptionModelLabel as modelLabel } from "@/features/transcription/hooks/modelCapabilities";
 import type { ExecutionRecovery } from "@/features/transcription/hooks/recoveryPolicy";
 import { RunRecoveryPanel } from "./RunRecoveryPanel";
-import { executionEvidenceRows } from "@/features/transcription/hooks/executionPresentation";
+import { RunModelSummary } from "./RunModelSummary";
+import { diarizationModelLabel } from "@/features/transcription/hooks/executionPresentation";
 
 type RunWorkspaceMode = "transcript" | "compare";
 type DownloadFormat = "srt" | "txt" | "json";
@@ -147,8 +148,8 @@ export function RunWorkspace({
     }
 
     return (
-        <section className="glass-card rounded-[var(--radius-card)] border border-[var(--border-subtle)] shadow-[var(--shadow-card)] p-4 sm:p-5">
-            <div className="flex flex-col gap-4">
+        <section aria-label="Run summary" className="glass-card rounded-[var(--radius-card)] border border-[var(--border-subtle)] shadow-[var(--shadow-card)] p-3 sm:p-4">
+            <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                     <div className="min-w-0">
                         <h2 className="flex items-center gap-2 text-base font-bold text-[var(--text-primary)]">
@@ -158,9 +159,6 @@ export function RunWorkspace({
                                 {runs.length}
                             </span>
                         </h2>
-                        <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                            Select a run to drive the transcript below, pin the best one as active, or compare two runs side by side.
-                        </p>
                     </div>
 
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -195,13 +193,6 @@ export function RunWorkspace({
                         )}
                     </div>
                 </div>
-
-                {selectedRun && onResumeExecution && <RunRecoveryPanel executionID={selectedRun.id}
-                    parameters={selectedRun.actual_parameters}
-                    recovery={recovery} loading={recoveryLoading} error={recoveryError} resuming={resuming}
-                    otherRunActive={recoveryOtherRunActive} onResume={onResumeExecution}
-                    onNewSubmission={onNewSubmission || onRunAgain} onSelectRun={onSelectedRunChange}
-                    onRetry={onRetryRecovery || (() => undefined)} />}
 
                 {mode === "compare" && compareRun ? (
                     <>
@@ -258,6 +249,12 @@ export function RunWorkspace({
                         activeRunUpdating={activeRunUpdating}
                     />
                 )}
+                {selectedRun && onResumeExecution && <RunRecoveryPanel key={selectedRun.id} executionID={selectedRun.id}
+                    parameters={selectedRun.actual_parameters} transcript={selectedTranscript}
+                    recovery={recovery} loading={recoveryLoading} error={recoveryError} resuming={resuming}
+                    otherRunActive={recoveryOtherRunActive} onResume={onResumeExecution}
+                    onNewSubmission={onNewSubmission || onRunAgain} onSelectRun={onSelectedRunChange}
+                    onRetry={onRetryRecovery || (() => undefined)} />}
             </div>
         </section>
     );
@@ -342,21 +339,19 @@ function SelectedRunPanel({
     const params = (run.actual_parameters || {}) as Partial<WhisperXParams>;
 
     return (
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-            <div className="space-y-4">
+        <div className="space-y-3">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                         <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-xl font-bold text-[var(--text-primary)]">Run {run.run_number}</h3>
+                            <h3 className="text-base font-bold text-[var(--text-primary)]">Run {run.run_number}</h3>
                             {active && <ActiveBadge />}
                             {pinned && <PinnedBadge />}
                             <StatusPill status={run.status || "unknown"} />
                         </div>
-                        <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                            {modelLabel(params.model_family, params.model)}
-                        </p>
+                        <p className="mt-1 text-xs text-[var(--text-secondary)]">{run.started_at ? formatDateTime(run.started_at) : "Start not recorded"} · {formatDuration(run.processing_duration)}</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => onOpenRunDetails(run.id)} className="gap-1.5"><Info className="h-3.5 w-3.5" />Details</Button>
                         <ActiveRunButton
                             run={run}
                             active={active}
@@ -384,28 +379,7 @@ function SelectedRunPanel({
                     </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                    <Metric label="Started" value={run.started_at ? formatDateTime(run.started_at) : "Unknown"} />
-                    <Metric label="Duration" value={formatDuration(run.processing_duration)} />
-                    <Metric label="Device" value={params.device || "auto"} />
-                    <Metric label="Batch" value={String(params.batch_size ?? "N/A")} />
-                </div>
-            </div>
-
-            <div className="space-y-2 text-sm">
-                <h4 className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
-                    <Settings2 className="h-4 w-4 text-[var(--text-secondary)]" />
-                    Settings Snapshot
-                </h4>
-                <div className="space-y-1.5">
-                    {settingsRows(params, transcript?.metadata).map((row) => (
-                        <div key={row.label} className="flex items-start justify-between gap-3 border-b border-[var(--border-subtle)] pb-1.5 last:border-0">
-                            <span className="text-[var(--text-secondary)]">{row.label}</span>
-                            <span className="text-right font-mono text-xs text-[var(--text-primary)] break-all">{row.value}</span>
-                        </div>
-                    ))}
-                </div>
-            </div>
+            <RunModelSummary parameters={params} transcript={transcript} />
         </div>
     );
 }
@@ -527,7 +501,6 @@ function ComparePanel({
                     />
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                         <StatusPill status={run.status || "unknown"} />
-                        <span className="text-xs text-[var(--text-secondary)]">{modelLabel(params.model_family, params.model)}</span>
                     </div>
                 </div>
                 <RunActions
@@ -540,6 +513,7 @@ function ComparePanel({
                     compact
                 />
             </div>
+            <div className="mb-3"><RunModelSummary parameters={params} transcript={transcript} /></div>
             <TranscriptPreview transcript={transcript} loading={loading} diff={diff} side={diffSide} />
         </div>
     );
@@ -726,21 +700,13 @@ function RunSelect({
                     return (
                         <SelectItem key={run.id} value={run.id}>
                             Run {run.run_number} · {modelLabel(params.model_family, params.model)}
+                            {params.diarize ? ` + ${params.diarize_model === "native" ? "Native speakers" : diarizationModelLabel(params.diarization_checkpoint || params.diarize_model)}` : " · No speakers"}
                             {run.id === activeRunId ? " · Active" : ""}
                         </SelectItem>
                     );
                 })}
             </SelectContent>
         </Select>
-    );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-    return (
-        <div className="rounded-[var(--radius-card)] bg-[var(--bg-main)]/70 p-3">
-            <span className="block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">{label}</span>
-            <span className="mt-1 block truncate font-mono text-sm text-[var(--text-primary)]">{value}</span>
-        </div>
     );
 }
 
@@ -922,18 +888,6 @@ function PinnedBadge() {
             Pinned
         </span>
     );
-}
-
-function settingsRows(params: Partial<WhisperXParams>, metadata?: Record<string, string>) {
-    return [
-        { label: "ASR Device Used", value: metadata?.resolved_device || "Not recorded" },
-        ...(params.diarize ? [{ label: "Diarization Device Used", value: metadata?.diarization_device || "Not recorded" }] : []),
-        { label: "Task", value: params.task || "transcribe" },
-        { label: "Language", value: params.language || "auto" },
-        ...executionEvidenceRows(params, metadata),
-        ...(params.model_family === "nvidia_canary" ? [{ label: "Chunking", value: params.nvidia_use_chunking == null ? "Default" : params.nvidia_use_chunking ? "Yes" : "No" }] : []),
-        { label: "Chunk Duration", value: params.model_family === "whisper" && params.chunk_size ? `${params.chunk_size}s` : params.audio_chunk_duration != null ? params.audio_chunk_duration === 0 ? "Model default / full recording" : `${params.audio_chunk_duration}s` : params.model_family?.startsWith("nvidia_") && params.nvidia_chunk_duration ? `${params.nvidia_chunk_duration}s` : "Default" },
-    ].filter((row) => row.value !== "Default" || row.label === "Chunking" || row.label === "Chunk Duration");
 }
 
 function formatDuration(value?: number | null) {

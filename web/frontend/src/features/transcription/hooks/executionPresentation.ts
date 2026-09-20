@@ -1,4 +1,4 @@
-import { transcriptionPrecision, type TranscriptionModelCapability } from "./modelCapabilities.ts";
+import { transcriptionModelLabel, transcriptionPrecision, requestedDiarizationDevice, type TranscriptionModelCapability } from "./modelCapabilities.ts";
 import { recoveryModeLabel, type RecoveryParameters } from "./recoveryPolicy.ts";
 
 export interface ExecutionSettings extends RecoveryParameters {
@@ -7,6 +7,73 @@ export interface ExecutionSettings extends RecoveryParameters {
     nvidia_precision?: string;
     nvidia_timestamps?: boolean;
     no_align?: boolean;
+    diarization_checkpoint?: string;
+}
+
+export function diarizationModelLabel(model?: string): string {
+    const names: Record<string, string> = {
+        "pyannote": "Pyannote",
+        "pyannote/speaker-diarization-community-1": "Pyannote Community-1",
+        "pyannote/speaker-diarization-3.1": "Pyannote 3.1",
+        "nvidia_sortformer": "NVIDIA Sortformer",
+        "nvidia/diar_streaming_sortformer_4spk-v2.1": "NVIDIA Sortformer v2.1 · 4 speakers",
+        "diar_streaming_sortformer_4spk-v2.1": "NVIDIA Sortformer v2.1 · 4 speakers",
+        "diarizen": "DiariZen",
+        "BUT-FIT/diarizen-wavlm-large-s80-md-v2": "DiariZen WavLM Large v2",
+        "suplime": "SUPlime",
+        "rewayai/suplime": "SUPlime",
+        "rewayai/suplime-large": "SUPlime-L",
+    };
+    return names[model || ""] || model || "Not recorded";
+}
+
+export interface RunModelSummary {
+    label: string;
+    model: string;
+    checkpoint?: string;
+    recorded: boolean;
+    runtime: string;
+    disabled?: boolean;
+}
+
+function deviceLabel(device: string): string {
+    return ({ cpu: "CPU", cuda: "GPU", auto: "Auto", same: "Same as transcription" } as Record<string, string>)[device] || device;
+}
+
+function runtimeLabel(device?: string, precision?: string, requestedDevice?: string, requestedPrecision?: string): string {
+    return [device ? deviceLabel(device) : requestedDevice ? `${deviceLabel(requestedDevice)} requested` : "Device not recorded",
+        precision ? precisionLabel(precision) : requestedPrecision ? `${requestedPrecision} requested` : "Precision not recorded"].join(" · ");
+}
+
+// A run's output is historical evidence. A saved request or today's model
+// default must never stand in for an unrecorded checkpoint/device/precision.
+export function executionModelSummary(params: ExecutionSettings, transcript?: {
+    model_used?: string; metadata?: Record<string, string>;
+} | null): RunModelSummary[] {
+    const meta = transcript?.metadata || {};
+    const adapterIDs = ["whisper", "whisperx", "canary", "canary_qwen", "parakeet", "voxtral", params.model_family];
+    const reportedModel = transcript?.model_used || (adapterIDs.includes(meta.model_id) ? undefined : meta.model_id);
+    const model = reportedModel || params.model;
+    const asr: RunModelSummary = {
+        label: "Transcription", model: transcriptionModelLabel(params.model_family, model), checkpoint: model,
+        recorded: !!reportedModel,
+        runtime: runtimeLabel(meta.resolved_device, meta.precision, params.device, requestedExecutionPrecision(params)),
+    };
+    const reportedSpeakerModel = meta.diarization_model || meta.diarization_model_id;
+    if (params.diarize === false && !reportedSpeakerModel) return [asr, {
+        label: "Speakers", model: "Disabled", recorded: false, runtime: "", disabled: true,
+    }];
+    if (params.diarize_model === "native" && (!reportedSpeakerModel || reportedSpeakerModel === reportedModel)) return [asr, {
+        ...asr, label: "Speakers", model: `${asr.model} · native`,
+    }];
+    const speakerModel = reportedSpeakerModel || params.diarization_checkpoint || params.diarize_model;
+    const requestedDevice = requestedDiarizationDevice(params.model_family, params.diarization_device);
+    return [asr, {
+        label: "Speakers", model: diarizationModelLabel(speakerModel), checkpoint: speakerModel,
+        recorded: !!reportedSpeakerModel,
+        runtime: runtimeLabel(meta.diarization_resolved_device || meta.diarization_device, meta.diarization_precision,
+            requestedDevice === "same" ? params.device : requestedDevice),
+    }];
 }
 
 export function precisionLabel(value?: string): string {

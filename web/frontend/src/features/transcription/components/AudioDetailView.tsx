@@ -659,7 +659,7 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                             <div className="mb-6 pb-6">
                                 <Header />
                             </div>
-                            <div className="space-y-6 sm:space-y-8">
+                            <div className="space-y-4">
                                 {/* Title + Audio Player */}
                                 <div data-testid="audio-detail-media-header">
                                     {/* Title & Metadata */}
@@ -826,7 +826,7 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                                 </div>
 
                                     {/* Audio Player */}
-                                    <div className="glass-card rounded-[var(--radius-card)] border-[var(--border-subtle)] shadow-[var(--shadow-card)] p-4 md:p-6 mb-8 transition-all duration-300 hover:shadow-[var(--shadow-float)]">
+                                    <div className="glass-card rounded-[var(--radius-card)] border-[var(--border-subtle)] shadow-[var(--shadow-card)] p-3 sm:p-4 transition-all duration-300 hover:shadow-[var(--shadow-float)]">
                                         <EmberPlayer
                                             ref={audioPlayerRef}
                                             // Wait for a post-mount authenticated response so the
