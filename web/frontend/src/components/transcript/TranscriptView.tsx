@@ -1,8 +1,9 @@
 import { forwardRef, useRef, useState, useCallback, useEffect, useMemo } from 'react';
-import { useKaraokeHighlight, computeWordOffsets, findActiveWordIndex } from '@/features/transcription/hooks/useKaraokeHighlight';
+import { useKaraokeHighlight, findActiveWordIndex } from '@/features/transcription/hooks/useKaraokeHighlight';
 import { cn } from '@/lib/utils';
 import { useIsDesktop } from '@/hooks/useIsDesktop';
 import type { Note } from '@/types/note';
+import { transcriptDisplaySegments, transcriptRowOffsets, transcriptSpeakerLabel, type TranscriptPresentation } from '@/features/transcription/hooks/transcriptPresentation';
 
 // Helper for cross-browser caret position
 function getCaretOffsetFromPoint(x: number, y: number) {
@@ -29,6 +30,7 @@ interface WordSegment {
 
 interface Transcript {
     text: string;
+    presentation?: TranscriptPresentation;
     segments?: Array<{
         start: number;
         end: number;
@@ -67,7 +69,7 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
 }, ref) => {
 
     const getDisplaySpeakerName = (originalSpeaker: string): string => {
-        return speakerMappings[originalSpeaker] || originalSpeaker;
+        return transcriptSpeakerLabel(originalSpeaker, transcript || undefined, speakerMappings);
     };
 
     const containerRef = useRef<HTMLDivElement>(null);
@@ -119,32 +121,19 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
         };
     }, []);
 
-    const hasSegmentRows = Boolean(transcript?.segments?.length);
+    const hasSegmentRows = Boolean(transcript && transcriptDisplaySegments(transcript).length);
 
     // Segmented View Logic
     const segmentRefs = useRef<(HTMLDivElement | null)[]>([]);
 
     // 1. Precompute per-segment text and offsets
     const expandedData = useMemo(() => {
-        if (!transcript?.segments) return [];
-
-        return transcript.segments.map((segment) => {
-            // Filter words belonging to this segment
-            const segmentWords = transcript.word_segments?.filter(
-                word => word.start >= segment.start - 0.1 && word.end <= segment.end + 0.1
-            ) || [];
-
-            // Compute local offsets for this segment's text
-            const { fullText, offsets } = segmentWords.length > 0
-                ? computeWordOffsets(segmentWords)
-                : { fullText: segment.text.trim(), offsets: [] };
-
-            return {
+        if (!transcript) return [];
+        return transcriptDisplaySegments(transcript).map((segment) => ({
                 ...segment,
-                fullText, // The text to render
-                offsets   // Offsets relative to this segment's text node
-            };
-        });
+                fullText: segment.text,
+                offsets: transcriptRowOffsets(segment.text, segment.word_indices, transcript.word_segments || []),
+        }));
     }, [transcript]);
 
     // Compute which segment is currently active based on playback time
@@ -331,7 +320,7 @@ export const TranscriptView = forwardRef<HTMLDivElement, TranscriptViewProps>(({
     };
 
     const renderExpandedView = () => {
-        if (!transcript?.segments) {
+        if (!hasSegmentRows) {
             return renderCompactView();
         }
 

@@ -55,7 +55,9 @@ type AudioInput struct {
 	TempFilePath string            `json:"temp_file_path,omitempty"` // For converted files
 }
 
-// TranscriptSegment represents a segment of transcribed audio
+// TranscriptSegment is an adapter's acoustic segment, not necessarily a display
+// paragraph. Some adapters emit one segment per word to preserve speaker timing.
+// Readable turns and exclusive word membership belong to the presentation layer.
 type TranscriptSegment struct {
 	Start    float64 `json:"start"`
 	End      float64 `json:"end"`

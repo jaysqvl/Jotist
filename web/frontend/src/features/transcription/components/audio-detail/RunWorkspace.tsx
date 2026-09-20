@@ -24,6 +24,7 @@ import type { ExecutionRecovery } from "@/features/transcription/hooks/recoveryP
 import { RunRecoveryPanel } from "./RunRecoveryPanel";
 import { RunModelSummary } from "./RunModelSummary";
 import { diarizationModelLabel } from "@/features/transcription/hooks/executionPresentation";
+import { transcriptDisplaySegments, transcriptSpeakerLabel } from "@/features/transcription/hooks/transcriptPresentation";
 
 type RunWorkspaceMode = "transcript" | "compare";
 type DownloadFormat = "srt" | "txt" | "json";
@@ -573,20 +574,21 @@ function TranscriptPreview({ transcript, loading, diff, side }: { transcript?: T
     }
     const changedWords = side === "primary" ? diff.primaryChanged : diff.compareChanged;
     const tokenCursor = { current: 0 };
+    const displaySegments = transcriptDisplaySegments(transcript);
 
-    if (transcript.segments?.length) {
+    if (displaySegments.length) {
         return (
             <div className="max-h-[520px] overflow-y-auto rounded-[var(--radius-card)] bg-[var(--bg-card)] p-2">
                 <div className="space-y-1">
-                    {transcript.segments.map((segment, index) => (
+                    {displaySegments.map((segment, index) => (
                         <div key={`${segment.start}-${index}`} className="grid grid-cols-[64px_minmax(0,1fr)] gap-2 rounded-md px-2 py-1.5 hover:bg-[var(--bg-main)]/70 sm:grid-cols-[86px_minmax(0,1fr)]">
                             <div className="min-w-0 select-none text-right">
                                 <div className="font-mono text-[10px] leading-5 text-[var(--text-tertiary)]">
                                     {formatTimestamp(segment.start)}
                                 </div>
                                 {segment.speaker && (
-                                    <div className="truncate text-[10px] font-semibold uppercase tracking-wide text-[var(--brand-solid)]" title={segment.speaker}>
-                                        {segment.speaker}
+                                    <div className="truncate text-[10px] font-semibold uppercase tracking-wide text-[var(--brand-solid)]" title={transcriptSpeakerLabel(segment.speaker, transcript)}>
+                                        {transcriptSpeakerLabel(segment.speaker, transcript)}
                                     </div>
                                 )}
                             </div>

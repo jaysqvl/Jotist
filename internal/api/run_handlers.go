@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 
 	"scriberr/internal/models"
+	"scriberr/internal/transcription/interfaces"
+	"scriberr/internal/transcription/presentation"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -374,6 +376,16 @@ func parseTranscriptPayload(raw string) (interface{}, error) {
 	var transcript interface{}
 	if err := json.Unmarshal([]byte(raw), &transcript); err != nil {
 		return nil, fmt.Errorf("failed to parse transcript: %w", err)
+	}
+	// Decorate the response, never the saved transcript or checkpoint. The same
+	// projection serves existing recordings, individual runs and CLI consumers.
+	if object, ok := transcript.(map[string]interface{}); ok {
+		var result interfaces.TranscriptResult
+		if err := json.Unmarshal([]byte(raw), &result); err == nil {
+			if view := presentation.Build(result); view != nil {
+				object["presentation"] = view
+			}
+		}
 	}
 	return transcript, nil
 }

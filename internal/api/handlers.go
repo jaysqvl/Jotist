@@ -760,8 +760,8 @@ func (h *Handler) GetTranscript(c *gin.Context) {
 		return
 	}
 
-	var transcript interface{}
-	if err := json.Unmarshal([]byte(*job.Transcript), &transcript); err != nil {
+	transcript, err := parseTranscriptPayload(*job.Transcript)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse transcript"})
 		return
 	}
@@ -2656,6 +2656,16 @@ func (h *Handler) GetQuickTranscriptionStatus(c *gin.Context) {
 		return
 	}
 
+	// GetQuickJob returns a clone. Preserve its string-valued API contract while
+	// giving quick/CLI readers the same projection as persisted recordings.
+	if job.Transcript != nil {
+		if transcript, err := parseTranscriptPayload(*job.Transcript); err == nil {
+			if data, err := json.Marshal(transcript); err == nil {
+				value := string(data)
+				job.Transcript = &value
+			}
+		}
+	}
 	c.JSON(http.StatusOK, job)
 }
 

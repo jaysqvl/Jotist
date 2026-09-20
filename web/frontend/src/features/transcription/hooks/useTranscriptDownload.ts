@@ -1,4 +1,5 @@
 import type { Transcript } from "@/features/transcription/hooks/useAudioDetail";
+import { transcriptSpeakerLabel } from "./transcriptPresentation";
 import {
     formatTranscriptAsSRT,
     formatTranscriptAsTXT,
@@ -24,10 +25,6 @@ export function useTranscriptDownload() {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-    };
-
-    const getDisplaySpeakerName = (originalSpeaker: string, mappings: Record<string, string>) => {
-        return mappings[originalSpeaker] || originalSpeaker;
     };
 
     const downloadSRT = (transcript: Transcript, filenameBase: string, speakerMappings: Record<string, string>) => {
@@ -84,7 +81,7 @@ export function useTranscriptDownload() {
                     }
 
                     if (options.includeSpeakerLabels && segment.speaker) {
-                        segmentData.speaker = getDisplaySpeakerName(segment.speaker, speakerMappings);
+                        segmentData.speaker = transcriptSpeakerLabel(segment.speaker, transcript, speakerMappings);
                     }
 
                     return segmentData;

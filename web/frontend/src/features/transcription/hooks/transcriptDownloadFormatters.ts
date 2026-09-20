@@ -1,3 +1,5 @@
+import { transcriptDisplaySegments, transcriptSpeakerLabel, type TranscriptPresentation } from "./transcriptPresentation.ts";
+
 export interface DownloadTranscriptSegment {
     start: number;
     end: number;
@@ -8,6 +10,7 @@ export interface DownloadTranscriptSegment {
 export interface DownloadTranscript {
     text: string;
     segments?: DownloadTranscriptSegment[];
+    presentation?: TranscriptPresentation;
 }
 
 export interface TranscriptDownloadOptions {
@@ -16,10 +19,11 @@ export interface TranscriptDownloadOptions {
 }
 
 function formatSRTTime(seconds: number): string {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-    const milliseconds = Math.floor((seconds % 1) * 1000);
+    const total = Math.round(seconds * 1000);
+    const hours = Math.floor(total / 3600000);
+    const minutes = Math.floor((total % 3600000) / 60000);
+    const secs = Math.floor((total % 60000) / 1000);
+    const milliseconds = total % 1000;
 
     return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")},${milliseconds.toString().padStart(3, "0")}`;
 }
@@ -30,14 +34,10 @@ function formatTimestamp(seconds: number): string {
     return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
 }
 
-function getDisplaySpeakerName(originalSpeaker: string, mappings: Record<string, string>): string {
-    return mappings[originalSpeaker] || originalSpeaker;
-}
-
 export function getUsableTranscriptSegments(transcript?: DownloadTranscript | null): DownloadTranscriptSegment[] {
-    if (!Array.isArray(transcript?.segments)) return [];
+    if (!transcript) return [];
 
-    return transcript.segments.filter((segment) => segment.text.trim().length > 0);
+    return transcriptDisplaySegments(transcript).filter((segment) => segment.text.trim().length > 0);
 }
 
 export function getTranscriptText(transcript: DownloadTranscript): string {
@@ -64,7 +64,7 @@ export function formatTranscriptAsSRT(
         let text = segment.text.trim();
 
         if (segment.speaker) {
-            text = `${getDisplaySpeakerName(segment.speaker, speakerMappings)}: ${text}`;
+            text = `${transcriptSpeakerLabel(segment.speaker, transcript, speakerMappings)}: ${text}`;
         }
 
         return `${index + 1}\n${formatSRTTime(segment.start)} --> ${formatSRTTime(segment.end)}\n${text}\n\n`;
@@ -90,7 +90,7 @@ export function formatTranscriptAsTXT(
         }
 
         if (options.includeSpeakerLabels && segment.speaker) {
-            content += `${getDisplaySpeakerName(segment.speaker, speakerMappings)}: `;
+            content += `${transcriptSpeakerLabel(segment.speaker, transcript, speakerMappings)}: `;
         }
 
         return content + segment.text.trim();
