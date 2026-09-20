@@ -43,6 +43,10 @@ func runRecoverableStage[T any](ctx context.Context, recovery recoveryStageConte
 	err = adapter.PrepareEnvironment(ctx)
 	prepareRelease()
 	if err != nil {
+		appendStageDiagnostic(procCtx.OutputDirectory, node, "preparation", err)
+		if diagnostic, ok := interfaces.RuntimeDiagnostic(err); ok {
+			return zero, nil, fmt.Errorf("%s runtime preparation failed: %w", node, diagnostic)
+		}
 		return zero, nil, fmt.Errorf("%s runtime preparation failed; verify model access and installed dependencies", node)
 	}
 	descriptor, qualified := stageDescriptor(adapter, kind)
@@ -71,7 +75,7 @@ func runRecoverableStage[T any](ctx context.Context, recovery recoveryStageConte
 		Runtime    string
 		Descriptor interfaces.StageDescriptor
 	}{fingerprint, descriptor})
-	planned := resolveStageParameters(params, recovery.mode, recovery.gpu)
+	planned := effectiveStageParameters(params, recovery.mode, recovery.gpu, adapter.GetCapabilities().ModelFamily)
 	policy := recovery.execution.ActualParameters.AdaptivePolicy
 	rule := stageRule(policy, kind)
 	if rule.Fixed != nil {
@@ -227,12 +231,9 @@ func runRecoverableStage[T any](ctx context.Context, recovery recoveryStageConte
 		if count >= 7 {
 			return zero, fmt.Errorf("%s exhausted its saved seven-attempt recovery budget; start a new run", node)
 		}
-		actual := resolveStageParameters(attemptParams, RecoveryFixed, recovery.gpu)
+		actual := effectiveStageParameters(attemptParams, recovery.mode, recovery.gpu, adapter.GetCapabilities().ModelFamily)
 		if actual["device"] == nil || actual["device"] == "" {
 			actual["device"] = "cpu"
-		}
-		if recovery.mode == "" && attemptParams["device"] == "auto" && actual["device"] == "cpu" {
-			actual = cpuRetryParameters(actual)
 		}
 		settings := candidateSettings(actual, descriptor, adapter.GetCapabilities().ModelID)
 		if recovery.mode != "" && settings.Device == "cpu" && (settings.Precision == "float16" || settings.Precision == "bfloat16") && !supportsPrecision(descriptor, "cpu", settings.Precision) {
@@ -286,6 +287,7 @@ func runRecoverableStage[T any](ctx context.Context, recovery recoveryStageConte
 		_ = recovery.store.RecordAttemptMeasurements(cleanup, attempt.ID, recovery.execution.OwnerGeneration, lastMeasurements)
 		if runErr != nil {
 			lastCode = stageFailureCode(ctx, runErr, procCtx, offset)
+			appendStageDiagnostic(procCtx.OutputDirectory, node, attempt.ID, runErr)
 			attempt.State = models.RecoveryFailed
 			attempt.ErrorCode = lastCode
 			attempt.Measurements = &lastMeasurements
@@ -304,7 +306,7 @@ func runRecoverableStage[T any](ctx context.Context, recovery recoveryStageConte
 			if lastCode == "cuda_out_of_memory" || lastCode == "cuda_runtime_error" {
 				return zero, &interfaces.GPUExecutionError{Kind: lastCode, Err: runErr}
 			}
-			return zero, safeStageError(node, lastCode)
+			return zero, safeOrOriginalStageError(node, lastCode, runErr)
 		}
 		lastMetadata = map[string]string{"resolved_device": settings.Device, "precision": settings.Precision, "actual_batch_size": fmt.Sprint(settings.BatchSize), "actual_window_seconds": fmt.Sprint(settings.WindowSeconds)}
 		if selectedPlanID != "" {
@@ -377,6 +379,11 @@ func runRecoverableStage[T any](ctx context.Context, recovery recoveryStageConte
 func safeOrOriginalStageError(node, code string, err error) error {
 	if code == "" {
 		return err
+	}
+	if code == "adapter_failed" {
+		if diagnostic, ok := interfaces.RuntimeDiagnostic(err); ok {
+			return fmt.Errorf("%s failed: %w. Completed checkpoints retained", node, diagnostic)
+		}
 	}
 	return safeStageError(node, code)
 }

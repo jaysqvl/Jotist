@@ -12,6 +12,7 @@ import subprocess
 import tempfile
 
 from backends import RecognitionError, create_backend
+from diagnostics import safe_failure
 
 
 # Load the bundled helper by path, including under Python isolated mode.
@@ -127,6 +128,7 @@ def assign_native_speakers(words, segments):
 
 
 def execute(config):
+    config["_diagnostic_phase"] = "runtime_initialization"
     import numpy as np
     import soundfile as sf
     import torch
@@ -139,6 +141,7 @@ def execute(config):
         # Float32 remains float32 instead of silently enabling TF32 arithmetic.
         torch.backends.cuda.matmul.allow_tf32 = False
         torch.backends.cudnn.allow_tf32 = False
+    config["_diagnostic_phase"] = "audio_decode"
     audio_path = Path(config["audio_file"])
     if not audio_path.is_file():
         raise RecognitionError("Audio input file is missing.")
@@ -158,8 +161,10 @@ def execute(config):
     if window == 0 and not config.get("native_speakers"):
         window = config["default_chunk_seconds"]
     bounds = audio_windows(audio, sr, window, config["max_chunk_seconds"])
+    config["_diagnostic_phase"] = "model_loading"
     backend = model_call(config, device, create_backend, config["model_id"], device, dtype, config)
     chunks = []
+    config["_diagnostic_phase"] = "recognition"
     for index, (start, end) in enumerate(bounds):
         sample = audio[start:end]
         # Exact digital silence cannot contain speech. Do not suppress quiet
@@ -184,6 +189,7 @@ def execute(config):
     if device == "cuda":
         model_call(config, device, torch.cuda.empty_cache)
     aligner = None
+    config["_diagnostic_phase"] = "alignment"
     try:
         if config.get("align_words", not config.get("native_timestamps")) and any(c.get("text", "").strip() and not c.get("word_segments") for c in chunks):
             from qwen_backend import create_aligner, validate_alignment_language
@@ -218,6 +224,7 @@ def execute(config):
         del aligner
         gc.collect()
 
+    config["_diagnostic_phase"] = "output_validation"
     segments, words, texts, sources = [], [], [], set()
     for chunk in chunks:
         text = chunk.get("text", "").strip()
@@ -286,16 +293,12 @@ def main():
         os.chmod(temporary, 0o600)
         temporary.replace(output)
     except Exception as exc:
-        # Third-party errors can contain authenticated URLs, prompts and audio
-        # paths. Return safe application messages or only the exception class.
-        message = str(exc) if isinstance(exc, RecognitionError) else f"{type(exc).__name__} while loading or running the model; verify model access and installed runtime."
-        for key in ("HF_TOKEN", "HUGGING_FACE_HUB_TOKEN"):
-            if os.environ.get(key):
-                message = message.replace(os.environ[key], "[redacted]")
+        diagnostic = safe_failure(exc, config.get("_diagnostic_phase", "configuration"))
+        diagnostic.update(resolved_device=config.get("_resolved_device"), gpu_failure_kind=gpu_failure_kind(exc, config.get("_resolved_device"), config.get("_gpu_execution", False)))
         failure = request_path.with_name("error.json")
-        failure.write_text(json.dumps({"error": message, "resolved_device": config.get("_resolved_device"), "gpu_failure_kind": gpu_failure_kind(exc, config.get("_resolved_device"), config.get("_gpu_execution", False))}), encoding="utf-8")
+        failure.write_text(json.dumps(diagnostic), encoding="utf-8")
         os.chmod(failure, 0o600)
-        print(message, flush=True)
+        print(diagnostic["error"], flush=True)
         raise SystemExit(1) from None
 
 
