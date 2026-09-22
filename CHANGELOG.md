@@ -2,12 +2,12 @@
 
 ## [1.7.2](https://github.com/jaysqvl/Jotist/compare/v1.7.1...v1.7.2) (2026-09-22)
 
+- Restore saved CPU Canary profiles and make recovery controls easier to use.
+- Show word-aligned transcripts as readable speaker turns, without repeated words, and clarify the models recorded for each run.
+- Retry Cohere Auto token cutoffs within the model's decoder limit and report the failed audio window if a cutoff persists.
+- Update speaker memory guidance using NAS measurements.
 
-### Bug Fixes
-
-* calibrate speaker memory guidance from NAS qualification ([b288dd4](https://github.com/jaysqvl/Jotist/commit/b288dd47e03d9cc49b99e021fac5d2f325241666))
-* recover Cohere Auto token cutoffs within decoder context ([dd79dc4](https://github.com/jaysqvl/Jotist/commit/dd79dc46bded509b86e686b1d4de581310ea015f))
-* restore CPU Canary profiles and expose actionable recovery controls ([e9ffe35](https://github.com/jaysqvl/Jotist/commit/e9ffe353d27c399c5c4b51a2101927314bbc942d))
+Back up existing data and model environments before upgrading. A window that reaches the model's decoder limit still fails rather than publishing incomplete text; combined recognition stages have no per-window checkpoint. See [recoverable transcription](https://github.com/jaysqvl/Jotist/blob/v1.7.2/docs/recoverable-transcription.md).
 
 ## [1.7.1](https://github.com/jaysqvl/Jotist/compare/v1.7.0...v1.7.1) (2026-09-14)
 
