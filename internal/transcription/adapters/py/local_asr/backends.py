@@ -9,8 +9,31 @@ from __future__ import annotations
 import re
 
 
+COHERE_AUTO_INITIAL_TOKENS = 768
+COHERE_AUTO_MAX_TOKENS = 1000
+COHERE_CONTEXT_RESERVE = 24
+GENERATION_TOKEN_LIMIT_MESSAGE = "Generation reached its token limit; increase max_new_tokens or shorten the audio window."
+COHERE_AUTO_LIMIT_MESSAGE = "Cohere reached its Auto output limit without an end marker; shorten chunk_duration or choose a different model."
+
+
 class RecognitionError(RuntimeError):
     """An application-owned diagnostic safe to show without library secrets."""
+
+
+class GenerationTokenLimitError(RecognitionError):
+    """A generated window ended at its output budget without an end marker."""
+
+    def __init__(self, limit):
+        self.token_limit = limit
+        super().__init__(GENERATION_TOKEN_LIMIT_MESSAGE)
+
+
+class CohereAutoTokenLimitError(RecognitionError):
+    """The Cohere Auto budget reached the decoder's safe ceiling."""
+
+    def __init__(self, limit):
+        self.token_limit = limit
+        super().__init__(COHERE_AUTO_LIMIT_MESSAGE)
 
 
 def vocabulary(config):
@@ -29,7 +52,7 @@ def ensure_generation_complete(ids, limit, eos_ids):
     eos = {eos_ids} if isinstance(eos_ids, int) else set(eos_ids or [])
     last = int(ids[-1]) if len(ids) else None
     if last not in eos:
-        raise RecognitionError("Generation reached its token limit; increase max_new_tokens or shorten the audio window.")
+        raise GenerationTokenLimitError(limit)
 
 
 def to_device(inputs, device, dtype):
@@ -163,9 +186,32 @@ class TransformersBackend:
         if self.engine == "cohere":
             inputs = self.processor(audio, sampling_rate=sample_rate, return_tensors="pt", language=language)
             inputs = to_device(inputs, self.device, self.dtype)
-            with torch.inference_mode():
-                output = self.model.generate(**inputs, max_new_tokens=limit, do_sample=False)
-            ensure_generation_complete(output[0], limit, self.model.generation_config.eos_token_id)
+            auto = not int(self.config.get("max_new_tokens", 0))
+            retry_limit = limit
+            if auto:
+                # This model's decoder advertises a finite sequence length.
+                # Leave room for its start/special tokens and cap the retry;
+                # a fixed user budget must remain exact.
+                sequence_length = getattr(getattr(self.model, "config", None), "max_seq_len", None)
+                if isinstance(sequence_length, int) and sequence_length > COHERE_CONTEXT_RESERVE:
+                    retry_limit = min(COHERE_AUTO_MAX_TOKENS, sequence_length - COHERE_CONTEXT_RESERVE)
+                    limit = min(retry_limit, max(COHERE_AUTO_INITIAL_TOKENS, limit, getattr(self, "_cohere_auto_budget", 0)))
+            for budget in (limit, retry_limit) if auto and retry_limit > limit else (limit,):
+                with torch.inference_mode():
+                    output = self.model.generate(**inputs, max_new_tokens=budget, do_sample=False)
+                try:
+                    ensure_generation_complete(output[0], budget, self.model.generation_config.eos_token_id)
+                except GenerationTokenLimitError as exc:
+                    if auto and budget < retry_limit:
+                        continue
+                    if auto:
+                        raise CohereAutoTokenLimitError(budget) from exc
+                    raise
+                if auto and budget > limit:
+                    # A dense window needed the larger budget; avoid repeating
+                    # its first failed generation on later windows in this run.
+                    self._cohere_auto_budget = budget
+                break
             text = self.processor.decode(output, skip_special_tokens=True)
             if isinstance(text, list):
                 text = " ".join(text)

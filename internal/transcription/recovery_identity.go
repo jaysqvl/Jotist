@@ -154,16 +154,16 @@ func stageBatch(params map[string]interface{}) int {
 func safeStageError(kind, code string) error {
 	switch code {
 	case "cuda_out_of_memory":
-		return fmt.Errorf("%s stopped after GPU memory exhaustion; completed checkpoints retained", kind)
+		return fmt.Errorf("%s stopped after GPU memory exhaustion", kind)
 	case "host_out_of_memory":
-		return fmt.Errorf("%s stopped after host memory exhaustion; completed checkpoints retained", kind)
+		return fmt.Errorf("%s stopped after host memory exhaustion", kind)
 	case "cuda_runtime_error":
-		return fmt.Errorf("%s stopped after a CUDA runtime error; completed checkpoints retained", kind)
+		return fmt.Errorf("%s stopped after a CUDA runtime error", kind)
 	case "cancelled":
 		return context.Canceled
 	case "deadline_exceeded":
 		return context.DeadlineExceeded
 	default:
-		return fmt.Errorf("%s failed; check this attempt's model runtime, input and access. Completed checkpoints retained", kind)
+		return fmt.Errorf("%s failed; check this attempt's model runtime, input and access", kind)
 	}
 }

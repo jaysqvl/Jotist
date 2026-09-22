@@ -68,6 +68,13 @@ export function RunQueuePanel({
     onStopRun,
     onRetry,
 }: RunQueuePanelProps) {
+    if (!runInProgress && items.length === 0 && !loading && !error) return (
+        <section aria-label="Job queue" className="flex items-center justify-between gap-3 rounded-[var(--radius-card)] border border-[var(--border-subtle)] px-3 py-2">
+            <span className="flex items-center gap-2 text-xs text-[var(--text-secondary)]"><ListOrdered className="h-4 w-4" />Queue empty</span>
+            <span className="sr-only" aria-live="polite">{announcement}</span>
+            <Button variant="outline" size="sm" onClick={onAddRun} disabled={queueBusy} className="gap-1.5 rounded-full"><Plus className="h-3.5 w-3.5" />Add run</Button>
+        </section>
+    );
     return (
         <section className="glass-card overflow-hidden rounded-[var(--radius-card)] border border-[var(--border-subtle)] shadow-[var(--shadow-card)]">
             <span className="sr-only" aria-live="polite">

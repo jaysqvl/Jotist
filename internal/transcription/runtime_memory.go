@@ -23,14 +23,22 @@ func diarizationMemoryEstimates(id string) []map[string]string {
 	}
 	switch id {
 	case ModelPyannote:
-		return []map[string]string{
-			row("pyannote/speaker-diarization-community-1", "3–6", "3–6", "Community-1 segmentation and embedding run in FP32 with the checkpoint's default batches. The published model files total about 33 MB; most of this planning allowance is runtime headroom."),
-			row("pyannote/speaker-diarization-3.1", "3–6", "3–6", "Legacy 3.1 segmentation and WeSpeaker embedding run in FP32 with the pipeline's default batches. This is a separate planning allowance, not a Community-1 measurement."),
+		rows := []map[string]string{
+			row("pyannote/speaker-diarization-community-1", "3–6", "12–16", "Community-1 segmentation and embedding run in FP32 with the checkpoint's default batches. The published model files total about 33 MB; most of this planning allowance is runtime headroom."),
+			row("pyannote/speaker-diarization-3.1", "3–6", "12–16", "Legacy 3.1 segmentation and WeSpeaker embedding run in FP32 with the pipeline's default batches. This is a separate planning allowance, not a Community-1 measurement."),
 		}
+		for _, estimate := range rows {
+			estimate["estimate_status"] = "planning_with_observations"
+			estimate["gpu_notes"] = "Observed approximately 11.3 GB (10.5 GiB) total device peak on an RTX 3060 for a 15-second recording, FP32 and default pipeline batches, on 2026-09-20. Both selectable checkpoints were tested separately. The 12–16 GB range is a conservative planning allowance, not a measured long-recording bound. A 12 GiB card passed that clip with little headroom; longer recordings, runtime workspaces and concurrent GPU use can require more. This replaces the earlier 3–6 GB estimate, which underestimated the measured peak."
+		}
+		return rows
 	case ModelSortformer:
 		return []map[string]string{row("nvidia/diar_streaming_sortformer_4spk-v2.1", "4–7", "3–7", "Sortformer 2.1 runs in FP32, batch 1, with the 30.4-second input buffer. The published .nemo archive is about 0.47 GB; archive size is not peak runtime memory.")}
 	case "diarizen":
-		return []map[string]string{row("BUT-FIT/diarizen-wavlm-large-s80-md-v2", "5–9", "4–8", "DiariZen Large-s80-v2 runs in FP32 with the checkpoint's default batches. Its segmentation artifact is about 0.28 GB, plus a separate WeSpeaker embedding model. The publisher's 63.3M count covers only the pruned WavLM backbone.")}
+		estimate := row("BUT-FIT/diarizen-wavlm-large-s80-md-v2", "5–16", "4–8", "DiariZen Large-s80-v2 runs in FP32 with the checkpoint's default batches. Its segmentation artifact is about 0.28 GB, plus a separate WeSpeaker embedding model. The publisher's 63.3M count covers only the pruned WavLM backbone.")
+		estimate["estimate_status"] = "planning_with_observations"
+		estimate["notes"] = "Observed 13.1 GB (12.2 GiB) peak across the owned CPU worker processes on a Ryzen 7 5700G for a 28-minute recording, FP32 and default batches, on 2026-09-20. A 15-second clip used about 1.8 GB. The 5–16 GB range is a planning allowance informed by those runs, not a bound for longer meetings; it excludes the ASR and alignment workers. This replaces the earlier 5–9 GB estimate, which underestimated the full-meeting peak."
+		return []map[string]string{estimate}
 	case "suplime":
 		rows := []map[string]string{
 			row("rewayai/suplime", "5–9", "4–8", "SUPlime uses about 139M parameters including its embedding model, about 0.56 GB of FP32 weights. Planning assumes segmentation/embedding batch 32 and 10-second segmentation windows."),

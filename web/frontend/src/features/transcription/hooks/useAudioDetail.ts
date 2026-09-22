@@ -102,6 +102,8 @@ export interface TranscriptSegment {
 
 export interface Transcript {
     text: string;
+    model_used?: string;
+    presentation?: import("./transcriptPresentation").TranscriptPresentation;
     segments?: TranscriptSegment[];
     word_segments?: WordSegment[];
     metadata?: Record<string, string>;
@@ -122,6 +124,8 @@ function normalizeTranscript(data: any): Transcript | null {
             segments: data.transcript.segments,
             word_segments: data.transcript.word_segments,
             metadata: data.transcript.metadata,
+            model_used: data.transcript.model_used,
+            presentation: data.transcript.presentation,
         };
     }
     if (data.transcript.segments) {
@@ -134,10 +138,12 @@ function normalizeTranscript(data: any): Transcript | null {
             segments: data.transcript.segments,
             word_segments: data.transcript.word_segments,
             metadata: data.transcript.metadata,
+            model_used: data.transcript.model_used,
+            presentation: data.transcript.presentation,
         };
     }
 
-    return { text: "", metadata: data.transcript.metadata };
+    return { text: "", metadata: data.transcript.metadata, model_used: data.transcript.model_used, presentation: data.transcript.presentation };
 }
 
 export function useAudioDetail(audioId: string) {

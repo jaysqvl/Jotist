@@ -28,7 +28,8 @@ import {
 import type { WhisperXParams } from "@/features/transcription/types";
 import { cn } from "@/lib/utils";
 import { transcriptionModelLabel as modelLabel } from "@/features/transcription/hooks/modelCapabilities";
-import { executionEvidenceRows, requestedExecutionPrecision } from "@/features/transcription/hooks/executionPresentation";
+import { diarizationModelLabel, executionEvidenceRows, requestedExecutionPrecision } from "@/features/transcription/hooks/executionPresentation";
+import { RunModelSummary } from "./RunModelSummary";
 
 interface ExecutionInfoDialogProps {
     audioId: string;
@@ -43,18 +44,12 @@ export function ExecutionInfoDialog({ audioId, isOpen, onClose, initialRunId }: 
     const [selectedRunId, setSelectedRunId] = useState<string | undefined>();
 
     useEffect(() => {
-        if (!isOpen || runs.length === 0) return;
-        const selectedStillExists = selectedRunId && runs.some((run) => run.id === selectedRunId);
-        if (!selectedStillExists) {
-            setSelectedRunId(initialRunId || runsData?.active_run_id || runs[0].id);
-        } else if (initialRunId && selectedRunId !== initialRunId && runs.some((run) => run.id === initialRunId)) {
-            setSelectedRunId(initialRunId);
-        }
-    }, [initialRunId, isOpen, runs, runsData?.active_run_id, selectedRunId]);
+        if (isOpen) setSelectedRunId(initialRunId);
+    }, [initialRunId, isOpen]);
 
     const selectedRun = useMemo(
-        () => runs.find((run) => run.id === selectedRunId) || runs[0],
-        [runs, selectedRunId]
+        () => runs.find((run) => run.id === selectedRunId) || runs.find((run) => run.id === runsData?.active_run_id) || runs[0],
+        [runs, selectedRunId, runsData?.active_run_id]
     );
     const { data: transcript, isLoading: transcriptLoading } = useRunTranscript(audioId, selectedRun?.id, isOpen);
     const { data: logs, isLoading: logsLoading } = useRunLogs(audioId, selectedRun?.id, isOpen);
@@ -154,6 +149,7 @@ function RunCard({
                     <p className="mt-1 truncate text-xs text-[var(--text-secondary)]">
                         {modelLabel(params.model_family, params.model)}
                     </p>
+                    <p className="mt-1 text-xs text-[var(--text-secondary)]">{params.diarize ? `Speakers requested: ${params.diarize_model === "native" ? "Native" : diarizationModelLabel(params.diarization_checkpoint || params.diarize_model)}` : "Speakers disabled"}</p>
                 </div>
                 <StatusPill status={run.status || "unknown"} />
             </div>
@@ -247,11 +243,8 @@ function RunDetails({
                 </TabsList>
 
                 <TabsContent value="settings">
-                    <Panel title="Devices used">
-                        <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-                            <div><span className="text-[var(--text-secondary)]">Transcription: </span><span className="font-medium text-[var(--text-primary)]">{transcript?.metadata?.resolved_device || "Not recorded"}</span></div>
-                            {params.diarize && <div><span className="text-[var(--text-secondary)]">Diarization: </span><span className="font-medium text-[var(--text-primary)]">{transcript?.metadata?.diarization_device || "Not recorded"}</span></div>}
-                        </div>
+                    <Panel title="Models and execution">
+                        <RunModelSummary parameters={params} transcript={transcript} detailed />
                         {transcript?.metadata?.asr_device_fallback === "cuda_to_cpu" && <p className="mt-3 text-sm text-[var(--text-secondary)]">Auto recovered from a GPU processing failure and completed transcription on CPU.</p>}
                         {transcript?.metadata?.diarization_device_fallback === "cuda_to_cpu" && <p className="mt-3 text-sm text-[var(--text-secondary)]">Auto recovered from a GPU processing failure and completed speaker identification on CPU.</p>}
                     </Panel>
@@ -396,16 +389,23 @@ function TrackTimings({ timings }: { timings: MultiTrackTiming[] }) {
 function CuratedParamsDisplay({ params }: { params: any }) {
     const commonKeys = [
         "model_family",
+        "model",
         "task",
         "language",
         "output_format",
         "device",
+        "compute_type",
         "batch_size",
+        "threads",
         "diarize",
+        "diarize_model",
         "diarization_device",
         "diarization_checkpoint",
         "transcription_context",
         "transcription_context_terms",
+        "audio_chunk_duration",
+        "max_new_tokens",
+        "hf_token_source",
     ];
 
     let specificKeys: string[] = [];
@@ -450,7 +450,7 @@ function CuratedParamsDisplay({ params }: { params: any }) {
         specificKeys = ["model", "compute_type", "audio_chunk_duration", "max_new_tokens", "no_align", ...(params.diarize ? ["diarize_model"] : [])];
     }
 
-    const entries = [...commonKeys, ...specificKeys]
+    const entries = [...new Set([...commonKeys, ...specificKeys])]
         .map((key) => {
             let value = params[key];
             if (value === undefined || value === null) return null;

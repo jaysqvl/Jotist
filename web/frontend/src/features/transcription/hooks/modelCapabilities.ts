@@ -167,9 +167,31 @@ export function modelFamilyOptions(models: TranscriptionModelCapability[]) {
 }
 
 export function transcriptionModelLabel(family?: string, model?: string) {
+    const exact: Record<string, string> = {
+        "CohereLabs/cohere-transcribe-03-2026": "Cohere Transcribe 2B · March 2026",
+        "Qwen/Qwen3-ASR-1.7B-hf": "Qwen3 ASR 1.7B",
+        "Qwen/Qwen3-ASR-0.6B-hf": "Qwen3 ASR 0.6B",
+        "ibm-granite/granite-speech-4.1-2b": "Granite Speech 4.1 2B",
+        "ibm-granite/granite-speech-4.1-2b-plus": "Granite Speech 4.1 2B Plus",
+        "ibm-granite/granite-speech-5.0-470m-turboctc": "Granite Speech 5.0 470M TurboCTC",
+        "ibm-granite/granite-speech-5.0-470m-turboctc-nc": "Granite Speech 5.0 470M TurboCTC · NC",
+        "Edge0/ARK-ASR-3B": "ARK ASR 3B",
+        "OpenMOSS-Team/MOSS-Transcribe-Diarize": "MOSS Transcribe Diarize 0.9B",
+        "OpenMOSS-Team/MOSS-Transcribe-preview-2B": "MOSS Transcribe Preview 2B",
+        "mistralai/Voxtral-Mini-3B-2507": "Voxtral Mini 3B · July 2025",
+        "mistralai/Voxtral-Mini-4B-Realtime-2602": "Voxtral Mini 4B Realtime · February 2026",
+        "microsoft/VibeVoice-ASR-BitNet": "VibeVoice ASR BitNet 1.5B",
+        "vibevoice-bitnet": "VibeVoice ASR BitNet 1.5B",
+        "canary-1b-v2": "NVIDIA Canary 1B v2",
+        "nvidia/canary-1b-v2": "NVIDIA Canary 1B v2",
+        "nvidia/canary-qwen-2.5b": "NVIDIA Canary-Qwen 2.5B",
+        "parakeet-tdt-0.6b-v3": "NVIDIA Parakeet TDT 0.6B v3",
+        "nvidia/parakeet-tdt-0.6b-v3": "NVIDIA Parakeet TDT 0.6B v3",
+    };
+    if (model && exact[model]) return exact[model];
     const legacy: Record<string, string> = {
-        nvidia_canary: "NVIDIA Canary 1B v2",
-        nvidia_canary_qwen: "NVIDIA Canary-Qwen 2.5B",
+        nvidia_canary: "NVIDIA Canary",
+        nvidia_canary_qwen: "NVIDIA Canary-Qwen",
         nvidia_parakeet: "NVIDIA Parakeet",
         mistral_voxtral: "Mistral Voxtral-mini",
     };

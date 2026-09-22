@@ -28,8 +28,13 @@ func TestSpeakerMemoryEstimatesCoverExactSelectableCheckpoints(t *testing.T) {
 			for _, row := range rows {
 				require.False(t, models[row["model"]], "duplicate checkpoint memory row")
 				models[row["model"]] = true
-				require.Equal(t, "unmeasured", row["estimate_status"])
-				require.Contains(t, row["notes"], "Unmeasured")
+				if capability.ModelID == ModelPyannote || capability.ModelID == "diarizen" {
+					require.Equal(t, "planning_with_observations", row["estimate_status"])
+					require.Contains(t, row["notes"]+row["gpu_notes"], "Observed")
+				} else {
+					require.Equal(t, "unmeasured", row["estimate_status"])
+					require.Contains(t, row["notes"], "Unmeasured")
+				}
 				require.Contains(t, row["source"], "https://huggingface.co/")
 				require.Empty(t, row["gpu_float16_vram_gb"], "none of these adapters casts the complete pipeline to FP16")
 				gpu := row["gpu_float32_vram_gb"]

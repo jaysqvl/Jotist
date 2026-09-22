@@ -9,8 +9,8 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "scriberr",
-	Short: "Jotist CLI Watcher",
-	Long:  `A CLI tool to watch folders and upload audio files to Jotist.`,
+	Short: "Jotist CLI",
+	Long:  `Upload recordings, watch folders, and manage Jotist models, profiles, queued runs and recovery.`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

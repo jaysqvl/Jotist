@@ -154,7 +154,7 @@ func NewLocalASRAdapter(envPath, modelID string) (*LocalASRAdapter, error) {
 		{Name: "precision", Type: "string", Default: "float32", Options: []string{"float32", "bfloat16", "float16"}, Description: "Arithmetic precision. CPU requires float32; reduced precision is an explicit CUDA option.", Group: "quality"},
 		{Name: "align_words", Type: "bool", Default: !spec.NativeTimestamps, Description: "Run Qwen3 forced alignment for word timing and external speaker assignment; downloads a separate alignment checkpoint", Group: "quality"},
 		{Name: "chunk_duration", Type: "int", Default: spec.DefaultChunkSeconds, Min: &minChunk, Max: &maxChunk, Description: "Audio window in seconds. Zero uses the model default; MOSS Diarize uses the complete recording for consistent speakers.", Group: "advanced"},
-		{Name: "max_new_tokens", Type: "int", Default: 0, Min: &minTokens, Max: &maxTokens, Description: "Maximum output tokens per window. Zero scales with audio duration; exhausted budgets fail instead of returning partial transcripts.", Group: "advanced"},
+		{Name: "max_new_tokens", Type: "int", Default: 0, Min: &minTokens, Max: &maxTokens, Description: "Maximum output tokens per window. Zero uses a model-aware Auto budget; Cohere retries a cutoff once within its decoder limit. Explicit values remain exact, and incomplete transcripts fail.", Group: "advanced"},
 		{Name: "hf_token", Type: "string", Default: "", Description: "Optional Hugging Face access token, passed only through HF_TOKEN; otherwise use the server's cached login or environment", Group: "advanced"},
 	}
 	if spec.NativeSpeakers {
@@ -228,16 +228,16 @@ func (a *LocalASRAdapter) PrepareEnvironment(ctx context.Context) error {
 			return ctx.Err()
 		}
 		if runtime.GOOS == "darwin" && runtime.GOARCH == "amd64" {
-			return fmt.Errorf("modern Transformers ASR requires recent PyTorch wheels unavailable for Intel macOS; run this worker on Linux x86_64 (including a Linux container)")
+			return localASRDiagnostic("environment_intel_macos", err)
 		}
-		return fmt.Errorf("local ASR environment installation failed: %w", err)
+		return localASRDiagnostic("environment_install_failed", err)
 	}
 	cmd = processutil.CommandContext(ctx, "uv", "run", "--no-sync", "--project", a.envPath, "python", "-c", "import torch, transformers, soundfile; from transformers import AutoProcessor")
 	if err := cmd.Run(); err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		return fmt.Errorf("local ASR environment import check failed: %w", err)
+		return localASRDiagnostic("environment_import_failed", err)
 	}
 	state.digest.Store(digest)
 	return nil
@@ -276,10 +276,10 @@ func localASREnvironmentAssets() (map[string][]byte, string, error) {
 		if entry.Name() == "pyproject.toml" {
 			if cuda := os.Getenv("PYTORCH_CUDA_VERSION"); cuda != "" && cuda != "cpu" {
 				if cuda == "cu128" {
-					return nil, "", fmt.Errorf("PYTORCH_CUDA_VERSION=cu128 has no wheels for PyTorch 2.14; use cu126, or cu130 for Blackwell GPUs with a CUDA 13-compatible NVIDIA driver")
+					return nil, "", localASRDiagnostic("environment_cuda_index", nil)
 				}
 				if cuda != "cu126" && cuda != "cu130" {
-					return nil, "", fmt.Errorf("unsupported PYTORCH_CUDA_VERSION")
+					return nil, "", localASRDiagnostic("environment_cuda_index", nil)
 				}
 				data = []byte(strings.ReplaceAll(string(data), "https://download.pytorch.org/whl/cpu", "https://download.pytorch.org/whl/"+cuda))
 			}
@@ -366,13 +366,21 @@ func (a *LocalASRAdapter) buildRequest(input interfaces.AudioInput, params map[s
 	return []string{"run", "--no-sync", "--project", a.envPath, "python", filepath.Join(a.envPath, "transcribe.py"), "--config", configPath}, env, nil
 }
 
-func (a *LocalASRAdapter) Transcribe(ctx context.Context, input interfaces.AudioInput, params map[string]interface{}, procCtx interfaces.ProcessingContext) (*interfaces.TranscriptResult, error) {
+func (a *LocalASRAdapter) Transcribe(ctx context.Context, input interfaces.AudioInput, params map[string]interface{}, procCtx interfaces.ProcessingContext) (_ *interfaces.TranscriptResult, resultErr error) {
+	phase := "preparing"
+	var diagnosticFields map[string]string
+	appendLocalASRDiagnostic(procCtx.OutputDirectory, phase, nil, nil)
+	defer func() {
+		if resultErr != nil {
+			appendLocalASRDiagnostic(procCtx.OutputDirectory, phase, resultErr, diagnosticFields)
+		}
+	}()
 	start := time.Now()
 	if err := a.ValidateAudioInput(input); err != nil {
-		return nil, err
+		return nil, localASRDiagnostic("worker_input_invalid", err)
 	}
 	if err := a.ValidateParameters(params); err != nil {
-		return nil, err
+		return nil, localASRDiagnostic("worker_configuration_invalid", err)
 	}
 	if err := a.PrepareEnvironment(ctx); err != nil {
 		return nil, err
@@ -389,6 +397,8 @@ func (a *LocalASRAdapter) Transcribe(ctx context.Context, input interfaces.Audio
 	if err != nil {
 		return nil, err
 	}
+	phase = "worker_launch"
+	appendLocalASRDiagnostic(procCtx.OutputDirectory, phase, nil, nil)
 	cmd := processutil.CommandContext(ctx, "uv", args...)
 	cmd.Env = env
 	// The runner emits only progress counters and sanitised error classes. Keep
@@ -397,23 +407,18 @@ func (a *LocalASRAdapter) Transcribe(ctx context.Context, input interfaces.Audio
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-		var failure struct {
-			Error          string `json:"error"`
-			ResolvedDevice string `json:"resolved_device"`
-			GPUFailureKind string `json:"gpu_failure_kind"`
+		data, readErr := os.ReadFile(filepath.Join(tempDir, "error.json"))
+		if readErr == nil {
+			failure, fields := localASRWorkerDiagnostic(data, err)
+			diagnosticFields = fields
+			return nil, failure
 		}
-		if data, e := os.ReadFile(filepath.Join(tempDir, "error.json")); e == nil && json.Unmarshal(data, &failure) == nil && failure.Error != "" {
-			cause := fmt.Errorf("local ASR failed: %s", failure.Error)
-			if failure.ResolvedDevice == "cuda" && (failure.GPUFailureKind == "cuda_out_of_memory" || failure.GPUFailureKind == "cuda_runtime_error") {
-				return nil, &interfaces.GPUExecutionError{Kind: failure.GPUFailureKind, Err: cause}
-			}
-			return nil, cause
-		}
-		return nil, fmt.Errorf("local ASR worker failed: %w", err)
+		return nil, localASRWorkerStartError(err)
 	}
+	phase = "output_validation"
 	result, err := a.parseResult(filepath.Join(tempDir, "result.json"))
 	if err != nil {
-		return nil, err
+		return nil, localASRDiagnostic("worker_output_invalid", err)
 	}
 	result.ProcessingTime = time.Since(start)
 	result.ModelUsed = a.spec.ID

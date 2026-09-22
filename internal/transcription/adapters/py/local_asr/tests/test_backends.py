@@ -12,7 +12,7 @@ import numpy as np
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from backends import TransformersBackend, prepare_moss_preview_inputs, to_device
+from backends import RecognitionError, TransformersBackend, prepare_moss_preview_inputs, to_device
 
 
 class Tensor:
@@ -56,6 +56,7 @@ def libraries(monkeypatch):
     processor=Processor()
     class Model:
         generation_config=types.SimpleNamespace(eos_token_id=99)
+        config=types.SimpleNamespace(max_seq_len=1024)
         def to(self,device): calls.append(("model_to",device));return self
         def eval(self): return self
         def generate(self,**kwargs):
@@ -147,3 +148,56 @@ def test_publisher_backend_contracts(libraries,engine):
         prompt=next(c for c in calls if c[0]=="processor_template")[1][0]["content"][1]["text"]
         assert "PostgreSQL, Scriberr" in prompt and "release meeting" in prompt
         assert result["segments"][0]["speaker"]=="S02"
+
+
+def test_cohere_auto_reuses_successful_retry_budget_for_later_windows(libraries):
+    backend=TransformersBackend("publisher/model","cpu","float32",{"engine":"cohere","language":"en"})
+    budgets=[]
+    def generate(**kwargs):
+        budgets.append(kwargs["max_new_tokens"])
+        if len(budgets)==1:
+            return np.full((1,kwargs["max_new_tokens"]),10)
+        return np.array([[10,99]])
+    backend.model.generate=generate
+    assert backend.transcribe(np.ones(30*16000,dtype=np.float32))["text"]=="hello"
+    assert backend.transcribe(np.ones(30*16000,dtype=np.float32))["text"]=="hello"
+    assert budgets==[768,1000,1000]
+
+
+def test_cohere_auto_still_rejects_incomplete_retry(libraries):
+    backend=TransformersBackend("publisher/model","cpu","float32",{"engine":"cohere","language":"en"})
+    budgets=[]
+    def generate(**kwargs):
+        budgets.append(kwargs["max_new_tokens"])
+        return np.full((1,kwargs["max_new_tokens"]),10)
+    backend.model.generate=generate
+    with pytest.raises(RecognitionError,match="Auto output limit") as failure:
+        backend.transcribe(np.ones(30*16000,dtype=np.float32))
+    assert failure.value.token_limit==1000
+    assert budgets==[768,1000]
+
+
+def test_cohere_auto_respects_loaded_decoder_length(libraries):
+    backend=TransformersBackend("publisher/model","cpu","float32",{"engine":"cohere","language":"en"})
+    backend.model.config.max_seq_len=900
+    budgets=[]
+    def generate(**kwargs):
+        budgets.append(kwargs["max_new_tokens"])
+        return np.full((1,kwargs["max_new_tokens"]),10) if len(budgets)==1 else np.array([[10,99]])
+    backend.model.generate=generate
+    assert backend.transcribe(np.ones(30*16000,dtype=np.float32))["text"]=="hello"
+    assert backend.transcribe(np.ones(30*16000,dtype=np.float32))["text"]=="hello"
+    assert budgets==[768,876,876]
+
+
+def test_cohere_explicit_budget_is_exact_and_never_retried(libraries):
+    backend=TransformersBackend("publisher/model","cpu","float32",{"engine":"cohere","language":"en","max_new_tokens":400})
+    budgets=[]
+    def generate(**kwargs):
+        budgets.append(kwargs["max_new_tokens"])
+        return np.full((1,kwargs["max_new_tokens"]),10)
+    backend.model.generate=generate
+    with pytest.raises(RecognitionError,match="token limit") as failure:
+        backend.transcribe(np.ones(30*16000,dtype=np.float32))
+    assert failure.value.token_limit==400
+    assert budgets==[400]
