@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.7.2](https://github.com/jaysqvl/Jotist/compare/v1.7.1...v1.7.2) (2026-09-22)
+
+
+### Bug Fixes
+
+* calibrate speaker memory guidance from NAS qualification ([b288dd4](https://github.com/jaysqvl/Jotist/commit/b288dd47e03d9cc49b99e021fac5d2f325241666))
+* recover Cohere Auto token cutoffs within decoder context ([dd79dc4](https://github.com/jaysqvl/Jotist/commit/dd79dc46bded509b86e686b1d4de581310ea015f))
+* restore CPU Canary profiles and expose actionable recovery controls ([e9ffe35](https://github.com/jaysqvl/Jotist/commit/e9ffe353d27c399c5c4b51a2101927314bbc942d))
+
 ## [1.7.1](https://github.com/jaysqvl/Jotist/compare/v1.7.0...v1.7.1) (2026-09-14)
 
 - Move container files to `deploy/` and remove unused assets and editor files.
