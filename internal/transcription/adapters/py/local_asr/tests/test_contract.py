@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from backends import RecognitionError, ensure_generation_complete, parse_granite_timestamps, parse_moss, vocabulary
+from backends import CohereAutoTokenLimitError, RecognitionError, ensure_generation_complete, parse_granite_timestamps, parse_moss, vocabulary
 import transcribe
 from qwen_backend import context_prompt, normalize_alignment
 
@@ -224,3 +224,62 @@ def test_recognition_failure_identifies_audio_window(monkeypatch,tmp_path):
     with pytest.raises(RecognitionError,match="token cutoff") as failure:
         setup_pipeline(monkeypatch,tmp_path,RecognitionError("token cutoff"),False)
     assert (failure.value.window_index,failure.value.window_count)==(1,1)
+
+
+def cohere_cutoff_pipeline(monkeypatch, tmp_path, response, max_new_tokens=0):
+    audio = np.ones(30 * 16000, dtype=np.float32)
+    monkeypatch.setitem(sys.modules, "soundfile", types.SimpleNamespace(read=lambda *args, **kwargs: (audio, 16000)))
+    monkeypatch.setitem(sys.modules, "torch", types.SimpleNamespace(
+        cuda=types.SimpleNamespace(is_available=lambda: False), float32="torch.float32"))
+    monkeypatch.setattr(transcribe.subprocess, "run", lambda *args, **kwargs: types.SimpleNamespace(returncode=0))
+    source = tmp_path / "source.wav"
+    source.write_bytes(b"fixture")
+    calls = []
+
+    class Backend:
+        def transcribe(self, sample, sample_rate):
+            assert sample_rate == 16000
+            calls.append(len(sample))
+            return response(len(sample), len(calls))
+
+    monkeypatch.setattr(transcribe, "create_backend", lambda *args: Backend())
+    config = {"model_id": "cohere-fixture", "engine": "cohere", "audio_file": str(source),
+              "device": "cpu", "precision": "float32", "context_mode": "none",
+              "default_chunk_seconds": 30, "max_chunk_seconds": 30,
+              "chunk_duration": 30, "max_new_tokens": max_new_tokens,
+              "align_words": False, "language": "en"}
+    return config, calls
+
+
+def test_cohere_auto_decoder_cutoff_splits_only_failed_window(monkeypatch, tmp_path):
+    def response(length, call):
+        if length > 20 * 16000:
+            raise CohereAutoTokenLimitError(1000)
+        return {"text": f"part {call}", "language": "en"}
+
+    config, calls = cohere_cutoff_pipeline(monkeypatch, tmp_path, response)
+    result = transcribe.execute(config)
+    assert len(calls) == 3 and calls[0] == sum(calls[1:]) == 30 * 16000
+    assert result["text"] == "part 2 part 3"
+    assert result["metadata"]["chunk_count"] == "2"
+    assert result["metadata"]["cohere_auto_split_windows"] == "1"
+    assert [(part["start"], part["end"]) for part in result["segments"]] == [
+        (0.0, result["segments"][0]["end"]), (result["segments"][0]["end"], 30.0)]
+
+
+def test_cohere_auto_split_is_bounded_and_explicit_budget_stays_fixed(monkeypatch, tmp_path):
+    def cutoff(length, call):
+        raise CohereAutoTokenLimitError(1000)
+
+    config, calls = cohere_cutoff_pipeline(monkeypatch, tmp_path, cutoff)
+    with pytest.raises(CohereAutoTokenLimitError) as failure:
+        transcribe.execute(config)
+    assert len(calls) == 2
+    assert (failure.value.window_index, failure.value.window_count) == (1, 2)
+
+    config["max_new_tokens"] = 400
+    calls.clear()
+    with pytest.raises(CohereAutoTokenLimitError) as fixed_failure:
+        transcribe.execute(config)
+    assert calls == [30 * 16000]
+    assert (fixed_failure.value.window_index, fixed_failure.value.window_count) == (1, 1)
