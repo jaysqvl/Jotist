@@ -2,7 +2,7 @@
 # Legacy service and volume names preserve existing deployments.
 services:
   scriberr:
-    image: ghcr.io/jaysqvl/jotist:1.7.1
+    image: ghcr.io/jaysqvl/jotist:1.7.2
     ports:
       - "8080:8080"
     volumes:

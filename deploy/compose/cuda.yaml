@@ -3,7 +3,7 @@
 # Validate existing data/runtime migration before cutover.
 services:
   scriberr:
-    image: ghcr.io/jaysqvl/jotist:1.7.1-cuda
+    image: ghcr.io/jaysqvl/jotist:1.7.2-cuda
     ports:
       - "8080:8080"
     volumes:
