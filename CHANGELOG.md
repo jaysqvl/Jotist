@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.3](https://github.com/jaysqvl/Jotist/compare/v1.7.2...v1.7.3) (2026-09-22)
+
+
+### Bug Fixes
+
+* split Cohere Auto windows at decoder limit ([96490c3](https://github.com/jaysqvl/Jotist/commit/96490c38fdf97333d77c305689ae146c5972ec36))
+* split Cohere Auto windows at decoder limit ([89a3fee](https://github.com/jaysqvl/Jotist/commit/89a3fee6e4c6d2ebd2b6a522531482e369f7b474))
+
 ## [1.7.2](https://github.com/jaysqvl/Jotist/compare/v1.7.1...v1.7.2) (2026-09-22)
 
 - Restore saved CPU Canary profiles and make recovery controls easier to use.
