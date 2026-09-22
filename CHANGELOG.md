@@ -2,11 +2,9 @@
 
 ## [1.7.3](https://github.com/jaysqvl/Jotist/compare/v1.7.2...v1.7.3) (2026-09-22)
 
+- Recover a Cohere Auto decoder cutoff by splitting only the affected audio window and retrying its two parts. Explicit token limits remain fixed.
 
-### Bug Fixes
-
-* split Cohere Auto windows at decoder limit ([96490c3](https://github.com/jaysqvl/Jotist/commit/96490c38fdf97333d77c305689ae146c5972ec36))
-* split Cohere Auto windows at decoder limit ([89a3fee](https://github.com/jaysqvl/Jotist/commit/89a3fee6e4c6d2ebd2b6a522531482e369f7b474))
+Rerun an existing failed transcription to use this fix. If either shorter part still reaches the decoder limit, the run fails rather than saving incomplete text. Combined recognition stages do not checkpoint individual windows. See [recoverable transcription](https://github.com/jaysqvl/Jotist/blob/v1.7.3/docs/recoverable-transcription.md).
 
 ## [1.7.2](https://github.com/jaysqvl/Jotist/compare/v1.7.1...v1.7.2) (2026-09-22)
 
