@@ -169,7 +169,11 @@ def execute(config):
         sample = audio[start:end]
         # Exact digital silence cannot contain speech. Do not suppress quiet
         # real voices using an arbitrary amplitude/noise threshold.
-        result = model_call(config, device, backend.transcribe, sample, sr) if np.any(sample) else {"text":"", "language":config.get("language", "en")}
+        try:
+            result = model_call(config, device, backend.transcribe, sample, sr) if np.any(sample) else {"text":"", "language":config.get("language", "en")}
+        except RecognitionError as exc:
+            exc.window_index, exc.window_count = index + 1, len(bounds)
+            raise
         # Reject invalid native times before they can be used to crop audio for
         # forced alignment, including segments starting beyond the recording.
         validate_times(result.get("segments", []), len(sample) / sr)

@@ -154,7 +154,7 @@ func NewLocalASRAdapter(envPath, modelID string) (*LocalASRAdapter, error) {
 		{Name: "precision", Type: "string", Default: "float32", Options: []string{"float32", "bfloat16", "float16"}, Description: "Arithmetic precision. CPU requires float32; reduced precision is an explicit CUDA option.", Group: "quality"},
 		{Name: "align_words", Type: "bool", Default: !spec.NativeTimestamps, Description: "Run Qwen3 forced alignment for word timing and external speaker assignment; downloads a separate alignment checkpoint", Group: "quality"},
 		{Name: "chunk_duration", Type: "int", Default: spec.DefaultChunkSeconds, Min: &minChunk, Max: &maxChunk, Description: "Audio window in seconds. Zero uses the model default; MOSS Diarize uses the complete recording for consistent speakers.", Group: "advanced"},
-		{Name: "max_new_tokens", Type: "int", Default: 0, Min: &minTokens, Max: &maxTokens, Description: "Maximum output tokens per window. Zero scales with audio duration; exhausted budgets fail instead of returning partial transcripts.", Group: "advanced"},
+		{Name: "max_new_tokens", Type: "int", Default: 0, Min: &minTokens, Max: &maxTokens, Description: "Maximum output tokens per window. Zero uses a model-aware Auto budget; Cohere retries a cutoff once within its decoder limit. Explicit values remain exact, and incomplete transcripts fail.", Group: "advanced"},
 		{Name: "hf_token", Type: "string", Default: "", Description: "Optional Hugging Face access token, passed only through HF_TOKEN; otherwise use the server's cached login or environment", Group: "advanced"},
 	}
 	if spec.NativeSpeakers {

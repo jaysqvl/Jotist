@@ -15,6 +15,7 @@
   "application_48b5c179cb76": "Unsupported inference precision.",
   "application_53ecd833af07": "Voxtral requires 16 kHz audio.",
   "application_7ef3c6c77842": "Word alignment has no detected language. Select an explicit supported language or disable word alignment. External diarization requires supported or native timestamps.",
+  "application_8923ea1c9bdf": "Cohere reached its Auto output limit without an end marker; shorten chunk_duration or choose a different model.",
   "application_8a89b9e43bb3": "CUDA was explicitly requested but is unavailable; choose CPU or install a compatible CUDA runtime.",
   "application_8dd08c2078e4": "Selected model does not support prose context.",
   "application_91d52b8c8f1c": "This model requires word alignment for external diarization; enable align_words.",

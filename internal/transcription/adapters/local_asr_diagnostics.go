@@ -3,8 +3,10 @@ package adapters
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"scriberr/internal/transcription/interfaces"
@@ -34,12 +36,15 @@ func localASRDiagnostic(code string, cause error) *interfaces.SafeRuntimeDiagnos
 // authority to persist arbitrary text, even if it calls that text an error.
 func localASRWorkerDiagnostic(data []byte, cause error) (error, map[string]string) {
 	var failure struct {
-		Error   string `json:"error"`
-		Code    string `json:"diagnostic_code"`
-		Class   string `json:"exception_class"`
-		Phase   string `json:"phase"`
-		Device  string `json:"resolved_device"`
-		GPUKind string `json:"gpu_failure_kind"`
+		Error       string `json:"error"`
+		Code        string `json:"diagnostic_code"`
+		Class       string `json:"exception_class"`
+		Phase       string `json:"phase"`
+		Device      string `json:"resolved_device"`
+		GPUKind     string `json:"gpu_failure_kind"`
+		WindowIndex int    `json:"window_index"`
+		WindowCount int    `json:"window_count"`
+		TokenLimit  int    `json:"token_limit"`
 	}
 	if len(data) > 64*1024 || json.Unmarshal(data, &failure) != nil {
 		return localASRDiagnostic("worker_failed_without_diagnostic", cause), nil
@@ -57,8 +62,19 @@ func localASRWorkerDiagnostic(data []byte, cause error) (error, map[string]strin
 			}
 		}
 	}
-	diagnostic := localASRDiagnostic(code, cause)
 	fields := map[string]string{}
+	message := localASRDiagnostics[code]
+	if failure.Phase == "recognition" && failure.WindowIndex >= 1 && failure.WindowCount >= failure.WindowIndex && failure.WindowCount <= 100000 {
+		fields["window_index"] = strconv.Itoa(failure.WindowIndex)
+		fields["window_count"] = strconv.Itoa(failure.WindowCount)
+		message += fmt.Sprintf(" Recognition window %d/%d.", failure.WindowIndex, failure.WindowCount)
+	}
+	if (code == "application_a033c6a30bfc" || code == "application_8923ea1c9bdf") && failure.Phase == "recognition" && failure.TokenLimit >= 1 && failure.TokenLimit <= 65536 {
+		fields["token_limit"] = strconv.Itoa(failure.TokenLimit)
+		message += fmt.Sprintf(" Limit: %d tokens.", failure.TokenLimit)
+	}
+	// The message contains only catalog text and bounded numeric coordinates.
+	diagnostic := interfaces.NewSafeRuntimeDiagnostic(code, message, cause)
 	if oneOf(failure.Class, "RecognitionError", "RuntimeError", "ValueError", "TypeError", "AttributeError", "KeyError", "IndexError", "ImportError", "ModuleNotFoundError", "OSError", "FileNotFoundError", "PermissionError", "MemoryError", "GatedRepoError", "RepositoryNotFoundError", "HfHubHTTPError", "ModelError") {
 		fields["exception_class"] = failure.Class
 	}

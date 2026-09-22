@@ -169,7 +169,10 @@ def setup_pipeline(monkeypatch, tmp_path, response, align_words, native=False):
     input_file=tmp_path/"source.wav";input_file.write_bytes(b"fixture")
     refs=[]
     class Backend:
-        def transcribe(self,*args): return dict(response)
+        def transcribe(self,*args):
+            if isinstance(response, Exception):
+                raise response
+            return dict(response)
     def factory(*args):
         obj=Backend();refs.append(weakref.ref(obj));return obj
     monkeypatch.setattr(transcribe,"create_backend",factory)
@@ -215,3 +218,9 @@ def test_out_of_window_native_timestamps_fail(monkeypatch,tmp_path):
     response={"text":"hello", "language":"en", "segments":[{"text":"hello", "start":0.5, "end":20, "speaker":"S02"}]}
     with pytest.raises(RecognitionError):
         setup_pipeline(monkeypatch,tmp_path,response,False)
+
+
+def test_recognition_failure_identifies_audio_window(monkeypatch,tmp_path):
+    with pytest.raises(RecognitionError,match="token cutoff") as failure:
+        setup_pipeline(monkeypatch,tmp_path,RecognitionError("token cutoff"),False)
+    assert (failure.value.window_index,failure.value.window_count)==(1,1)

@@ -35,6 +35,14 @@ def safe_failure(exc, phase):
             code = "runtime_memory_error"
         else:
             code = "runtime_model_error"
-    return {"diagnostic_code": code, "error": _MESSAGES[code],
-            "exception_class": kind if kind in _CLASSES else "ModelError",
-            "phase": phase if phase in _PHASES else "configuration"}
+    result = {"diagnostic_code": code, "error": _MESSAGES[code],
+              "exception_class": kind if kind in _CLASSES else "ModelError",
+              "phase": phase if phase in _PHASES else "configuration"}
+    if phase == "recognition" and isinstance(exc, RecognitionError):
+        index, count = getattr(exc, "window_index", None), getattr(exc, "window_count", None)
+        if type(index) is int and type(count) is int and 1 <= index <= count <= 100000:
+            result.update(window_index=index, window_count=count)
+        limit = getattr(exc, "token_limit", None)
+        if code in {"application_a033c6a30bfc", "application_8923ea1c9bdf"} and type(limit) is int and 1 <= limit <= 65536:
+            result["token_limit"] = limit
+    return result

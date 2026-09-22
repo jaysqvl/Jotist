@@ -382,7 +382,7 @@ func safeOrOriginalStageError(node, code string, err error) error {
 	}
 	if code == "adapter_failed" {
 		if diagnostic, ok := interfaces.RuntimeDiagnostic(err); ok {
-			return fmt.Errorf("%s failed: %w. Completed checkpoints retained", node, diagnostic)
+			return fmt.Errorf("%s failed: %w", node, diagnostic)
 		}
 	}
 	return safeStageError(node, code)
