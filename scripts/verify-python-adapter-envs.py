@@ -154,7 +154,7 @@ ADAPTERS: tuple[AdapterSpec, ...] = (
             "from whisperx.diarize import DiarizationPipeline"
         ),
         requires_python=">=3.11,<3.13",
-        caller_scripts=("whisperx_run.py",),
+        caller_scripts=("whisperx_run.py", "whisperx_stage.py"),
         package_pins=(
             PackagePin("whisperx", version="3.8.7rc1+jotist.1"),
             PackagePin("torch", version="2.14.0"),
