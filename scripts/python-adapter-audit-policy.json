@@ -62,7 +62,7 @@
         "nltk/tokenize/punkt.py": "b85d1b51d1357d8c56d9739cb3d7975837ad12721c3702fae6facb47eb583b48"
       },
       "caller_sha256": {
-        "canary_qwen_transcribe.py": "608c7bea8cf10cf52ab2bb812d9d2d02a24737a4c8342a9f276f5618d86aeaed"
+        "canary_qwen_transcribe.py": "a02679a3f0a7d678a97be50d8ee241f20c45a7acdca6b5852b0381c7c4c806c0"
       }
     }
   ]
