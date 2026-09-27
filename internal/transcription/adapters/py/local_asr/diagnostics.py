@@ -8,7 +8,7 @@ _CLASSES = {"RecognitionError", "RuntimeError", "ValueError", "TypeError", "Attr
 _PHASES = {"configuration", "runtime_initialization", "audio_decode", "model_loading", "recognition", "alignment", "output_validation"}
 
 
-def safe_failure(exc, phase):
+def safe_failure(exc, phase, window_index=None, window_count=None):
     from backends import RecognitionError
     kind = type(exc).__name__
     code = _APPLICATION_CODES.get(str(exc)) if isinstance(exc, RecognitionError) else None
@@ -40,10 +40,12 @@ def safe_failure(exc, phase):
     result = {"diagnostic_code": code, "error": _MESSAGES[code],
               "exception_class": kind if kind in _CLASSES else "ModelError",
               "phase": phase if phase in _PHASES else "configuration"}
-    if phase == "recognition" and isinstance(exc, RecognitionError):
-        index, count = getattr(exc, "window_index", None), getattr(exc, "window_count", None)
+    if phase in {"recognition", "alignment"}:
+        index = window_index if window_index is not None else getattr(exc, "window_index", None)
+        count = window_count if window_count is not None else getattr(exc, "window_count", None)
         if type(index) is int and type(count) is int and 1 <= index <= count <= 100000:
             result.update(window_index=index, window_count=count)
+    if phase == "recognition" and isinstance(exc, RecognitionError):
         limit = getattr(exc, "token_limit", None)
         if code in {"application_a033c6a30bfc", "application_8923ea1c9bdf"} and type(limit) is int and 1 <= limit <= 65536:
             result["token_limit"] = limit

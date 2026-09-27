@@ -19,7 +19,7 @@ func (v *VibeVoiceBitNetAdapter) Stages() []interfaces.StageDescriptor {
 			QualificationNotes: []string{"The CPU recognizer exits and its transcript commits before Qwen word alignment starts."},
 		},
 		{
-			Kind: "alignment", SchemaVersion: "transcript-result-v1", ImplementationVersion: "qwen3-forced-alignment-v2",
+			Kind: "alignment", SchemaVersion: "transcript-result-v1", ImplementationVersion: "qwen3-forced-alignment-v3",
 			Recoverable: true, Cancellable: true,
 			ModelArtifacts:   map[string]string{"Qwen/Qwen3-ForcedAligner-0.6B-hf": localASRAlignerRevision},
 			DevicePrecisions: map[string][]string{"cpu": {"float32"}}, DefaultPrecision: "float32",

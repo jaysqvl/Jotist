@@ -104,6 +104,16 @@ Recording deletion first writes a durable tombstone to reject late commits, then
 
 ## Restart, resume and publication
 
+The shared Qwen word aligner restricts timestamp classes to the supplied audio
+duration before selecting and repairing the model's predictions. Its full
+timestamp vocabulary covers five minutes even when it receives a much shorter
+window. Previously, an out-of-window prediction could exceed the post-decoding
+tolerance and fail a complete meeting. The bounded decoding applies to both
+staged and integrated LocalASR alignment, legacy Voxtral, and VibeVoice BitNet.
+Recognition text and word coverage still pass the existing strict validation.
+Alignment failures now include the affected window number without retaining
+private transcript or library exception text.
+
 The server holds an exclusive `<database path>.server.lock` lease. This supports one Scriberr coordinator per deployment; multiple independent databases do not share GPU admission. File-lock acquisition alone does not prove old inference workers have exited.
 
 On Linux, a verified clean shutdown or a changed boot/PID-namespace/PID-1 boundary supplies the current restart proof. An unclean restart inside the same process/container boundary can leave old workers unverified. In that case inference pauses while the UI remains accessible for inspection. Restart the container so its prior worker processes are terminated; a host-native deployment may require a host restart to establish a changed boundary. Do not remove the lease file to bypass this check. Broader multi-server coordination and independent orphan-process adoption are not implemented.

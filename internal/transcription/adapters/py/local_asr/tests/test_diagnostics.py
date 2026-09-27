@@ -48,3 +48,15 @@ def test_alignment_value_error_is_actionable_without_library_text():
     assert result["diagnostic_code"] == "runtime_alignment_error"
     assert result["exception_class"] == "ValueError"
     assert "private transcript" not in result["error"]
+
+
+def test_alignment_failure_identifies_window_without_exception_text():
+    result = safe_failure(ValueError("private transcript"), "alignment", 61, 81)
+    assert result["window_index"] == 61 and result["window_count"] == 81
+    assert "private" not in str(result)
+    for index, count in [(0, 81), (82, 81), (61, 100001), (True, 81)]:
+        result = safe_failure(ValueError("private transcript"), "alignment", index, count)
+        assert "window_index" not in result
+        assert "window_count" not in result
+    result = safe_failure(RecognitionError("Forced aligner returned timestamps outside the audio chunk."), "alignment", 61, 81)
+    assert result["diagnostic_code"] == "application_b359edc1cabd"

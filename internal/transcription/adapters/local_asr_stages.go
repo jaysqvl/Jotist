@@ -27,7 +27,7 @@ func (a *LocalASRAdapter) Stages() []interfaces.StageDescriptor {
 	}}
 	if a.spec.Engine != "granite_plus" {
 		stages = append(stages, interfaces.StageDescriptor{
-			Kind: "alignment", SchemaVersion: "transcript-result-v1", ImplementationVersion: "qwen3-forced-alignment-v2",
+			Kind: "alignment", SchemaVersion: "transcript-result-v1", ImplementationVersion: "qwen3-forced-alignment-v3",
 			Recoverable: true, Cancellable: true,
 			ModelArtifacts:     map[string]string{"Qwen/Qwen3-ForcedAligner-0.6B-hf": localASRAlignerRevision},
 			DevicePrecisions:   map[string][]string{"cpu": {"float32"}, "cuda": {"float16", "bfloat16", "float32"}},

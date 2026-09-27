@@ -63,9 +63,23 @@ def normalize_alignment(items, duration):
     for item in items:
         start, end = float(item["start_time"]), float(item["end_time"])
         if not math.isfinite(start) or not math.isfinite(end) or start < 0 or end < start or end > duration + 0.25:
-            raise ValueError("Forced aligner returned timestamps outside the audio chunk")
+            raise RecognitionError("Forced aligner returned timestamps outside the audio chunk.")
         words.append({"word": str(item["text"]), "start": min(start, duration), "end": min(end, duration)})
     return words
+
+
+def bounded_alignment_logits(logits, duration, timestamp_segment_time):
+    """Choose timestamps only from classes inside the supplied audio.
+
+    Qwen predicts timestamps on an 80ms grid across its full five-minute
+    vocabulary, even for a short chunk. Restrict that vocabulary before argmax
+    and monotonic reconstruction so an impossible end time cannot fail a whole
+    recording. The remaining times still come from the model's scores.
+    """
+    if not math.isfinite(duration) or duration <= 0 or not math.isfinite(timestamp_segment_time) or timestamp_segment_time <= 0:
+        raise RecognitionError("Forced alignment requires a positive audio duration and timestamp interval.")
+    classes = math.floor(duration * 1000 / timestamp_segment_time) + 1
+    return logits[..., :classes]
 
 
 def restore_alignment_surface(words, transcript):
@@ -157,8 +171,9 @@ def create_aligner(device, dtype, config):
             inputs = inputs.to(model.device, model.dtype)
             with torch.inference_mode():
                 output = model(**inputs)
+            logits = bounded_alignment_logits(output.logits, len(audio) / sample_rate, processor.timestamp_segment_time)
             aligned = processor.decode_forced_alignment(
-                logits=output.logits, input_ids=inputs["input_ids"], word_lists=word_lists,
+                logits=logits, input_ids=inputs["input_ids"], word_lists=word_lists,
                 timestamp_token_id=model.config.timestamp_token_id,
             )[0]
             return restore_alignment_surface(normalize_alignment(aligned, len(audio) / sample_rate), text)

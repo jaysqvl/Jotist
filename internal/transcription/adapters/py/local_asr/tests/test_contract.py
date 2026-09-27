@@ -138,7 +138,7 @@ def test_qwen_context_and_alignment_contract():
     assert not has_alignable_text(" … [---] ♪ ")
     assert len(ALIGNER_REVISION) == 40
     assert normalize_alignment([{"text":"hello", "start_time":0.5, "end_time":0.8}], 1) == [{"word":"hello", "start":0.5, "end":0.8}]
-    with pytest.raises(ValueError):
+    with pytest.raises(RecognitionError):
         normalize_alignment([{"text":"bad", "start_time":0.5, "end_time":5}],1)
 
 

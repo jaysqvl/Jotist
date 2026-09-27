@@ -61,6 +61,25 @@ def test_align_existing_preserves_nonlexical_windows_without_failing_meeting(mon
     assert len(result["metadata"]["aligner_revision"]) == 40
 
 
+def test_alignment_failure_records_exact_segment_without_private_text(monkeypatch, tmp_path):
+    source, calls = alignment_fixture(monkeypatch, tmp_path)
+    class Aligner:
+        def align(self, sample, text, language, sr):
+            if text == "second":
+                raise ValueError("private transcript")
+            return [{"word": text, "start": 0.2, "end": 0.8}]
+    monkeypatch.setattr(qwen_backend, "create_aligner", lambda *args: Aligner())
+    state = {}
+    with pytest.raises(ValueError):
+        align_transcript.align_existing(source, {"segments": [
+            {"text": "first", "start": 0, "end": 2},
+            {"text": "second", "start": 2, "end": 5},
+        ]}, diagnostic_state=state)
+    result = align_transcript.safe_failure(ValueError("private transcript"), state["_diagnostic_phase"], state["_window_index"], state["_window_count"])
+    assert result["window_index"] == 2 and result["window_count"] == 2
+    assert "private" not in str(result)
+
+
 def test_alignment_cli_owns_conversion_under_output_parent(monkeypatch, tmp_path):
     source, calls = alignment_fixture(monkeypatch, tmp_path)
     job = tmp_path / "job"
