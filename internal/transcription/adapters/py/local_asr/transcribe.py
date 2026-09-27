@@ -11,7 +11,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 
-from backends import CohereAutoTokenLimitError, RecognitionError, create_backend
+from backends import CohereAutoTokenLimitError, GenerationTokenLimitError, RecognitionError, create_backend
 from diagnostics import safe_failure
 
 
@@ -98,8 +98,8 @@ def audio_windows(audio, sample_rate, seconds, max_seconds):
     return windows
 
 
-def cohere_auto_split_point(audio, sample_rate, start, end):
-    """Find one quiet boundary near halfway after Cohere exhausts its decoder."""
+def auto_token_split_point(audio, sample_rate, start, end):
+    """Find one quiet boundary near halfway after an Auto decoder cutoff."""
     length = end - start
     if length < 18 * sample_rate:
         return None
@@ -177,7 +177,7 @@ def execute(config):
     backend = model_call(config, device, create_backend, config["model_id"], device, dtype, config)
     chunks = []
     config["_diagnostic_phase"] = "recognition"
-    cohere_auto_splits = 0
+    auto_token_splits = 0
     index = 0
     while index < len(bounds):
         start, end, split_from_cutoff = bounds[index]
@@ -186,16 +186,16 @@ def execute(config):
         # real voices using an arbitrary amplitude/noise threshold.
         try:
             result = model_call(config, device, backend.transcribe, sample, sr) if np.any(sample) else {"text":"", "language":config.get("language", "en")}
-        except CohereAutoTokenLimitError as exc:
+        except (CohereAutoTokenLimitError, GenerationTokenLimitError) as exc:
             boundary = None
-            if config.get("engine") == "cohere" and not int(config.get("max_new_tokens", 0)) and not split_from_cutoff:
-                boundary = cohere_auto_split_point(audio, sr, start, end)
+            if not int(config.get("max_new_tokens", 0)) and not split_from_cutoff:
+                boundary = auto_token_split_point(audio, sr, start, end)
             if boundary is not None:
                 # Preserve sample coverage and align each recovered part on its
                 # own audio. Only the overflowing Auto window loses context.
                 bounds[index:index + 1] = [(start, boundary, True), (boundary, end, True)]
-                cohere_auto_splits += 1
-                print(f"Cohere Auto window {index + 1} reached its decoder limit; retrying as two shorter windows", flush=True)
+                auto_token_splits += 1
+                print(f"{config.get('engine', 'model')} Auto window {index + 1} reached its decoder limit; retrying as two shorter windows", flush=True)
                 continue
             exc.window_index, exc.window_count = index + 1, len(bounds)
             raise
@@ -300,8 +300,10 @@ def execute(config):
         for item in chunk_segments:
             segments.append({**item, "start":item["start"] + offset, "end":item["end"] + offset})
     metadata = {"resolved_device":device, "precision":str(dtype).replace("torch.", ""), "context_mode":config["context_mode"], "timestamp_source":",".join(sorted(sources)) or "none", "duration_seconds":str(duration), "chunk_count":str(len(bounds))}
-    if cohere_auto_splits:
-        metadata["cohere_auto_split_windows"] = str(cohere_auto_splits)
+    if auto_token_splits:
+        metadata["auto_token_split_windows"] = str(auto_token_splits)
+        if config.get("engine") == "cohere":
+            metadata["cohere_auto_split_windows"] = str(auto_token_splits)
     keep_native_speakers = config.get("diarize") is True and config.get("diarize_model") == "native"
     if not keep_native_speakers:
         for item in segments + words:

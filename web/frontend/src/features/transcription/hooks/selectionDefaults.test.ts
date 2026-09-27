@@ -106,7 +106,7 @@ test("NVIDIA defaults follow each runtime's token, precision and attention contr
     const selected = applyModelSelectionDefaults({ ...params(), device: "cuda", nvidia_prompt: "" }, choice(canaryQwen), models);
     assert.equal(selected.nvidia_precision, "float16");
     assert.equal(selected.nvidia_chunk_duration, 40);
-    assert.equal(selected.max_new_tokens, 256);
+    assert.equal(selected.max_new_tokens, 0);
     assert.equal(selected.nvidia_prompt, "Transcribe the following:");
     assert.equal(selected.language, "en");
     const parakeetSelection = applyModelSelectionDefaults(selected, choice(parakeet), models);

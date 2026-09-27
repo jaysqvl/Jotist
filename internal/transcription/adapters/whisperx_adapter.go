@@ -80,6 +80,14 @@ func NewWhisperXAdapter(envPath string) *WhisperXAdapter {
 			Description: "Whisper model size to use",
 			Group:       "basic",
 		},
+		{
+			Name:        "model_cache_only",
+			Type:        "bool",
+			Required:    false,
+			Default:     false,
+			Description: "Use only models already present in the selected model cache",
+			Group:       "advanced",
+		},
 
 		// Device and computation
 		{
@@ -279,6 +287,31 @@ func NewWhisperXAdapter(envPath string) *WhisperXAdapter {
 			Description: "Custom alignment model (e.g. KBLab/wav2vec2-large-voxrex-swedish)",
 			Group:       "advanced",
 		},
+		{
+			Name:        "interpolate_method",
+			Type:        "string",
+			Required:    false,
+			Default:     "nearest",
+			Options:     []string{"nearest", "linear", "ignore"},
+			Description: "How to timestamp words that the alignment model cannot align directly",
+			Group:       "advanced",
+		},
+		{
+			Name:        "no_align",
+			Type:        "bool",
+			Required:    false,
+			Default:     false,
+			Description: "Skip phoneme alignment and keep recognition segment timestamps",
+			Group:       "advanced",
+		},
+		{
+			Name:        "return_char_alignments",
+			Type:        "bool",
+			Required:    false,
+			Default:     false,
+			Description: "Include character alignment details in the raw WhisperX artifact",
+			Group:       "advanced",
+		},
 	}
 
 	schema = append(schema,
@@ -321,12 +354,14 @@ func (w *WhisperXAdapter) PrepareEnvironment(ctx context.Context) error {
 	if err := materializeWhisperXVendor(whisperxPath); err != nil {
 		return fmt.Errorf("materialize WhisperX compatibility port: %w", err)
 	}
-	script, err := whisperxScripts.ReadFile("py/whisperx/whisperx_run.py")
-	if err != nil {
-		return err
-	}
-	if err := writeRuntimeScript(filepath.Join(whisperxPath, "whisperx_run.py"), script, 0644); err != nil {
-		return err
+	for _, name := range []string{"whisperx_run.py", "whisperx_stage.py"} {
+		script, err := whisperxScripts.ReadFile("py/whisperx/" + name)
+		if err != nil {
+			return err
+		}
+		if err := writeRuntimeScript(filepath.Join(whisperxPath, name), script, 0644); err != nil {
+			return err
+		}
 	}
 	cmd := processutil.CommandContext(ctx, "uv", "sync", "--system-certs", "--project", whisperxPath)
 	if output, err := cmd.CombinedOutput(); err != nil {
@@ -492,6 +527,12 @@ func (w *WhisperXAdapter) buildWhisperXArgs(input interfaces.AudioInput, params 
 
 	// Core parameters
 	args = append(args, "--model", w.GetStringParameter(params, "model"))
+	if w.GetBoolParameter(params, "model_cache_only") {
+		args = append(args, "--model_cache_only", "True")
+	}
+	if modelDir := w.GetStringParameter(params, "model_dir"); modelDir != "" {
+		args = append(args, "--model_dir", modelDir)
+	}
 	args = append(args, "--device", w.GetStringParameter(params, "device"))
 	args = append(args, "--device_index", strconv.Itoa(w.GetIntParameter(params, "device_index")))
 	args = append(args, "--batch_size", strconv.Itoa(w.GetIntParameter(params, "batch_size")))
@@ -519,6 +560,13 @@ func (w *WhisperXAdapter) buildWhisperXArgs(input interfaces.AudioInput, params 
 	// Custom alignment model
 	if alignModel := w.GetStringParameter(params, "align_model"); alignModel != "" {
 		args = append(args, "--align_model", alignModel)
+	}
+	args = append(args, "--interpolate_method", w.GetStringParameter(params, "interpolate_method"))
+	if w.GetBoolParameter(params, "no_align") {
+		args = append(args, "--no_align")
+	}
+	if w.GetBoolParameter(params, "return_char_alignments") {
+		args = append(args, "--return_char_alignments")
 	}
 
 	// Diarization
@@ -599,6 +647,7 @@ func (w *WhisperXAdapter) parseResult(outputDir string, input interfaces.AudioIn
 	// Parse WhisperX JSON format
 	var whisperxResult struct {
 		ResolvedDevice string `json:"resolved_device"`
+		Precision      string `json:"precision"`
 		Segments       []struct {
 			Start   float64 `json:"start"`
 			End     float64 `json:"end"`
@@ -623,7 +672,7 @@ func (w *WhisperXAdapter) parseResult(outputDir string, input interfaces.AudioIn
 	// Convert to standard format
 	result := &interfaces.TranscriptResult{
 		Language:     whisperxResult.Language,
-		Metadata:     map[string]string{"resolved_device": whisperxResult.ResolvedDevice},
+		Metadata:     map[string]string{"resolved_device": whisperxResult.ResolvedDevice, "precision": whisperxResult.Precision},
 		Segments:     make([]interfaces.TranscriptSegment, len(whisperxResult.Segments)),
 		WordSegments: make([]interfaces.TranscriptWord, len(whisperxResult.Word)),
 		Confidence:   0.0, // WhisperX doesn't provide overall confidence

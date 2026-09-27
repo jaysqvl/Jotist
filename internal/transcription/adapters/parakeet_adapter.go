@@ -42,12 +42,13 @@ func NewParakeetAdapter(envPath string) *ParakeetAdapter {
 			"high_quality":      true,
 		},
 		Metadata: map[string]string{
-			"engine":      "nvidia_nemo",
-			"framework":   "nemo_toolkit",
-			"license":     "CC-BY-4.0",
-			"language":    "english_only",
-			"sample_rate": "16000",
-			"format":      "16khz_mono_wav",
+			"engine":              "nvidia_nemo",
+			"framework":           "nemo_toolkit",
+			"license":             "CC-BY-4.0",
+			"language":            "english_only",
+			"sample_rate":         "16000",
+			"format":              "16khz_mono_wav",
+			"resilience_contract": "atomic_native_timestamp_recognition",
 		},
 	}
 

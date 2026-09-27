@@ -134,7 +134,7 @@ func validateStageSpec(spec StageSpec) error {
 		return errors.New("invalid stage identity or duration")
 	}
 	switch spec.Kind {
-	case "recognize", "recognition", "align", "alignment", "diarize", "diarization", "combined", "assemble":
+	case "recognize", "recognition", "align", "alignment", "diarize", "diarization", "speaker_assignment", "combined", "assemble":
 	default:
 		return errors.New("unsupported checkpoint stage kind")
 	}

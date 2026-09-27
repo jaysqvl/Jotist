@@ -22,6 +22,7 @@ func runRecoverableTranscription(ctx context.Context, recovery recoveryStageCont
 	var upstream json.RawMessage
 	var result *interfaces.TranscriptResult
 	var recognitionMetadata map[string]string
+	var alignmentMetadata map[string]string
 	finalMetadata := map[string]string{}
 	for _, descriptor := range staged.Stages() {
 		if descriptor.Kind == "alignment" {
@@ -29,6 +30,11 @@ func runRecoverableTranscription(ctx context.Context, recovery recoveryStageCont
 				continue
 			}
 			if alignWords, present := params["align_words"].(bool); present && !alignWords {
+				continue
+			}
+		}
+		if descriptor.Kind == "speaker_assignment" {
+			if diarize, present := params["diarize"].(bool); !present || !diarize {
 				continue
 			}
 		}
@@ -98,6 +104,24 @@ func runRecoverableTranscription(ctx context.Context, recovery recoveryStageCont
 					decoded.Metadata[key] = value
 				}
 			}
+			alignmentMetadata = make(map[string]string, len(decoded.Metadata))
+			for key, value := range decoded.Metadata {
+				alignmentMetadata[key] = value
+			}
+		} else if descriptor.Kind == "speaker_assignment" {
+			decoded.Metadata["diarization_device"] = decoded.Metadata["resolved_device"]
+			decoded.Metadata["diarization_precision"] = decoded.Metadata["precision"]
+			for key, value := range alignmentMetadata {
+				if strings.HasPrefix(key, "alignment_") || strings.HasPrefix(key, "recognition_") || strings.HasPrefix(key, "asr_") || key == "timestamp_source" || key == "aligner_revision" {
+					decoded.Metadata[key] = value
+				}
+			}
+			for _, key := range []string{"resolved_device", "precision", "actual_batch_size", "actual_window_seconds"} {
+				decoded.Metadata[key] = recognitionMetadata[key]
+			}
+			decoded.Metadata["recognition_device"] = recognitionMetadata["resolved_device"]
+			decoded.Metadata["recognition_precision"] = recognitionMetadata["precision"]
+			decoded.Metadata["resolved_precision"] = recognitionMetadata["precision"]
 		}
 		if metadata["checkpoint_id"] == "" || metadata["checkpoint_result_sha256"] == "" {
 			return nil, nil, fmt.Errorf("%s did not produce a durable upstream checkpoint", descriptor.Kind)

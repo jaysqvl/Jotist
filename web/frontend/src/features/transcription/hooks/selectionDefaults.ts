@@ -106,7 +106,7 @@ export function applyModelSelectionDefaults<T extends SelectionDefaultParams>(
             next.nvidia_chunk_duration = 300;
             next.nvidia_use_chunking = true;
         } else if (choice.family === "nvidia_canary_qwen") {
-            next.max_new_tokens = 256;
+            next.max_new_tokens = 0;
             // Preserve a deliberate compatible prompt, but populate the model
             // default when no prompt has been supplied.
             next.nvidia_prompt = params.nvidia_prompt || "Transcribe the following:";

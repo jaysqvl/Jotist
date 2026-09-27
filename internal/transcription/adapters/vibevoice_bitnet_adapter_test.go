@@ -35,6 +35,13 @@ func TestBitNetWaitingPreparationCanCancel(t *testing.T) {
 
 func TestBitNetDoesNotAdvertiseNativeSpeakers(t *testing.T) {
 	adapter := NewVibeVoiceBitNetAdapter(t.TempDir())
+	stages := adapter.Stages()
+	if len(stages) != 2 || stages[0].Kind != "recognition" || stages[1].Kind != "alignment" {
+		t.Fatalf("unexpected BitNet recovery stages: %+v", stages)
+	}
+	if stages[1].ModelArtifacts["Qwen/Qwen3-ForcedAligner-0.6B-hf"] != localASRAlignerRevision {
+		t.Fatal("BitNet alignment identity does not pin the shared aligner")
+	}
 	if adapter.GetCapabilities().Features["integrated_diarization"] {
 		t.Fatal("compressed 1.5B model has no documented native speaker output")
 	}

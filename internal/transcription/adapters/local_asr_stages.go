@@ -4,11 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
-	"time"
 
-	"scriberr/internal/processutil"
 	"scriberr/internal/transcription/interfaces"
 )
 
@@ -122,56 +118,7 @@ func (a *LocalASRAdapter) runAlignmentStage(ctx context.Context, input interface
 	if err := a.PrepareEnvironment(ctx); err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(procCtx.TempDirectory, 0700); err != nil {
-		return nil, err
-	}
-	tempDir, err := os.MkdirTemp(procCtx.TempDirectory, "local-asr-alignment-")
-	if err != nil {
-		return nil, err
-	}
-	defer os.RemoveAll(tempDir)
-	transcriptPath := filepath.Join(tempDir, "recognition.json")
-	outputPath := filepath.Join(tempDir, "result.json")
-	if err := os.WriteFile(transcriptPath, upstream, 0600); err != nil {
-		return nil, err
-	}
-	device := a.GetStringParameter(params, "device")
-	precision := a.GetStringParameter(params, "precision")
-	args := []string{"run", "--no-sync", "--project", a.envPath, "python", filepath.Join(a.envPath, "align_transcript.py"),
-		"--audio", input.FilePath, "--transcript", transcriptPath, "--output", outputPath,
-		"--device", device, "--precision", precision, "--language", a.GetStringParameter(params, "language")}
-	env := withEnvironmentValue(os.Environ(), "PYTHONUNBUFFERED", "1")
-	if token := a.GetStringParameter(params, "hf_token"); token != "" {
-		env = withEnvironmentValue(env, "HF_TOKEN", token)
-	}
-	if device == "cpu" {
-		env = withEnvironmentValue(env, "CUDA_VISIBLE_DEVICES", "")
-	}
-	phase := "alignment"
-	appendLocalASRDiagnostic(procCtx.OutputDirectory, phase, nil, nil)
-	started := time.Now()
-	cmd := processutil.CommandContext(ctx, "uv", args...)
-	cmd.Env = env
-	if err := cmd.Run(); err != nil {
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
-		}
-		if data, readErr := os.ReadFile(filepath.Join(tempDir, "error.json")); readErr == nil {
-			failure, fields := localASRWorkerDiagnostic(data, err)
-			appendLocalASRDiagnostic(procCtx.OutputDirectory, phase, failure, fields)
-			return nil, failure
-		}
-		failure := localASRWorkerStartError(err)
-		appendLocalASRDiagnostic(procCtx.OutputDirectory, phase, failure, nil)
-		return nil, failure
-	}
-	result, err := a.parseResult(outputPath)
-	if err != nil {
-		return nil, localASRDiagnostic("worker_output_invalid", err)
-	}
-	result.ProcessingTime = time.Since(started)
-	result.ModelUsed = a.spec.ID
-	return json.Marshal(result)
+	return runQwenAlignmentWorker(ctx, a.envPath, input, params, procCtx, upstream, a.spec.ID, a.CreateDefaultMetadata(params))
 }
 
 var _ interfaces.StagedTranscriptionAdapter = (*LocalASRAdapter)(nil)

@@ -112,6 +112,10 @@ func TestCanaryQwenParseResultPreservesChunkSegments(t *testing.T) {
 	resultJSON := `{
 		"text": "hello world",
 		"language": "en",
+		"token_budget_mode": "auto",
+		"max_token_budget_used": 736,
+		"token_retries": 1,
+		"token_splits": 1,
 		"segments": [
 			{"start": 0, "end": 10, "text": "hello"},
 			{"start": 10, "end": 20, "text": "world"}
@@ -133,6 +137,9 @@ func TestCanaryQwenParseResultPreservesChunkSegments(t *testing.T) {
 	}
 	if len(result.WordSegments) != 0 {
 		t.Fatalf("expected no word segments, got %d", len(result.WordSegments))
+	}
+	if result.Metadata["token_budget_mode"] != "auto" || result.Metadata["max_token_budget_used"] != "736" || result.Metadata["token_retries"] != "1" || result.Metadata["token_splits"] != "1" {
+		t.Fatalf("expected generation completion metadata, got %#v", result.Metadata)
 	}
 }
 

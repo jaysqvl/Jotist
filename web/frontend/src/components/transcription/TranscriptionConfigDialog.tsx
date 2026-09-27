@@ -202,7 +202,7 @@ const PARAM_DESCRIPTIONS = {
     nvidia_precision: "float16 usually saves VRAM on NVIDIA GPUs. bfloat16 can work on newer GPUs; float32 uses much more VRAM and is mainly for CPU/debugging.",
     nvidia_use_chunking: "Native mode keeps full-file context but can OOM on long audio. Enable chunking for long files or 12GB GPUs when Canary fails.",
     nvidia_prompt: "Canary-Qwen prompt. Keep the audio locator implicit and use short instructions like names, style, or vocabulary.",
-    max_new_tokens: "For Canary-Qwen, this caps generated text per chunk. 256 is safe; lower it for memory/debugging, raise it only if chunks are cut off.",
+    max_new_tokens: "For Canary-Qwen, 0 uses a duration-based Auto budget, retries a truncated chunk with more tokens, then splits it if needed. A nonzero value is an exact fixed cap and fails rather than saving partial text.",
 };
 
 // ============================================================================
@@ -889,9 +889,9 @@ function CanaryQwenConfig({ params, updateParam, isMultiTrack }: ConfigProps) {
                     </FormField>
                     <FormField label="Max Tokens" description={PARAM_DESCRIPTIONS.max_new_tokens}>
                         <Input
-                            type="number" min={64} max={2048} step={64}
-                            value={params.max_new_tokens || 256}
-                            onChange={(e) => updateParam('max_new_tokens', parseInt(e.target.value) || 256)}
+                            type="number" min={0} max={2048} step={64}
+                            value={params.max_new_tokens ?? 0}
+                            onChange={(e) => updateParam('max_new_tokens', Number.isFinite(parseInt(e.target.value)) ? parseInt(e.target.value) : 0)}
                             className={inputClassName}
                         />
                     </FormField>
@@ -986,8 +986,8 @@ function OpenAIConfig({
 function VoxtralConfig({ params, updateParam }: ConfigProps) {
     return (
         <div className="space-y-6">
-            <InfoBanner variant="warning" title="Limited Features">
-                Voxtral does not support word-level timestamps. Synchronized playback, audio seeking, and timestamp-based features won't be available.
+            <InfoBanner variant="info" title="Recoverable word alignment">
+                Voxtral recognition is saved before optional Qwen word alignment, so an alignment failure can resume without repeating recognition.
             </InfoBanner>
 
             <Section title="Language Settings">
@@ -995,14 +995,15 @@ function VoxtralConfig({ params, updateParam }: ConfigProps) {
             </Section>
 
             <AdvancedAccordion>
-                <FormField label="Max Tokens" description="Maximum number of tokens to generate. Voxtral has a 32k context window and handles up to 30-40 minutes of audio.">
+                <FormField label="Max Tokens" description="Use 0 for the model-aware Auto budget. A nonzero value is an exact cap; incomplete generation fails instead of saving partial text.">
                     <Input
-                        type="number" min={1024} max={16384}
-                        value={params.max_new_tokens || 8192}
-                        onChange={(e) => updateParam('max_new_tokens', parseInt(e.target.value) || 8192)}
+                        type="number" min={0} max={65536}
+                        value={params.max_new_tokens ?? 0}
+                        onChange={(e) => updateParam('max_new_tokens', Number.isFinite(parseInt(e.target.value)) ? parseInt(e.target.value) : 0)}
                         className={inputClassName}
                     />
                 </FormField>
+                <SwitchField id="voxtral-word-alignment" label="Align words to the audio" description="Adds word timing for synchronized playback and external speaker attribution." checked={!params.no_align} onCheckedChange={(value) => updateParam('no_align', !value)} />
             </AdvancedAccordion>
         </div>
     );
@@ -1128,7 +1129,7 @@ function LocalModelConfig({ params, updateParam, isMultiTrack, capability }: Con
                     {fixedChunk ? <FormField label="Audio chunk duration"><p className="py-2 text-sm text-[var(--text-secondary)]">{fixedChunk} seconds (fixed by the model runtime)</p></FormField> : <FormField label="Audio chunk duration (seconds)" description={integrated ? "The default keeps the full recording together to preserve speaker identity. Splitting a recording can reset speaker labels between chunks." : "Leave blank for the model default. Shorter chunks use less memory but reduce the context available to the model."} optional>
                         <Input type="number" min={0} max={Number(capability.metadata?.max_chunk_duration || (integrated ? "5400" : "30"))} placeholder={`Model default: ${defaultChunk}`} value={params.audio_chunk_duration ?? ""} onChange={(event) => updateParam('audio_chunk_duration', event.target.value === "" ? null : Number(event.target.value))} className={inputClassName} />
                     </FormField>}
-                    <FormField label="Maximum generated tokens" description="Leave blank for the model default. Increase this only if a transcript is cut off before the audio ends." optional>
+                    <FormField label="Maximum generated tokens" description="Leave blank or enter 0 for Auto: a duration-based budget of at least 1,024 tokens, then one split of only an overflowing window. A nonzero value is an exact cap." optional>
                         <Input type="number" min={0} max={65536} placeholder={capability.metadata?.default_max_new_tokens || "Model default"} value={params.max_new_tokens ?? ""} onChange={(event) => updateParam('max_new_tokens', event.target.value === "" ? undefined : Number(event.target.value))} className={inputClassName} />
                     </FormField>
                 </div>

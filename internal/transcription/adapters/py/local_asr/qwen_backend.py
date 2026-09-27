@@ -9,7 +9,7 @@ import re
 import unicodedata
 from importlib.util import find_spec
 
-from backends import RecognitionError
+from backends import GenerationTokenLimitError, RecognitionError, generation_budget
 
 
 ALIGNER_REVISION = "c07281df297b9905d24a508279258cccf987a064"
@@ -55,7 +55,7 @@ def check_generation_complete(output_ids, max_tokens, eos_token_id):
         return
     eos_ids = eos_token_id if isinstance(eos_token_id, (list, tuple)) else [eos_token_id]
     if int(output_ids[0, -1]) not in eos_ids:
-        raise RecognitionError("Transcription reached max_new_tokens; increase the token limit or shorten audio chunks.")
+        raise GenerationTokenLimitError(max_tokens)
 
 
 def normalize_alignment(items, duration):
@@ -119,7 +119,7 @@ def create_backend(model_id, device, dtype, config):
                 audio=audio, language=language, prompt=context_prompt(config),
                 processor_kwargs={"audio_kwargs": {"sampling_rate": sample_rate}},
             ).to(model.device, model.dtype)
-            max_tokens = int(config.get("max_new_tokens") or 1024)
+            max_tokens = generation_budget(config, len(audio) / sample_rate)
             with torch.inference_mode():
                 outputs = model.generate(**inputs, max_new_tokens=max_tokens, do_sample=False)
             generated = outputs[:, inputs["input_ids"].shape[1]:]

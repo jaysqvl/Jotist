@@ -54,13 +54,14 @@ func NewCanaryAdapter(envPath string) *CanaryAdapter {
 			"code_switching": true,
 		},
 		Metadata: map[string]string{
-			"engine":         "nvidia_nemo",
-			"framework":      "nemo_toolkit",
-			"license":        "CC-BY-4.0",
-			"multilingual":   "true",
-			"sample_rate":    "16000",
-			"format":         "16khz_mono_wav",
-			"memory_warning": "requires_8gb_plus",
+			"engine":              "nvidia_nemo",
+			"framework":           "nemo_toolkit",
+			"license":             "CC-BY-4.0",
+			"multilingual":        "true",
+			"sample_rate":         "16000",
+			"format":              "16khz_mono_wav",
+			"memory_warning":      "requires_8gb_plus",
+			"resilience_contract": "durable_recognition_ctc_alignment",
 		},
 	}
 

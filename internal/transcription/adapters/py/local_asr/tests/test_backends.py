@@ -12,7 +12,7 @@ import numpy as np
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from backends import RecognitionError, TransformersBackend, prepare_moss_preview_inputs, to_device
+from backends import RecognitionError, TransformersBackend, generation_budget, prepare_moss_preview_inputs, to_device
 
 
 class Tensor:
@@ -30,6 +30,15 @@ def test_audio_precision_changes_without_casting_token_ids(monkeypatch):
     to_device({"input_features":audio,"input_ids":ids},"cpu","float32")
     assert audio.moves == [{"device":"cpu","dtype":"float32"}]
     assert ids.moves == [{"device":"cpu","dtype":"int64"}]
+
+
+def test_auto_generation_budget_is_generous_duration_based_and_bounded():
+    assert generation_budget({}, 1) == 1024
+    assert generation_budget({}, 30) == 1024
+    assert generation_budget({}, 600) == 7712
+    assert generation_budget({}, 600, rich=True) == 10112
+    assert generation_budget({}, 10000) == 65536
+    assert generation_budget({"max_new_tokens": 400}, 10000) == 400
 
 
 @pytest.fixture
