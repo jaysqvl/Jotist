@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.7.3](https://github.com/jaysqvl/Jotist/compare/v1.7.2...v1.7.3) (2026-09-22)
+
+- Recover a Cohere Auto decoder cutoff by splitting only the affected audio window and retrying its two parts. Explicit token limits remain fixed.
+
+Rerun an existing failed transcription to use this fix. If either shorter part still reaches the decoder limit, the run fails rather than saving incomplete text. Combined recognition stages do not checkpoint individual windows. See [recoverable transcription](https://github.com/jaysqvl/Jotist/blob/v1.7.3/docs/recoverable-transcription.md).
+
 ## [1.7.2](https://github.com/jaysqvl/Jotist/compare/v1.7.1...v1.7.2) (2026-09-22)
 
 - Restore saved CPU Canary profiles and make recovery controls easier to use.

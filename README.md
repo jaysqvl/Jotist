@@ -32,12 +32,12 @@ Local transcription processes audio on your server. Optional cloud transcription
 
 ## Run with Docker
 
-**Jotist 1.7.2** provides CPU and CUDA 12.6 container variants. It restores saved CPU Canary profiles, improves transcript and run display, and retries Cohere Auto token cutoffs within the model's decoder limit. See the [release notes](https://github.com/jaysqvl/Jotist/releases/tag/v1.7.2) for details.
+**Jotist 1.7.3** provides CPU and CUDA 12.6 container variants. It recovers a Cohere Auto decoder cutoff by retrying only the affected audio window as two shorter parts. See the [release notes](https://github.com/jaysqvl/Jotist/releases/tag/v1.7.3) for details.
 
 | Hardware | Versioned image |
 | --- | --- |
-| CPU | `ghcr.io/jaysqvl/jotist:1.7.2` |
-| CUDA 12.6-compatible NVIDIA GPU | `ghcr.io/jaysqvl/jotist:1.7.2-cuda` |
+| CPU | `ghcr.io/jaysqvl/jotist:1.7.3` |
+| CUDA 12.6-compatible NVIDIA GPU | `ghcr.io/jaysqvl/jotist:1.7.3-cuda` |
 | Blackwell / RTX 50-series | Local CUDA 13 source build only; actual inference remains unqualified |
 
 Selected CPU and CUDA 12.6 model pipelines passed prior runtime qualification, including retained-environment migration checks. Qualify the selected released image with your own data and runtimes before cutover. Blackwell source builds have dependency-resolution and native-library checks, but no actual Blackwell inference qualification; they are excluded from the default stable image publication.

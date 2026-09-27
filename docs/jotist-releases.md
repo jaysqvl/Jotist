@@ -10,8 +10,8 @@ CPU and CUDA share one container repository:
 
 | Variant | Versioned image | Stable alias |
 | --- | --- | --- |
-| CPU | `ghcr.io/jaysqvl/jotist:1.7.2` | `ghcr.io/jaysqvl/jotist:latest` |
-| CUDA 12.6 | `ghcr.io/jaysqvl/jotist:1.7.2-cuda` | `ghcr.io/jaysqvl/jotist:latest-cuda` |
+| CPU | `ghcr.io/jaysqvl/jotist:1.7.3` | `ghcr.io/jaysqvl/jotist:latest` |
+| CUDA 12.6 | `ghcr.io/jaysqvl/jotist:1.7.3-cuda` | `ghcr.io/jaysqvl/jotist:latest-cuda` |
 
 Container tags omit the Git tag's leading `v`. Builds also publish `<version><variant-suffix>-<12-character-commit>` and report a digest in the Actions summary. Use `ghcr.io/jaysqvl/jotist@sha256:...` for reproducible deployment. Confirm every selected image job finished before pulling the release.
 
