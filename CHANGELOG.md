@@ -2,11 +2,17 @@
 
 ## [1.7.4](https://github.com/jaysqvl/Jotist/compare/v1.7.3...v1.7.4) (2026-09-27)
 
+- Keep completed local ASR recognition as a durable checkpoint before word
+  alignment, and retry an isolated alignment failure once with identical
+  quality settings.
+- Pin the Cohere Transcribe and Qwen forced-aligner revisions, and preserve
+  punctuation-only recognition windows with honest coarse timing instead of
+  failing the complete meeting.
 
-### Bug Fixes
-
-* retain recognition across alignment retries ([79a63a1](https://github.com/jaysqvl/Jotist/commit/79a63a1d1bd18a365751a0da3511444d8c60ceb8))
-* retain recognition across alignment retries ([3d69913](https://github.com/jaysqvl/Jotist/commit/3d6991348804c0c354e509abe1b182535a34b063))
+Rerun a failed transcription after upgrading. A run that failed on v1.7.3 has
+no recognition checkpoint and must recognize the recording once; future
+alignment retries reuse the saved recognition result. See the
+[full changes](https://github.com/jaysqvl/Jotist/compare/v1.7.3...v1.7.4).
 
 ## [1.7.3](https://github.com/jaysqvl/Jotist/compare/v1.7.2...v1.7.3) (2026-09-22)
 
