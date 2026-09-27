@@ -2,10 +2,17 @@
 
 ## [1.7.5](https://github.com/jaysqvl/Jotist/compare/v1.7.4...v1.7.5) (2026-09-27)
 
+- Require every registered ASR and diarization adapter to declare and test its
+  durable-result and generation-completion behavior.
+- Preserve WhisperX recognition before alignment and inline speaker assignment,
+  and preserve VibeVoice BitNet recognition before word alignment.
+- Give generated local ASR models a generous duration-based Auto token budget;
+  retry or split only a truncated window. Canary-Qwen now uses the same
+  completion-aware default with bounded retries and chunk splitting.
 
-### Bug Fixes
-
-* enforce model resilience contracts ([#20](https://github.com/jaysqvl/Jotist/issues/20)) ([dd454ab](https://github.com/jaysqvl/Jotist/commit/dd454abbc27662dd833979c1f047ed4905d58d34))
+Explicit nonzero token limits remain fixed. Bounded recovery still fails rather
+than publishing an incomplete transcript. See [recoverable transcription](https://github.com/jaysqvl/Jotist/blob/v1.7.5/docs/recoverable-transcription.md)
+and [the full changes](https://github.com/jaysqvl/Jotist/compare/v1.7.4...v1.7.5).
 
 ## [1.7.4](https://github.com/jaysqvl/Jotist/compare/v1.7.3...v1.7.4) (2026-09-27)
 
