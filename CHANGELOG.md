@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.4](https://github.com/jaysqvl/Jotist/compare/v1.7.3...v1.7.4) (2026-09-27)
+
+
+### Bug Fixes
+
+* retain recognition across alignment retries ([79a63a1](https://github.com/jaysqvl/Jotist/commit/79a63a1d1bd18a365751a0da3511444d8c60ceb8))
+* retain recognition across alignment retries ([3d69913](https://github.com/jaysqvl/Jotist/commit/3d6991348804c0c354e509abe1b182535a34b063))
+
 ## [1.7.3](https://github.com/jaysqvl/Jotist/compare/v1.7.2...v1.7.3) (2026-09-22)
 
 - Recover a Cohere Auto decoder cutoff by splitting only the affected audio window and retrying its two parts. Explicit token limits remain fixed.
