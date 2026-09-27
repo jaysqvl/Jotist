@@ -338,7 +338,7 @@ export function selectTranscriptionModel<T extends CatalogSelectionParams>(param
         if (next.diarize_model === "native") next = { ...next, diarize_model: "pyannote", diarization_checkpoint: undefined };
         if (choice.family.startsWith("nvidia_")) {
             next = { ...next, language: "en", nvidia_precision: "float32", nvidia_chunk_duration: choice.family === "nvidia_parakeet" ? 300 : 40, nvidia_use_chunking: choice.family === "nvidia_canary_qwen" };
-            if (choice.family === "nvidia_canary_qwen") next = { ...next, max_new_tokens: 256, nvidia_prompt: "Transcribe the following:" };
+            if (choice.family === "nvidia_canary_qwen") next = { ...next, max_new_tokens: 0, nvidia_prompt: "Transcribe the following:" };
         }
     }
     // An explicit external speaker configuration also survives entering a model

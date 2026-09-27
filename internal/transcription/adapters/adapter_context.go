@@ -50,9 +50,15 @@ func readRuntimeMetadata(directory string) map[string]string {
 		}
 		var payload struct {
 			ResolvedDevice string `json:"resolved_device"`
+			Precision      string `json:"precision"`
 		}
-		if json.Unmarshal(data, &payload) == nil && payload.ResolvedDevice != "" {
-			result["resolved_device"] = payload.ResolvedDevice
+		if json.Unmarshal(data, &payload) == nil {
+			if payload.ResolvedDevice != "" {
+				result["resolved_device"] = payload.ResolvedDevice
+			}
+			if payload.Precision != "" {
+				result["precision"] = payload.Precision
+			}
 		}
 	}
 	return result

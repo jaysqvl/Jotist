@@ -287,33 +287,21 @@ func (v *VibeVoiceBitNetAdapter) Transcribe(ctx context.Context, input interface
 		if err := PrepareLocalASREnvironment(ctx, alignmentEnv); err != nil {
 			return nil, fmt.Errorf("prepare BitNet word alignment: %w", err)
 		}
-		transcriptPath := filepath.Join(directory, "alignment-input.json")
 		encoded, err := json.Marshal(result)
 		if err != nil {
 			return nil, err
 		}
-		if err := os.WriteFile(transcriptPath, encoded, 0600); err != nil {
-			return nil, err
-		}
-		alignedPath := filepath.Join(directory, "aligned.json")
-		cmd := processutil.CommandContext(ctx, "uv", "run", "--no-sync", "--project", alignmentEnv, "python", filepath.Join(alignmentEnv, "align_transcript.py"), "--audio", audioPath, "--transcript", transcriptPath, "--output", alignedPath, "--device", "cpu", "--precision", "float32", "--language", result.Language)
-		cmd.Env = os.Environ()
-		if token := strings.TrimSpace(v.GetStringParameter(params, "hf_token")); token != "" {
-			cmd.Env = withEnvironmentValue(cmd.Env, "HF_TOKEN", token)
-		}
-		cmd.Stdout, cmd.Stderr = log, log
-		if err := cmd.Run(); err != nil {
-			return nil, fmt.Errorf("BitNet word alignment failed: %w; see transcription log", err)
-		}
-		aligned, err := os.ReadFile(alignedPath)
+		alignmentParams := copyAdapterParameters(params)
+		alignmentParams["device"], alignmentParams["precision"] = "cpu", "float32"
+		alignmentInput := input
+		alignmentInput.FilePath = audioPath
+		aligned, err := runQwenAlignmentWorker(ctx, alignmentEnv, alignmentInput, alignmentParams, procCtx, encoded, vibeBitNetModel, v.CreateDefaultMetadata(params))
 		if err != nil {
 			return nil, err
 		}
-		if err := json.Unmarshal(aligned, result); err != nil {
-			return nil, fmt.Errorf("invalid BitNet word alignment: %w", err)
-		}
-		if len(result.WordSegments) == 0 {
-			return nil, fmt.Errorf("BitNet word alignment produced no word timestamps")
+		result, err = validateAlignedTranscript(aligned)
+		if err != nil {
+			return nil, err
 		}
 		timestampSource = "forced_alignment"
 	}

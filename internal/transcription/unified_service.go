@@ -919,10 +919,10 @@ func (u *UnifiedTranscriptionService) convertToCanaryQwenParams(params models.Wh
 		"prompt":             "Transcribe the following:",
 	}
 
-	if params.MaxNewTokens != nil && *params.MaxNewTokens > 0 {
+	if params.MaxNewTokens != nil {
 		paramMap["max_new_tokens"] = *params.MaxNewTokens
 	} else {
-		paramMap["max_new_tokens"] = 256
+		paramMap["max_new_tokens"] = 0
 	}
 
 	if params.Language != nil {
@@ -993,12 +993,13 @@ func (u *UnifiedTranscriptionService) convertToWhisperXParams(params models.Whis
 	// For WhisperX, we use the standard WhisperX parameters (no NVIDIA-specific ones)
 	paramMap := map[string]interface{}{
 		// Core parameters
-		"model":        params.Model,
-		"device":       params.Device,
-		"device_index": params.DeviceIndex,
-		"batch_size":   params.BatchSize,
-		"compute_type": params.ComputeType,
-		"threads":      params.Threads,
+		"model":            params.Model,
+		"model_cache_only": params.ModelCacheOnly,
+		"device":           params.Device,
+		"device_index":     params.DeviceIndex,
+		"batch_size":       params.BatchSize,
+		"compute_type":     params.ComputeType,
+		"threads":          params.Threads,
 
 		// Task and language
 		"task": params.Task,
@@ -1006,6 +1007,8 @@ func (u *UnifiedTranscriptionService) convertToWhisperXParams(params models.Whis
 		// Diarization
 		"diarize":       inlineDiarization,
 		"diarize_model": inlineDiarizer,
+		"align_words":   !params.NoAlign,
+		"no_align":      params.NoAlign,
 
 		// Quality settings
 		"temperature": params.Temperature,
@@ -1017,6 +1020,10 @@ func (u *UnifiedTranscriptionService) convertToWhisperXParams(params models.Whis
 		"vad_method": params.VadMethod,
 		"vad_onset":  params.VadOnset,
 		"vad_offset": params.VadOffset,
+
+		// Alignment settings
+		"interpolate_method":     nvidiaStringDefault(params.InterpolateMethod, "nearest"),
+		"return_char_alignments": params.ReturnCharAlignments,
 	}
 
 	// Handle pointer fields - only add if not nil

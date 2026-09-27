@@ -12,6 +12,11 @@ import re
 COHERE_AUTO_INITIAL_TOKENS = 768
 COHERE_AUTO_MAX_TOKENS = 1000
 COHERE_CONTEXT_RESERVE = 24
+AUTO_MIN_NEW_TOKENS = 1024
+AUTO_MAX_NEW_TOKENS = 65536
+AUTO_TOKENS_PER_SECOND = 12
+AUTO_RICH_TOKENS_PER_SECOND = 16
+AUTO_TOKEN_HEADROOM = 512
 GENERATION_TOKEN_LIMIT_MESSAGE = "Generation reached its token limit; increase max_new_tokens or shorten the audio window."
 COHERE_AUTO_LIMIT_MESSAGE = "Cohere reached its Auto output limit without an end marker; shorten chunk_duration or choose a different model."
 
@@ -42,7 +47,10 @@ def vocabulary(config):
 
 def generation_budget(config, seconds, rich=False):
     explicit = int(config.get("max_new_tokens", 0))
-    return explicit or min(65536, max(512, int(seconds * (12 if rich else 8)) + 256))
+    if explicit:
+        return explicit
+    rate = AUTO_RICH_TOKENS_PER_SECOND if rich else AUTO_TOKENS_PER_SECOND
+    return min(AUTO_MAX_NEW_TOKENS, max(AUTO_MIN_NEW_TOKENS, int(seconds * rate) + AUTO_TOKEN_HEADROOM))
 
 
 def ensure_generation_complete(ids, limit, eos_ids):
@@ -197,7 +205,7 @@ class TransformersBackend:
                 sequence_length = getattr(getattr(self.model, "config", None), "max_seq_len", None)
                 if isinstance(sequence_length, int) and sequence_length > COHERE_CONTEXT_RESERVE:
                     retry_limit = min(COHERE_AUTO_MAX_TOKENS, sequence_length - COHERE_CONTEXT_RESERVE)
-                    limit = min(retry_limit, max(COHERE_AUTO_INITIAL_TOKENS, limit, getattr(self, "_cohere_auto_budget", 0)))
+                    limit = min(retry_limit, max(COHERE_AUTO_INITIAL_TOKENS, getattr(self, "_cohere_auto_budget", 0)))
             for budget in (limit, retry_limit) if auto and retry_limit > limit else (limit,):
                 with torch.inference_mode():
                     output = self.model.generate(**inputs, max_new_tokens=budget, do_sample=False)

@@ -1,6 +1,6 @@
 # Recoverable transcription: current implementation and operations
 
-Implementation status: 2026-09-12. This guide describes recoverable transcription and Levels 1–4 in the working tree, following the [technical design](design/adaptive-transcription-pipeline.md). Real Canary CPU/GPU qualification is documented separately in [the qualification report](canary-stage-qualification.md). Production deployment remains separate.
+Implementation status: 2026-09-27. This guide describes recoverable transcription and Levels 1–4 in the working tree, following the [technical design](design/adaptive-transcription-pipeline.md). Real Canary CPU/GPU qualification is documented separately in [the qualification report](canary-stage-qualification.md). Production deployment remains separate.
 
 ## What is recoverable today
 
@@ -8,15 +8,18 @@ The normal database-backed service saves completed adapter results before a down
 
 | Boundary | Current behavior |
 | --- | --- |
-| Canary recognition | Independent checkpoint containing the original native hypotheses, cut/sample identities and partial text; the recognizer exits before alignment. |
-| Canary CTC alignment | Independent worker restores only the exact existing CTC artifact/tokenizer and consumes the selected recognition checkpoint. Failure preserves recognition. |
-| Other recognizers and requested internal alignment | One **combined adapter stage** unless the adapter declares a real split. A checkpoint exists only after that call returns successfully. |
-| Native or inline speaker processing | Part of that combined result when the recognizer runs it internally. |
+| WhisperX | Recognition, optional phoneme alignment, and optional inline Pyannote speaker assignment are separate workers and checkpoints. Alignment or speaker failure preserves the latest completed upstream result. |
+| Canary | Native recognition and CTC alignment are separate workers and checkpoints. The recognition checkpoint retains hypotheses, cut/sample identities and partial text. |
+| Local ASR catalogue and legacy Voxtral alias | All 12 catalogue entries checkpoint recognition before optional Qwen forced alignment. Granite Speech 4.1 Plus already emits native word timestamps and therefore has recognition only. |
+| VibeVoice ASR BitNet | Its CPU recognizer checkpoints before optional Qwen forced alignment. The recognizer and aligner are never resident together. |
+| Parakeet | One recognition worker emits native timestamps. Its completed result is durable, but there is no artificial second stage. |
+| Canary-Qwen | One bounded, chunked recognition worker uses completion-aware generation. Its completed result is durable; individual audio chunks are not separate checkpoints. |
+| OpenAI Whisper API | One remote request is the atomic recognition boundary. A successful response is durable; the hosted request has no internal local stage to resume. |
 | Standalone speaker diarization | An independent checkpoint after the diarizer returns; a failure here preserves an already completed recognition result. |
 | Multiple audio tracks | Separate `track-<hashed track identity>.…` nodes under the exact parent execution. Completed tracks retain their selections when the parent resumes. |
 | Preparation and final assembly | Source/prepared audio are hashed; preprocessing can run again. Final speaker assignment/assembly and publication use completed results, without a separately advertised recoverable stage. |
 
-Canary preserves its native recognition chunking, timestamp prompt and numerical policy. Its separate CTC stage starts with the recorded native chunk batch and FP32 precision. Disabling timestamps skips alignment. The recovery view chooses alignment over recognition for a track when both exist, and retains recognition if alignment fails. Distinct audio tracks are never deduplicated merely because their words match.
+Canary preserves its native recognition chunking, timestamp prompt and numerical policy. Its separate CTC stage starts with the recorded native chunk batch and FP32 precision. Disabling timestamps skips any optional alignment stage. The recovery view chooses the furthest completed stage for a track and retains recognition if a later stage fails. Distinct audio tracks are never deduplicated merely because their words match.
 
 Executions and stages have distinct identities. An attempt commits only while its exact execution generation remains authorized, uncancelled and within its saved deadline. Cancellation fences stale writers before their processes stop. A generation change alone does not authorize overlapping attempts: the previous attempt must have stopped and been terminalized.
 
@@ -33,7 +36,16 @@ Executions and stages have distinct identities. An attempt commits only while it
 
 For explicit plans, Auto resolves against the saved GPU inventory and preserves the requested starting precision. CPU fallback requires Level 3 or 4 plus per-stage permission and explicit precision; a device lock prevents it. Fixed mode executes saved concrete overrides without further adaptation. Unsupported CPU precision is rejected rather than silently converted. Models, language, prompts, vocabulary, decoding, VAD and speaker settings are not adaptive controls. Legacy Auto retains its existing GPU-to-CPU FP32 behavior; a Canary recognition fallback also keeps subsequent legacy alignment on CPU.
 
-For local Cohere recognition, `max_new_tokens=0` starts at 768 output tokens per audio window when the loaded decoder advertises enough context, and retries a token cutoff once, up to 1000 tokens or 24 below its advertised sequence length, whichever is lower. When that retry succeeds, later windows in the same run start at the higher budget. Without an advertised sequence length, the existing duration-based budget applies. If a window still reaches the decoder limit, Auto divides only that window once near a quiet midpoint and tries both parts; all audio samples are retained, and each part is aligned separately. Run metadata records how many windows needed this fallback. This is local recognition behavior, separate from the stage recovery ladder. An explicit nonzero `max_new_tokens` remains exact and never changes the audio window. If either shorter part also reaches its limit, recognition fails with the window identified rather than publishing truncated text. A combined recognition stage has no per-window checkpoint, so a failed window does not preserve earlier windows from that attempt.
+Generation completion follows an explicit contract for every adapter that exposes `max_new_tokens`:
+
+- Local generated decoders use a duration-based Auto budget of at least 1,024 output tokens when `max_new_tokens=0` and require the backend's completion marker. If an Auto window still reaches its cap, only that window is divided once near a quiet midpoint and both halves are retried. An explicit nonzero value remains exact. CTC, transducer and realtime architectures do not expose an artificial output-token cap.
+- Local Cohere starts at 768 output tokens per audio window when the decoder advertises enough context and retries a cutoff once, up to 1000 tokens or 24 below its advertised sequence length. If it still reaches the limit, Auto divides only that window once near a quiet midpoint and tries both parts. All samples are retained and each part is aligned separately.
+- Canary-Qwen Auto uses audio duration to choose 512–2048 tokens per chunk. A missing EOS marker triggers a larger retry and then bounded recursive splitting of only the affected chunk. A nonzero value is an exact cap and fails closed on truncation.
+- VibeVoice BitNet uses its generous 16,384-token context budget and requires the patched native end marker before accepting output.
+
+These generation rules are separate from the durable stage ladder. No adapter currently checkpoints each recognition window or chunk, so a recognition failure reruns that recognition stage. A decoder that exhausts its bounded recovery fails instead of publishing partial text.
+
+The server registration test asserts the exact production ASR and diarization adapter IDs. Every registered adapter must publish a resilience contract, every declared stage must be recoverable and versioned, and every adapter exposing `max_new_tokens` must publish a generation-completion policy. Adding, removing or replacing a registered model without updating and satisfying that matrix fails the test suite.
 
 The current scheduler admits one Scriberr GPU operation at a time, conservatively across all GPU ordinals. Queue workers, quick processing, track children and runtime preparation use that admission path. External applications remain outside this lock. Before launch, low measured headroom causes a bounded wait: the reserve is at least 1 GiB or 15% of capacity. CPU admission also checks host/cgroup headroom when available. Unavailable readings remain unknown and never create a fit guarantee.
 

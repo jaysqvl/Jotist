@@ -26,7 +26,7 @@
       "advisory_ids": ["GHSA-8mgp-746c-j5xp", "PYSEC-2026-3740"],
       "adapters": ["whisperx"],
       "review_by": "2026-10-13",
-      "reason": "The package advisory remains unpatched. Its affected TransitionParser/Perceptron/MaxEnt model import/export APIs are not used by the reviewed WhisperX caller. Alignment chooses a Punkt resource via a fixed language-name map, and installed NLTK routes that resource to pickle-free table loading. This is a caller-specific exception, not a global NLTK suppression; the listed installed source and actual materialized application caller must match their reviewed hashes.",
+      "reason": "The package advisory remains unpatched. Its affected TransitionParser/Perceptron/MaxEnt model import/export APIs are not used by the reviewed WhisperX callers. Alignment chooses a Punkt resource via a fixed language-name map, and installed NLTK routes that resource to pickle-free table loading. The recognition wrapper only records resolved runtime metadata, while the stage wrapper invokes the same fixed WhisperX alignment API with a saved transcript. This is a caller-specific exception, not a global NLTK suppression; the listed installed source and actual materialized application callers must match their reviewed hashes.",
       "references": ["https://github.com/advisories/GHSA-8mgp-746c-j5xp"],
       "source_sha256": {
         "whisperx/alignment.py": "346ac19053bd841bed1162b861d2d89efc0fe3aafc83b2493fb487fbc29c6239",
@@ -37,7 +37,8 @@
         "whisperx/transcribe.py": "4be80d8db4fe870d017cfc3fcc0b8a045640d739100dc05afaa32d6d4ad9c873"
       },
       "caller_sha256": {
-        "whisperx_run.py": "13e718521fd049202874a388561ac7c691c244aa199eeb5a5b37adbe6dda4a7f"
+        "whisperx_run.py": "a9c9156f25e83e2ce935e7642db4d6873af634fa082d11bdc6414d7be0231be3",
+        "whisperx_stage.py": "2c77c30d2ca71845184ff3ab4d51338163502d2a2f205d7efdf7c7f292447b33"
       }
     },
     {
@@ -61,7 +62,7 @@
         "nltk/tokenize/punkt.py": "b85d1b51d1357d8c56d9739cb3d7975837ad12721c3702fae6facb47eb583b48"
       },
       "caller_sha256": {
-        "canary_qwen_transcribe.py": "608c7bea8cf10cf52ab2bb812d9d2d02a24737a4c8342a9f276f5618d86aeaed"
+        "canary_qwen_transcribe.py": "a02679a3f0a7d678a97be50d8ee241f20c45a7acdca6b5852b0381c7c4c806c0"
       }
     }
   ]

@@ -30,7 +30,7 @@ func recoveryStageKey(kind string) string {
 		return "recognition"
 	case "align", "alignment":
 		return "alignment"
-	case "diarize", "diarization":
+	case "diarize", "diarization", "speaker_assignment":
 		return "diarization"
 	}
 	return kind

@@ -47,12 +47,13 @@ func NewPyAnnoteAdapter(envPath string) *PyAnnoteAdapter {
 			"flexible_speakers":   true,
 		},
 		Metadata: map[string]string{
-			"engine":    "pyannote_audio",
-			"framework": "pytorch",
-			"license":   "CC-BY-4.0",
-			"model_id":  "pyannote/speaker-diarization-community-1",
-			"requires":  "huggingface_token",
-			"model_hub": "huggingface",
+			"engine":              "pyannote_audio",
+			"framework":           "pytorch",
+			"license":             "CC-BY-4.0",
+			"model_id":            "pyannote/speaker-diarization-community-1",
+			"requires":            "huggingface_token",
+			"model_hub":           "huggingface",
+			"resilience_contract": "atomic_diarization_stage",
 		},
 	}
 

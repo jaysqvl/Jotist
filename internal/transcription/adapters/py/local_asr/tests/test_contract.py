@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from backends import CohereAutoTokenLimitError, RecognitionError, ensure_generation_complete, parse_granite_timestamps, parse_moss, vocabulary
+from backends import CohereAutoTokenLimitError, GenerationTokenLimitError, RecognitionError, ensure_generation_complete, parse_granite_timestamps, parse_moss, vocabulary
 import transcribe
 from qwen_backend import ALIGNER_REVISION, context_prompt, has_alignable_text, normalize_alignment
 
@@ -272,9 +272,25 @@ def test_cohere_auto_decoder_cutoff_splits_only_failed_window(monkeypatch, tmp_p
     assert len(calls) == 3 and calls[0] == sum(calls[1:]) == 30 * 16000
     assert result["text"] == "part 2 part 3"
     assert result["metadata"]["chunk_count"] == "2"
+    assert result["metadata"]["auto_token_split_windows"] == "1"
     assert result["metadata"]["cohere_auto_split_windows"] == "1"
     assert [(part["start"], part["end"]) for part in result["segments"]] == [
         (0.0, result["segments"][0]["end"]), (result["segments"][0]["end"], 30.0)]
+
+
+def test_every_generated_backend_can_split_an_auto_cutoff(monkeypatch, tmp_path):
+    def response(length, call):
+        if length > 20 * 16000:
+            raise GenerationTokenLimitError(1024)
+        return {"text": f"part {call}", "language": "en"}
+
+    config, calls = cohere_cutoff_pipeline(monkeypatch, tmp_path, response)
+    config["engine"] = "granite"
+    result = transcribe.execute(config)
+    assert len(calls) == 3 and calls[0] == sum(calls[1:]) == 30 * 16000
+    assert result["text"] == "part 2 part 3"
+    assert result["metadata"]["auto_token_split_windows"] == "1"
+    assert "cohere_auto_split_windows" not in result["metadata"]
 
 
 def test_cohere_auto_split_is_bounded_and_explicit_budget_stays_fixed(monkeypatch, tmp_path):

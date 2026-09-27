@@ -46,8 +46,9 @@ func NewOpenAIAdapter(apiKey string) *OpenAIAdapter {
 			"vad":                true, // Implicit
 		},
 		Metadata: map[string]string{
-			"provider": "openai",
-			"api_url":  "https://api.openai.com/v1/audio/transcriptions",
+			"provider":            "openai",
+			"api_url":             "https://api.openai.com/v1/audio/transcriptions",
+			"resilience_contract": "atomic_remote_request",
 		},
 	}
 

@@ -43,13 +43,14 @@ func NewSortformerAdapter(envPath string) *SortformerAdapter {
 			"no_token_required":    true,
 		},
 		Metadata: map[string]string{
-			"engine":       "nvidia_nemo",
-			"framework":    "nemo_toolkit",
-			"license":      "NVIDIA-Open-Model-License",
-			"optimization": "4_speakers",
-			"sample_rate":  "16000",
-			"format":       "16khz_mono_wav",
-			"no_auth":      "true",
+			"engine":              "nvidia_nemo",
+			"framework":           "nemo_toolkit",
+			"license":             "NVIDIA-Open-Model-License",
+			"optimization":        "4_speakers",
+			"sample_rate":         "16000",
+			"format":              "16khz_mono_wav",
+			"no_auth":             "true",
+			"resilience_contract": "atomic_diarization_stage",
 		},
 	}
 

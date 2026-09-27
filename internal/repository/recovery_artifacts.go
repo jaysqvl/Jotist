@@ -81,7 +81,7 @@ func validateCheckpointPayload(kind string, duration float64, payload []byte) ([
 			return nil, fmt.Errorf("%w: invalid result metadata", ErrRecoveryCorrupt)
 		}
 		safe := map[string]string{}
-		for _, key := range []string{"actual_batch_size", "actual_window_seconds", "learned_plan_id", "alignment_device", "alignment_precision", "alignment_batch_size", "alignment_window_seconds", "aligner_revision", "recognition_device", "recognition_precision", "resolved_device", "precision", "timestamp_source", "speaker_scope", "duration_seconds", "chunk_count", "model_revision", "context_mode", "diarization_model", "diarization_device", "model_id", "framework", "version", "asr_device_fallback", "diarization_device_fallback", "asr_fallback_reason", "diarization_fallback_reason"} {
+		for _, key := range []string{"actual_batch_size", "actual_window_seconds", "learned_plan_id", "alignment_device", "alignment_precision", "alignment_batch_size", "alignment_window_seconds", "aligner_revision", "recognition_device", "recognition_precision", "resolved_device", "precision", "timestamp_source", "speaker_source", "speaker_scope", "duration_seconds", "chunk_count", "model_revision", "context_mode", "diarization_model", "diarization_device", "diarization_precision", "model_id", "framework", "version", "token_budget_mode", "max_token_budget_used", "token_retries", "token_splits", "auto_token_split_windows", "cohere_auto_split_windows", "asr_device_fallback", "diarization_device_fallback", "asr_fallback_reason", "diarization_fallback_reason"} {
 			if value, exists := metadata[key]; exists {
 				safe[key] = value
 			}

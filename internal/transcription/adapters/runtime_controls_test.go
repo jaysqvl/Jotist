@@ -60,7 +60,7 @@ exit 6
 
 func TestWhisperXContextAndDiarizationArguments(t *testing.T) {
 	adapter := NewWhisperXAdapter(t.TempDir())
-	params := map[string]interface{}{"device": "cpu", "diarize": true, "initial_prompt": "Legacy terminology.", "context": "Engineering planning", "context_terms": "PostgreSQL\nKubernetes", "condition_on_previous_text": true}
+	params := map[string]interface{}{"device": "cpu", "diarize": true, "initial_prompt": "Legacy terminology.", "context": "Engineering planning", "context_terms": "PostgreSQL\nKubernetes", "condition_on_previous_text": true, "no_align": true, "interpolate_method": "linear", "return_char_alignments": true, "model_cache_only": true, "model_dir": "/models"}
 	args, err := adapter.buildWhisperXArgs(interfaces.AudioInput{FilePath: "/tmp/meeting.wav"}, params, t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -72,6 +72,11 @@ func TestWhisperXContextAndDiarizationArguments(t *testing.T) {
 	}
 	assertArgValue(t, args, "--diarize_model", "pyannote/speaker-diarization-community-1")
 	assertArgValue(t, args, "--device", "cpu")
+	assertArgValue(t, args, "--interpolate_method", "linear")
+	assertArgValue(t, args, "--model_cache_only", "True")
+	assertArgValue(t, args, "--model_dir", "/models")
+	assertContainsArg(t, args, "--no_align")
+	assertContainsArg(t, args, "--return_char_alignments")
 	if !strings.Contains(strings.Join(args, " "), "python -I ") {
 		t.Fatal("legacy WhisperX source checkout must not shadow the pinned installed package")
 	}
@@ -183,12 +188,27 @@ func TestResearchDiarizationPreservesOverlapAndLicense(t *testing.T) {
 
 func TestResolvedDeviceMetadataSurvivesRequestDefaults(t *testing.T) {
 	directory := t.TempDir()
-	if err := os.WriteFile(filepath.Join(directory, "result.json"), []byte(`{"resolved_device":"cpu"}`), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(directory, "result.json"), []byte(`{"resolved_device":"cpu","precision":"float32"}`), 0600); err != nil {
 		t.Fatal(err)
 	}
 	metadata := mergeRuntimeMetadata(map[string]string{"device": "auto"}, readRuntimeMetadata(directory))
-	if metadata["resolved_device"] != "cpu" || metadata["device"] != "auto" {
-		t.Fatal("actual device metadata lost")
+	if metadata["resolved_device"] != "cpu" || metadata["precision"] != "float32" || metadata["device"] != "auto" {
+		t.Fatal("actual runtime metadata lost")
+	}
+}
+
+func TestWhisperXParseResultPreservesActualRuntimePrecision(t *testing.T) {
+	directory := t.TempDir()
+	data := `{"resolved_device":"cpu","precision":"float32","language":"en","segments":[{"start":0,"end":1,"text":"hello"}]}`
+	if err := os.WriteFile(filepath.Join(directory, "result.json"), []byte(data), 0600); err != nil {
+		t.Fatal(err)
+	}
+	result, err := NewWhisperXAdapter(t.TempDir()).parseResult(directory, interfaces.AudioInput{}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Metadata["resolved_device"] != "cpu" || result.Metadata["precision"] != "float32" {
+		t.Fatalf("actual WhisperX runtime metadata lost: %#v", result.Metadata)
 	}
 }
 

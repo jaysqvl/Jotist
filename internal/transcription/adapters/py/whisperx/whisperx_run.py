@@ -38,8 +38,8 @@ def main():
 
     requested = sys.argv[device_index]
     device = resolve_device(requested, torch.cuda.is_available())
-    if requested == "auto" and device == "cpu" and "--compute_type" in sys.argv:
-        precision_index = sys.argv.index("--compute_type") + 1
+    precision_index = sys.argv.index("--compute_type") + 1 if "--compute_type" in sys.argv else None
+    if requested == "auto" and device == "cpu" and precision_index is not None:
         if sys.argv[precision_index] in {"float16", "bfloat16", "int8_float16"}:
             sys.argv[precision_index] = "float32"
     sys.argv[device_index] = device
@@ -51,6 +51,8 @@ def main():
         data = json.loads(path.read_text())
         if "segments" in data:
             data["resolved_device"] = device
+            if precision_index is not None:
+                data["precision"] = sys.argv[precision_index]
             path.write_text(json.dumps(data, ensure_ascii=False))
 
 

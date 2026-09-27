@@ -207,6 +207,35 @@ func TestStagedTranscriptionDisablingTimestampsSkipsAlignmentBoundary(t *testing
 	require.Empty(t, result.WordSegments, "disabled timestamp alignment does not invent word timings")
 }
 
+func TestStagedTranscriptionRunsOptionalInlineDiarizationOnlyWhenRequested(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		t.Run(map[bool]string{false: "disabled", true: "enabled"}[enabled], func(t *testing.T) {
+			f := newStageTestFixture(t)
+			r := f.execution(t, RecoveryFixed, true)
+			adapter := newStagedOrchestrationAdapter(t)
+			adapter.descriptors = append(adapter.descriptors, interfaces.StageDescriptor{Kind: "speaker_assignment", SchemaVersion: "1", ImplementationVersion: "synthetic-diarization-v1", Recoverable: true, DevicePrecisions: map[string][]string{"cpu": {"float32"}}, ModelArtifacts: map[string]string{"synthetic-diarizer": strings.Repeat("c", 40)}})
+			params := stageTestParams()
+			params["timestamps"], params["diarize"] = true, enabled
+			var calls []string
+			adapter.onStage = func(desc interfaces.StageDescriptor, _ map[string]interface{}, upstream []byte) ([]byte, error) {
+				calls = append(calls, desc.Kind)
+				if desc.Kind == "recognition" {
+					return syntheticRecognitionState(t), nil
+				}
+				require.NotEmpty(t, upstream)
+				return json.Marshal(stageTestTranscript("Synthetic parseHTTP words."))
+			}
+			_, _, err := runRecoverableTranscription(context.Background(), r, adapter, f.input, params, f.proc)
+			require.NoError(t, err)
+			if enabled {
+				require.Equal(t, []string{"recognition", "alignment", "speaker_assignment"}, calls)
+			} else {
+				require.Equal(t, []string{"recognition", "alignment"}, calls)
+			}
+		})
+	}
+}
+
 func TestStagedTranscriptionWithoutCheckpointStoreKeepsCombinedAdapterContract(t *testing.T) {
 	adapter := newStagedOrchestrationAdapter(t)
 	adapter.onStage = func(interfaces.StageDescriptor, map[string]interface{}, []byte) ([]byte, error) {

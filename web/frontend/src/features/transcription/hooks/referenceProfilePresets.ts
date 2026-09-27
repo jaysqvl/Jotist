@@ -161,7 +161,7 @@ export const REFERENCE_PROFILE_VALUES = [
         "nvidia_precision": "bfloat16",
         "nvidia_use_chunking": true,
         "is_multi_track_enabled": false,
-        "max_new_tokens": 256
+        "max_new_tokens": 0
     },
     {
         "name": "CPU-CANARYQWEN-SORTFORMER",
@@ -215,7 +215,7 @@ export const REFERENCE_PROFILE_VALUES = [
         "nvidia_precision": "bfloat16",
         "nvidia_use_chunking": true,
         "is_multi_track_enabled": false,
-        "max_new_tokens": 256
+        "max_new_tokens": 0
     },
     {
         "name": "CPU-WHISPER-LARGE-PYANNOTE",

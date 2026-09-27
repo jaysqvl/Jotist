@@ -6,6 +6,7 @@ import importlib.util
 import contextlib
 import io
 import json
+import math
 import os
 from pathlib import Path
 import runpy
@@ -192,7 +193,7 @@ class RuntimeControls(unittest.TestCase):
         self.assertEqual(original["segmentation"]["threshold"], 0.5)
 
     def test_cpu_fence_precedes_ml_imports(self):
-        for relative in ("nvidia/canary_transcribe.py", "nvidia/canary_qwen_transcribe.py", "nvidia/parakeet_transcribe.py", "nvidia/parakeet_transcribe_buffered.py", "nvidia/sortformer_diarize.py", "pyannote/pyannote_diarize.py"):
+        for relative in ("nvidia/canary_transcribe.py", "nvidia/canary_qwen_transcribe.py", "nvidia/parakeet_transcribe.py", "nvidia/parakeet_transcribe_buffered.py", "nvidia/sortformer_diarize.py", "pyannote/pyannote_diarize.py", "whisperx/whisperx_stage.py"):
             source = (ROOT / relative).read_text()
             tree = ast.parse(source)
             fence = next(node for node in tree.body if isinstance(node, ast.If) and "CUDA_VISIBLE_DEVICES" in ast.get_source_segment(source, node))
@@ -243,6 +244,64 @@ class RuntimeControls(unittest.TestCase):
         self.assertIn("Kubernetes", prompt)
         self.assertEqual(prompt.count("<audio>"), 1)
         self.assertIn("Do not include these notes or invent speech", prompt)
+
+    def test_canary_qwen_auto_budget_is_duration_based_and_requires_eos(self):
+        namespace = {
+            "List": list,
+            "math": math,
+            "AUTO_MIN_NEW_TOKENS": 512,
+            "AUTO_MAX_NEW_TOKENS": 2048,
+            "AUTO_TOKENS_PER_SECOND": 12,
+            "AUTO_TOKEN_HEADROOM": 256,
+        }
+        token_ids = load_function("nvidia/canary_qwen_transcribe.py", "token_ids", namespace)
+        completed = load_function("nvidia/canary_qwen_transcribe.py", "generation_completed", namespace)
+        budget = load_function("nvidia/canary_qwen_transcribe.py", "auto_token_budget", namespace)
+        self.assertEqual(budget(1), 512)
+        self.assertEqual(budget(40), 736)
+        self.assertEqual(budget(600), 2048)
+        self.assertEqual(token_ids([[10, 11, 12]]), [10, 11, 12])
+        self.assertTrue(completed([10, 99, 12], 99))
+        self.assertFalse(completed([10, 11, 12], 99))
+
+    def test_canary_qwen_auto_budget_retries_until_eos(self):
+        namespace = {
+            "List": list,
+            "math": math,
+            "AUTO_MIN_NEW_TOKENS": 512,
+            "AUTO_MAX_NEW_TOKENS": 2048,
+            "AUTO_TOKENS_PER_SECOND": 12,
+            "AUTO_TOKEN_HEADROOM": 256,
+            "AUTO_MAX_SPLIT_DEPTH": 2,
+        }
+        for name in ("token_ids", "generation_completed", "auto_token_budget", "generation_prompt"):
+            load_function("nvidia/canary_qwen_transcribe.py", name, namespace)
+        namespace["decode_answer"] = lambda _model, _answer: "complete transcript"
+        namespace["split_chunk"] = lambda *_args: self.fail("a completed retry must not split audio")
+        generate = load_function("nvidia/canary_qwen_transcribe.py", "generate_complete_chunk", namespace)
+
+        class Model:
+            text_eos_id = 99
+            limits = []
+
+            def generate(self, prompts, max_new_tokens):
+                self.limits.append(max_new_tokens)
+                return [[1, 2] if len(self.limits) == 1 else [1, 99]]
+
+        model = Model()
+        stats = {"max_token_budget_used": 0, "token_retries": 0, "token_splits": 0}
+        result = generate(model, {"path": "chunk.wav", "start": 0.0, "end": 40.0}, "prompt", "/tmp", stats)
+        self.assertEqual(model.limits, [736, 1472])
+        self.assertEqual(result[0][1], "complete transcript")
+        self.assertEqual(stats, {"max_token_budget_used": 1472, "token_retries": 1, "token_splits": 0})
+
+    def test_whisperx_stage_failure_is_structured_and_safe(self):
+        module = load_module("whisperx/whisperx_stage.py")
+        failure = module.safe_failure(ValueError("private transcript text"), "alignment", "cpu")
+        self.assertEqual(failure["diagnostic_code"], "runtime_alignment_error")
+        self.assertEqual(failure["exception_class"], "ValueError")
+        self.assertEqual(failure["phase"], "alignment")
+        self.assertNotIn("private transcript text", json.dumps(failure))
 
 
 if __name__ == "__main__":

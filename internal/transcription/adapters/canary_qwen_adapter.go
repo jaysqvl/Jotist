@@ -44,15 +44,18 @@ func NewCanaryQwenAdapter(envPath string) *CanaryQwenAdapter {
 			"llm_postprocess": true,
 		},
 		Metadata: map[string]string{
-			"engine":             "nvidia_nemo",
-			"framework":          "speechlm2_salm",
-			"license":            "CC-BY-4.0",
-			"model_id":           "nvidia/canary-qwen-2.5b",
-			"language":           "english_only",
-			"sample_rate":        "16000",
-			"format":             "16khz_mono_wav",
-			"no_word_timestamps": "true",
-			"chunk_recommended":  "40",
+			"engine":                       "nvidia_nemo",
+			"framework":                    "speechlm2_salm",
+			"license":                      "CC-BY-4.0",
+			"model_id":                     "nvidia/canary-qwen-2.5b",
+			"language":                     "english_only",
+			"sample_rate":                  "16000",
+			"format":                       "16khz_mono_wav",
+			"no_word_timestamps":           "true",
+			"chunk_recommended":            "40",
+			"default_max_new_tokens":       "0",
+			"generation_completion_policy": "auto_duration_budget_retry_split_eos_required",
+			"resilience_contract":          "bounded_chunk_recognition_fail_closed",
 		},
 	}
 
@@ -115,10 +118,10 @@ func NewCanaryQwenAdapter(envPath string) *CanaryQwenAdapter {
 			Name:        "max_new_tokens",
 			Type:        "int",
 			Required:    false,
-			Default:     256,
-			Min:         &[]float64{64}[0],
+			Default:     0,
+			Min:         &[]float64{0}[0],
 			Max:         &[]float64{2048}[0],
-			Description: "Maximum generated tokens per chunk",
+			Description: "Output tokens per chunk; zero chooses a duration-based budget, retries once, then splits a truncated chunk",
 			Group:       "advanced",
 		},
 		{
@@ -320,7 +323,9 @@ func (c *CanaryQwenAdapter) Transcribe(ctx context.Context, input interfaces.Aud
 
 	result.ProcessingTime = time.Since(startTime)
 	result.ModelUsed = "nvidia/canary-qwen-2.5b"
+	workerMetadata := result.Metadata
 	result.Metadata = mergeRuntimeMetadata(c.CreateDefaultMetadata(params), readRuntimeMetadata(tempDir))
+	result.Metadata = mergeRuntimeMetadata(result.Metadata, workerMetadata)
 
 	logger.Info("Canary-Qwen transcription completed",
 		"segments", len(result.Segments),
@@ -373,9 +378,13 @@ func (c *CanaryQwenAdapter) parseCanaryQwenResult(tempDir string) (*interfaces.T
 	}
 
 	var canaryQwenResult struct {
-		Text     string `json:"text"`
-		Language string `json:"language"`
-		Segments []struct {
+		Text               string `json:"text"`
+		Language           string `json:"language"`
+		TokenBudgetMode    string `json:"token_budget_mode"`
+		MaxTokenBudgetUsed int    `json:"max_token_budget_used"`
+		TokenRetries       int    `json:"token_retries"`
+		TokenSplits        int    `json:"token_splits"`
+		Segments           []struct {
 			Start float64 `json:"start"`
 			End   float64 `json:"end"`
 			Text  string  `json:"text"`
@@ -392,6 +401,14 @@ func (c *CanaryQwenAdapter) parseCanaryQwenResult(tempDir string) (*interfaces.T
 		Segments:     make([]interfaces.TranscriptSegment, len(canaryQwenResult.Segments)),
 		WordSegments: nil,
 		Confidence:   0.0,
+	}
+	if canaryQwenResult.TokenBudgetMode != "" {
+		result.Metadata = map[string]string{
+			"token_budget_mode":     canaryQwenResult.TokenBudgetMode,
+			"max_token_budget_used": strconv.Itoa(canaryQwenResult.MaxTokenBudgetUsed),
+			"token_retries":         strconv.Itoa(canaryQwenResult.TokenRetries),
+			"token_splits":          strconv.Itoa(canaryQwenResult.TokenSplits),
+		}
 	}
 
 	for i, seg := range canaryQwenResult.Segments {

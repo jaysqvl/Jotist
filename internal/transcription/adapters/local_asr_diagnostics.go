@@ -78,7 +78,7 @@ func localASRWorkerDiagnostic(data []byte, cause error) (error, map[string]strin
 	if oneOf(failure.Class, "RecognitionError", "RuntimeError", "ValueError", "TypeError", "AttributeError", "KeyError", "IndexError", "ImportError", "ModuleNotFoundError", "OSError", "FileNotFoundError", "PermissionError", "MemoryError", "GatedRepoError", "RepositoryNotFoundError", "HfHubHTTPError", "ModelError") {
 		fields["exception_class"] = failure.Class
 	}
-	if oneOf(failure.Phase, "configuration", "runtime_initialization", "audio_decode", "model_loading", "recognition", "alignment", "output_validation") {
+	if oneOf(failure.Phase, "configuration", "runtime_initialization", "audio_decode", "model_loading", "recognition", "alignment", "diarization", "output_validation") {
 		fields["phase"] = failure.Phase
 	}
 	if oneOf(failure.Device, "cpu", "cuda") {

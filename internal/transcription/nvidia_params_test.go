@@ -110,8 +110,8 @@ func TestConvertToCanaryQwenParamsUsesSafeDefaults(t *testing.T) {
 	if paramMap["device"] != "auto" {
 		t.Fatalf("expected device auto, got %v", paramMap["device"])
 	}
-	if paramMap["max_new_tokens"] != 256 {
-		t.Fatalf("expected max_new_tokens 256, got %v", paramMap["max_new_tokens"])
+	if paramMap["max_new_tokens"] != 0 {
+		t.Fatalf("expected max_new_tokens Auto (0), got %v", paramMap["max_new_tokens"])
 	}
 }
 

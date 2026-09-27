@@ -67,7 +67,7 @@ func newResearchDiarizationAdapter(envPath, engine, displayName, defaultModel st
 		Version:     "1.0.0", SupportedLanguages: []string{"*"}, SupportedFormats: []string{"wav", "flac", "mp3", "m4a", "ogg"},
 		RequiresGPU: false, MemoryRequirement: 4096,
 		Features: map[string]bool{"speaker_detection": true, "speaker_constraints": true, "flexible_speakers": true},
-		Metadata: map[string]string{"engine": engine, "framework": "pytorch", "license": "CC-BY-NC-4.0", "commercial_use": "false", "optional_install": "true", "experimental": "true", "cpu_support": "unbenchmarked", "model_id": defaultModel},
+		Metadata: map[string]string{"engine": engine, "framework": "pytorch", "license": "CC-BY-NC-4.0", "commercial_use": "false", "optional_install": "true", "experimental": "true", "cpu_support": "unbenchmarked", "model_id": defaultModel, "resilience_contract": "atomic_diarization_stage"},
 	}
 	if engine == "diarizen" {
 		capabilities.Metadata["cpu_support"] = "upstream_supported"
