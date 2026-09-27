@@ -129,16 +129,32 @@ func stageFailureCode(ctx context.Context, err error, procCtx interfaces.Process
 	if errors.Is(ctx.Err(), context.Canceled) || errors.Is(err, context.Canceled) {
 		return "cancelled"
 	}
+	if diagnostic, ok := interfaces.RuntimeDiagnostic(err); ok && diagnostic.Code() == "runtime_alignment_error" {
+		return diagnostic.Code()
+	}
 	var gpuError *interfaces.GPUExecutionError
 	var resourceError *interfaces.ResourceExecutionError
-	if errors.As(err,&resourceError)&&resourceError.Kind=="host_out_of_memory"{return resourceError.Kind}
+	if errors.As(err, &resourceError) && resourceError.Kind == "host_out_of_memory" {
+		return resourceError.Kind
+	}
 	if errors.As(err, &gpuError) && (gpuError.Kind == "cuda_out_of_memory" || gpuError.Kind == "cuda_runtime_error") {
 		return gpuError.Kind
 	}
 	if kind := structuredGPUFailure(attemptLogTail(procCtx.OutputDirectory, offset)); kind != "" {
 		return kind
 	}
-	for _,line:=range strings.Split(attemptLogTail(procCtx.OutputDirectory,offset),"\n") {if !strings.HasPrefix(line,"SCRIBERR_HOST_FAILURE="){continue};var failure struct{Device string `json:"device"`;Kind string `json:"kind"`};if json.Unmarshal([]byte(strings.TrimPrefix(line,"SCRIBERR_HOST_FAILURE=")),&failure)==nil&&failure.Device=="cpu"&&failure.Kind=="host_out_of_memory"{return failure.Kind}}
+	for _, line := range strings.Split(attemptLogTail(procCtx.OutputDirectory, offset), "\n") {
+		if !strings.HasPrefix(line, "SCRIBERR_HOST_FAILURE=") {
+			continue
+		}
+		var failure struct {
+			Device string `json:"device"`
+			Kind   string `json:"kind"`
+		}
+		if json.Unmarshal([]byte(strings.TrimPrefix(line, "SCRIBERR_HOST_FAILURE=")), &failure) == nil && failure.Device == "cpu" && failure.Kind == "host_out_of_memory" {
+			return failure.Kind
+		}
+	}
 	return "adapter_failed"
 }
 

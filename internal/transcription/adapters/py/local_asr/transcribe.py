@@ -224,20 +224,31 @@ def execute(config):
     aligner = None
     config["_diagnostic_phase"] = "alignment"
     try:
-        if config.get("align_words", not config.get("native_timestamps")) and any(c.get("text", "").strip() and not c.get("word_segments") for c in chunks):
-            from qwen_backend import create_aligner, validate_alignment_language
+        from qwen_backend import create_aligner, has_alignable_text, validate_alignment_language
+        if config.get("align_words", not config.get("native_timestamps")):
             for chunk in chunks:
-                if chunk.get("text", "").strip() and not chunk.get("word_segments"):
+                if chunk.get("text", "").strip() and not chunk.get("word_segments") and has_alignable_text(chunk.get("text")):
                     validate_alignment_language(chunk.get("language") or config.get("language", "en"))
-            aligner = model_call(config, device, create_aligner, device, dtype, config)
+            if any(c.get("text", "").strip() and not c.get("word_segments") and has_alignable_text(c.get("text")) for c in chunks):
+                aligner = model_call(config, device, create_aligner, device, dtype, config)
         for chunk in chunks:
-            if aligner is not None and chunk.get("text", "").strip() and not chunk.get("word_segments"):
+            chunk_text = chunk.get("text", "").strip()
+            if chunk_text and not chunk.get("word_segments") and not has_alignable_text(chunk_text):
+                # Some recognizers emit punctuation-only windows. Qwen creates
+                # no timestamp tokens for them, so retain their honest coarse
+                # audio bounds without treating the entire meeting as failed.
+                chunk["timestamp_source"] = "audio_window_bounds_nonlexical"
+                continue
+            if aligner is not None and chunk_text and not chunk.get("word_segments"):
                 sample = audio[chunk["start_sample"]:chunk["end_sample"]]
                 # Align each native speaker segment separately to retain native
                 # speaker attribution while bounding the aligner's input size.
                 if chunk.get("segments"):
-                    words = []
+                    words, nonlexical_segments = [], []
                     for segment in chunk["segments"]:
+                        if not has_alignable_text(segment.get("text")):
+                            nonlexical_segments.append(dict(segment))
+                            continue
                         segment_start = max(0, int(segment["start"] * sr))
                         segment_end = min(len(sample), int(segment["end"] * sr))
                         aligned = model_call(config, device, aligner.align, sample[segment_start:segment_end], segment["text"], chunk.get("language", config.get("language", "en")), sr)
@@ -247,12 +258,14 @@ def execute(config):
                             if segment.get("speaker"):
                                 word["speaker"] = segment["speaker"]
                         words.extend(aligned)
+                    if nonlexical_segments:
+                        chunk["nonlexical_segments"] = nonlexical_segments
                 else:
                     words = model_call(config, device, aligner.align, sample, chunk["text"], chunk.get("language", config.get("language", "en")), sr)
-                if not words:
+                if not words and not chunk.get("nonlexical_segments"):
                     raise RecognitionError("Forced alignment returned no words for a nonempty transcript.")
                 chunk["word_segments"] = words
-                chunk["timestamp_source"] = "qwen3_forced_alignment"
+                chunk["timestamp_source"] = ",".join(filter(None, ["qwen3_forced_alignment" if words else "", "audio_window_bounds_nonlexical" if chunk.get("nonlexical_segments") else ""]))
     finally:
         del aligner
         gc.collect()
@@ -273,14 +286,15 @@ def execute(config):
         if chunk_words:
             if chunk_segments:
                 assign_native_speakers(chunk_words, chunk_segments)
-            chunk_segments = word_segments(chunk_words)
-            sources.add(chunk.get("timestamp_source", "native_word_timestamps"))
+            chunk_segments = word_segments(chunk_words) + chunk.get("nonlexical_segments", [])
+            chunk_segments.sort(key=lambda item: (item["start"], item["end"]))
+            sources.update(chunk.get("timestamp_source", "native_word_timestamps").split(","))
         elif chunk_segments:
             sources.add(chunk.get("timestamp_source", "native_segments"))
         else:
             # Honest coarse bounds only when alignment is explicitly disabled.
             chunk_segments = [{"start":0.0, "end":chunk_duration, "text":text}]
-            sources.add("audio_window_bounds_unaligned")
+            sources.add(chunk.get("timestamp_source", "audio_window_bounds_unaligned"))
         for item in chunk_words:
             words.append({**item, "start":item["start"] + offset, "end":item["end"] + offset})
         for item in chunk_segments:

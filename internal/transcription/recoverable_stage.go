@@ -380,8 +380,8 @@ func safeOrOriginalStageError(node, code string, err error) error {
 	if code == "" {
 		return err
 	}
-	if code == "adapter_failed" {
-		if diagnostic, ok := interfaces.RuntimeDiagnostic(err); ok {
+	if diagnostic, ok := interfaces.RuntimeDiagnostic(err); ok {
+		if code == "adapter_failed" || code == diagnostic.Code() {
 			return fmt.Errorf("%s failed: %w", node, diagnostic)
 		}
 	}

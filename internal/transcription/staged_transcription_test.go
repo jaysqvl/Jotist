@@ -151,6 +151,37 @@ func TestStagedTranscriptionFailedAlignmentResumesRecognitionAndPreservesASRDevi
 	require.Equal(t, "cpu", reused.Metadata["alignment_device"])
 }
 
+func TestStagedTranscriptionRetriesActionableAlignmentErrorOnce(t *testing.T) {
+	f := newStageTestFixture(t)
+	r := f.execution(t, RecoveryStageManagement, true)
+	adapter := newStagedOrchestrationAdapter(t)
+	params := stageTestParams()
+	params["timestamps"] = true
+	recognitionCalls, alignmentCalls := 0, 0
+	adapter.onStage = func(desc interfaces.StageDescriptor, _ map[string]interface{}, upstream []byte) ([]byte, error) {
+		if desc.Kind == "recognition" {
+			recognitionCalls++
+			return syntheticRecognitionState(t), nil
+		}
+		alignmentCalls++
+		require.NotEmpty(t, upstream)
+		if alignmentCalls == 1 {
+			return nil, interfaces.NewSafeRuntimeDiagnostic("runtime_alignment_error", "safe alignment failure", errors.New("private"))
+		}
+		return json.Marshal(stageTestTranscript("Synthetic parseHTTP words."))
+	}
+	result, _, err := runRecoverableTranscription(context.Background(), r, adapter, f.input, params, f.proc)
+	require.NoError(t, err)
+	require.Equal(t, "Synthetic parseHTTP words.", result.Text)
+	require.Equal(t, 1, recognitionCalls)
+	require.Equal(t, 2, alignmentCalls)
+	alignment := f.stage(t, r.execution.ID, "alignment")
+	require.Len(t, alignment.Attempts, 2)
+	require.Equal(t, "initial", alignment.Attempts[0].Reason)
+	require.Equal(t, "runtime_alignment_error", alignment.Attempts[0].ErrorCode)
+	require.Equal(t, "exact_alignment_retry", alignment.Attempts[1].Reason)
+}
+
 func TestStagedTranscriptionDisablingTimestampsSkipsAlignmentBoundary(t *testing.T) {
 	f := newStageTestFixture(t)
 	r := f.execution(t, RecoveryFixed, true)

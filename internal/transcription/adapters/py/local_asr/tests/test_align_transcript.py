@@ -46,6 +46,21 @@ def test_align_existing_uses_audio_window_offsets_without_asr(monkeypatch, tmp_p
     assert result["metadata"]["resolved_device"] == "cpu"
 
 
+def test_align_existing_preserves_nonlexical_windows_without_failing_meeting(monkeypatch, tmp_path):
+    source, calls = alignment_fixture(monkeypatch, tmp_path)
+    transcript = {"text": "hello …", "language": "en", "segments": [
+        {"start": 0, "end": 2, "text": "hello"},
+        {"start": 2, "end": 5, "text": "… [---] ♪"},
+    ], "metadata": {"chunk_count": "2"}}
+    result = align_transcript.align_existing(source, transcript)
+    assert calls == [(32000, "hello", "en", 16000)]
+    assert result["word_segments"] == [{"word": "hello", "start": 0.2, "end": 0.8}]
+    assert result["segments"][-1] == {"start": 2, "end": 5, "text": "… [---] ♪"}
+    assert result["metadata"]["timestamp_source"] == "qwen3_forced_alignment,audio_window_bounds_nonlexical"
+    assert result["metadata"]["chunk_count"] == "2"
+    assert len(result["metadata"]["aligner_revision"]) == 40
+
+
 def test_alignment_cli_owns_conversion_under_output_parent(monkeypatch, tmp_path):
     source, calls = alignment_fixture(monkeypatch, tmp_path)
     job = tmp_path / "job"

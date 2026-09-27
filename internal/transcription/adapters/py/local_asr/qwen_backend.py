@@ -12,6 +12,18 @@ from importlib.util import find_spec
 from backends import RecognitionError
 
 
+ALIGNER_REVISION = "c07281df297b9905d24a508279258cccf987a064"
+
+
+def kept_alignment_character(character):
+    return character == "'" or unicodedata.category(character)[0] in {"L", "N"}
+
+
+def has_alignable_text(text):
+    """Whether Qwen can produce at least one word token for this text."""
+    return any(kept_alignment_character(character) for character in str(text or ""))
+
+
 def validate_alignment_language(language):
     """Qwen's alignment languages are narrower than the ASR catalog."""
     requested = str(language or "").strip().lower()
@@ -63,12 +75,9 @@ def restore_alignment_surface(words, transcript):
     Those cleaned tokens supply timing only; they must not replace technical
     identifiers or punctuation in the transcript shown to the user.
     """
-    def kept(character):
-        return character == "'" or unicodedata.category(character)[0] in {"L", "N"}
-
-    positions = [index for index, character in enumerate(transcript) if kept(character)]
+    positions = [index for index, character in enumerate(transcript) if kept_alignment_character(character)]
     expected = "".join(transcript[index] for index in positions)
-    tokens = ["".join(character for character in word["word"] if kept(character)) for word in words]
+    tokens = ["".join(character for character in word["word"] if kept_alignment_character(character)) for word in words]
     if not expected or any(not token for token in tokens) or "".join(tokens) != expected:
         raise RecognitionError("Forced alignment did not match the complete transcript; no partial word timing was saved.")
 
@@ -126,7 +135,7 @@ def create_aligner(device, dtype, config):
     from transformers import AutoModelForTokenClassification, AutoProcessor
 
     model_id = "Qwen/Qwen3-ForcedAligner-0.6B-hf"
-    revision = config.get("aligner_revision", "main")
+    revision = config.get("aligner_revision", ALIGNER_REVISION)
     processor = AutoProcessor.from_pretrained(model_id, revision=revision)
     model = AutoModelForTokenClassification.from_pretrained(
         model_id, revision=revision, dtype=dtype, attn_implementation="sdpa"
@@ -135,6 +144,8 @@ def create_aligner(device, dtype, config):
     class QwenAligner:
         def align(self, audio, text, language, sample_rate=16000):
             if not text.strip():
+                return []
+            if not has_alignable_text(text):
                 return []
             language = validate_alignment_language(language)
             if sample_rate != 16000 or len(audio) > 300 * sample_rate:

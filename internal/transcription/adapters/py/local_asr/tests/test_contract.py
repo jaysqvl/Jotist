@@ -13,7 +13,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from backends import CohereAutoTokenLimitError, RecognitionError, ensure_generation_complete, parse_granite_timestamps, parse_moss, vocabulary
 import transcribe
-from qwen_backend import context_prompt, normalize_alignment
+from qwen_backend import ALIGNER_REVISION, context_prompt, has_alignable_text, normalize_alignment
 
 
 def test_parsers_preserve_native_timing_and_speaker_changes():
@@ -134,6 +134,9 @@ def test_windows_have_no_dropped_or_repeated_samples():
 
 def test_qwen_context_and_alignment_contract():
     assert context_prompt({"context":"Release planning", "context_terms":"PostgreSQL\nRedis"}) == "Release planning\nVocabulary: PostgreSQL, Redis."
+    assert has_alignable_text("Jotist 1.7.4")
+    assert not has_alignable_text(" … [---] ♪ ")
+    assert len(ALIGNER_REVISION) == 40
     assert normalize_alignment([{"text":"hello", "start_time":0.5, "end_time":0.8}], 1) == [{"word":"hello", "start":0.5, "end":0.8}]
     with pytest.raises(ValueError):
         normalize_alignment([{"text":"bad", "start_time":0.5, "end_time":5}],1)
@@ -198,6 +201,13 @@ def test_disabled_alignment_reports_only_audio_window_bounds(monkeypatch,tmp_pat
     assert result["word_segments"] == []
     assert result["segments"][0]["end"] == 2
     assert result["metadata"]["timestamp_source"] == "audio_window_bounds_unaligned"
+
+
+def test_punctuation_only_recognition_keeps_coarse_bounds_without_alignment_failure(monkeypatch, tmp_path):
+    result = setup_pipeline(monkeypatch, tmp_path, {"text": "… [---] ♪", "language": "en"}, True)
+    assert result["word_segments"] == []
+    assert result["segments"] == [{"start": 0.0, "end": 2.0, "text": "… [---] ♪"}]
+    assert result["metadata"]["timestamp_source"] == "audio_window_bounds_nonlexical"
 
 
 def test_native_speakers_survive_word_alignment(monkeypatch,tmp_path):
@@ -283,3 +293,9 @@ def test_cohere_auto_split_is_bounded_and_explicit_budget_stays_fixed(monkeypatc
         transcribe.execute(config)
     assert calls == [30 * 16000]
     assert (fixed_failure.value.window_index, fixed_failure.value.window_count) == (1, 1)
+
+
+def test_cohere_checkpoint_revision_is_pinned(tmp_path):
+    path = tmp_path / "request.json"
+    path.write_text(json.dumps({"model_id": "CohereLabs/cohere-transcribe-03-2026", "align_words": False}))
+    assert transcribe.load_config(path)["revision"] == "b1eacc2686a3d08ceaae5f24a88b1d519620bc09"

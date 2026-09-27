@@ -41,3 +41,10 @@ def test_token_cutoff_uses_catalog_message_and_bounded_window_coordinates():
     result = safe_failure(invalid, "recognition")
     assert "private" not in str(result)
     assert "window_index" not in result
+
+
+def test_alignment_value_error_is_actionable_without_library_text():
+    result = safe_failure(ValueError("private transcript from a third-party library"), "alignment")
+    assert result["diagnostic_code"] == "runtime_alignment_error"
+    assert result["exception_class"] == "ValueError"
+    assert "private transcript" not in result["error"]

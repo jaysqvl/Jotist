@@ -55,7 +55,7 @@ func recoveryAttempt(t *testing.T, store *RecoveryRepository, spec StageSpec) (*
 	return stage, attempt
 }
 func recoveryText(text string) []byte {
-	data, _ := json.Marshal(map[string]interface{}{"text": text, "language": "en", "segments": []map[string]interface{}{{"start": 0.0, "end": 2.0, "text": text, "speaker": "A"}, {"start": 1.0, "end": 3.0, "text": "overlap", "speaker": "B"}}, "metadata": map[string]string{"resolved_device": "cpu", "precision": "float32", "hf_token": "must-never-persist", "context": "private prompt"}})
+	data, _ := json.Marshal(map[string]interface{}{"text": text, "language": "en", "segments": []map[string]interface{}{{"start": 0.0, "end": 2.0, "text": text, "speaker": "A"}, {"start": 1.0, "end": 3.0, "text": "overlap", "speaker": "B"}}, "metadata": map[string]string{"resolved_device": "cpu", "precision": "float32", "aligner_revision": strings.Repeat("b", 40), "hf_token": "must-never-persist", "context": "private prompt"}})
 	return data
 }
 
@@ -71,6 +71,7 @@ func TestRecoveryAtomicCheckpointPreservesSurfaceAndOverlap(t *testing.T) {
 	require.Equal(t, checkpoint.ID, selected.ID)
 	require.Contains(t, string(data), "C++ foo.bar, punctuation!")
 	require.Contains(t, string(data), `"start":1`)
+	require.Contains(t, string(data), `"aligner_revision"`)
 	require.NotContains(t, string(data), "must-never-persist")
 	require.NotContains(t, string(data), "private prompt")
 	manifestData, err := os.ReadFile(filepath.Join(store.root, checkpoint.RelativePath, "manifest.json"))

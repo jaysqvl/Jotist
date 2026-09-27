@@ -41,6 +41,7 @@
   "environment_install_failed": "The local ASR environment could not be installed. Verify the configured Python version, package index, network access, and available disk space.",
   "environment_intel_macos": "Modern Transformers ASR requires recent PyTorch wheels unavailable for Intel macOS; run this worker on Linux x86_64 (including a Linux container).",
   "runtime_api_incompatible": "The model worker encountered an incompatible runtime API or output structure. Verify the model adapter and installed dependency versions.",
+  "runtime_alignment_error": "Word alignment failed after recognition. Recoverable runs retain the completed recognition checkpoint; retry the saved execution or verify the pinned aligner and runtime.",
   "runtime_dependency_missing": "A required model runtime dependency could not be imported. Rebuild the local ASR environment and verify its pinned dependencies.",
   "runtime_file_access": "The model worker could not access a required local file. Verify the recording, model cache, and worker filesystem permissions.",
   "runtime_memory_error": "The model worker exhausted host memory. Reduce the permitted batch size or use a worker with more RAM.",

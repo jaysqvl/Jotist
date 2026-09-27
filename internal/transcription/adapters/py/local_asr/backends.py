@@ -133,7 +133,9 @@ class TransformersBackend:
         self.model_id, self.device, self.dtype, self.config = model_id, device, dtype, config
         self.engine = config["engine"]
         remote = self.engine in {"ark", "moss", "moss_preview"}
-        kwargs = {"trust_remote_code": True, "revision": config["revision"]} if remote else {}
+        kwargs = {"revision": config["revision"]} if config.get("revision") else {}
+        if remote:
+            kwargs["trust_remote_code"] = True
         self.kwargs = kwargs
 
         if self.engine == "moss_preview":
