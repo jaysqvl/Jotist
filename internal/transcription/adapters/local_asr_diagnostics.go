@@ -64,10 +64,14 @@ func localASRWorkerDiagnostic(data []byte, cause error) (error, map[string]strin
 	}
 	fields := map[string]string{}
 	message := localASRDiagnostics[code]
-	if failure.Phase == "recognition" && failure.WindowIndex >= 1 && failure.WindowCount >= failure.WindowIndex && failure.WindowCount <= 100000 {
+	if oneOf(failure.Phase, "recognition", "alignment") && failure.WindowIndex >= 1 && failure.WindowCount >= failure.WindowIndex && failure.WindowCount <= 100000 {
 		fields["window_index"] = strconv.Itoa(failure.WindowIndex)
 		fields["window_count"] = strconv.Itoa(failure.WindowCount)
-		message += fmt.Sprintf(" Recognition window %d/%d.", failure.WindowIndex, failure.WindowCount)
+		label := "Recognition"
+		if failure.Phase == "alignment" {
+			label = "Alignment"
+		}
+		message += fmt.Sprintf(" %s window %d/%d.", label, failure.WindowIndex, failure.WindowCount)
 	}
 	if (code == "application_a033c6a30bfc" || code == "application_8923ea1c9bdf") && failure.Phase == "recognition" && failure.TokenLimit >= 1 && failure.TokenLimit <= 65536 {
 		fields["token_limit"] = strconv.Itoa(failure.TokenLimit)

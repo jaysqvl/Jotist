@@ -1,5 +1,6 @@
 {
   "application_03d7e8ff718d": "Unsupported recognition backend.",
+  "application_074de909de5f": "Forced alignment requires a positive audio duration and timestamp interval.",
   "application_0cae43202ef0": "Model output has timestamps outside its audio window.",
   "application_0e5f7413bd9b": "MOSS input plus generation budget exceeds its context window; reduce the audio window or max_new_tokens.",
   "application_0f91f9c2502f": "Korean word alignment requires the soynlp tokenizer, which is missing from this worker. Disable word alignment for ASR-only transcription; external diarization requires supported or native timestamps.",
@@ -23,6 +24,7 @@
   "application_a5a80b18230a": "Model is not present in the local recognition catalog.",
   "application_ae9a9ffdbdb1": "The selected language is supported by some ASR models but not by Qwen word alignment. Disable word alignment for ASR-only transcription; external diarization requires supported or native timestamps.",
   "application_b6b85afcef0c": "Transcription reached max_new_tokens; increase the token limit or shorten audio chunks.",
+  "application_b359edc1cabd": "Forced aligner returned timestamps outside the audio chunk.",
   "application_bdd9f8491958": "Audio window is outside the model's supported range.",
   "application_c37f3be50664": "Selected model does not support vocabulary hints.",
   "application_c9cd9126ad2b": "Credentials must be supplied through HF_TOKEN, never a request file.",

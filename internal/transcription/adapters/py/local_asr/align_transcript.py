@@ -64,7 +64,8 @@ def align_existing(audio_path, transcript, device="cpu", precision="float32", la
         state["_diagnostic_phase"] = "model_loading"
         aligner = model_call(state, device, create_aligner, device, dtype, {"language": language})
         state["_diagnostic_phase"] = "alignment"
-        for segment in segments:
+        for index, segment in enumerate(segments):
+            state["_window_index"], state["_window_count"] = index + 1, len(segments)
             segment_text = segment.get("text", "").strip()
             if not segment_text:
                 continue
@@ -127,7 +128,7 @@ def main():
         os.chmod(temporary, 0o600)
         temporary.replace(output)
     except Exception as exc:
-        diagnostic = safe_failure(exc, state.get("_diagnostic_phase", "configuration"))
+        diagnostic = safe_failure(exc, state.get("_diagnostic_phase", "configuration"), state.get("_window_index"), state.get("_window_count"))
         diagnostic.update(resolved_device=state.get("_resolved_device"),
                           gpu_failure_kind=gpu_failure_kind(exc, state.get("_resolved_device"), state.get("_gpu_execution", False)))
         failure = output.with_name("error.json")

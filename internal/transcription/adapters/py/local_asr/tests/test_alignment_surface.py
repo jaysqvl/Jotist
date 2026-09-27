@@ -10,7 +10,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from backends import RecognitionError
 import qwen_backend
-from qwen_backend import create_aligner, create_backend, restore_alignment_surface, validate_alignment_language
+from qwen_backend import bounded_alignment_logits, create_aligner, create_backend, normalize_alignment, restore_alignment_surface, validate_alignment_language
 from transcribe import word_segments
 
 
@@ -71,6 +71,7 @@ def test_shared_qwen_backend_and_aligner_preserve_surface_and_processor_kwargs(m
             return self
 
     class Processor:
+        timestamp_segment_time = 80
         @classmethod
         def from_pretrained(cls, *args, **kwargs):
             return cls()
@@ -86,6 +87,7 @@ def test_shared_qwen_backend_and_aligner_preserve_surface_and_processor_kwargs(m
         def decode(self, *args, **kwargs):
             return [{"transcription": "C++ foo.bar().", "language": "English"}]
         def decode_forced_alignment(self, **kwargs):
+            assert kwargs["logits"].shape[-1] == 13, "one second admits timestamp classes 0 through 12"
             return [[{"text": "C", "start_time": 0.1, "end_time": 0.4},
                      {"text": "foobar", "start_time": 0.5, "end_time": 0.9}]]
 
@@ -101,7 +103,7 @@ def test_shared_qwen_backend_and_aligner_preserve_surface_and_processor_kwargs(m
         def eval(self):
             return self
         def __call__(self, **kwargs):
-            return types.SimpleNamespace(logits=[1])
+            return types.SimpleNamespace(logits=np.zeros((1, 1, 3750)))
         def generate(self, **kwargs):
             return np.array([[1, 2, 99]])
 
@@ -112,3 +114,34 @@ def test_shared_qwen_backend_and_aligner_preserve_surface_and_processor_kwargs(m
     result = create_aligner("cpu", "float32", {}).align(np.ones(16000), "C++ foo.bar().", "en")
     assert result == [{"word": "C++", "start": 0.1, "end": 0.4},
                       {"word": "foo.bar().", "start": 0.5, "end": 0.9}]
+
+
+def test_alignment_selects_best_valid_time_at_a_real_chunk_boundary():
+    # A 29.41s window produced a 29.68s end for its final word. The old
+    # post-decode tolerance rejected the entire recording by 20ms.
+    scores = np.full((1, 2, 3750), -10.0)
+    scores[0, 0, 365] = 10.0  # 29.20s start, inside the audio
+    scores[0, 1, 371] = 12.0  # 29.68s end, physically impossible
+    scores[0, 1, 367] = 11.0  # 29.36s, the best valid end prediction
+    before = scores.copy()
+    assert scores.argmax(axis=-1).tolist() == [[365, 371]]
+    decoded = bounded_alignment_logits(scores, 29.41, 80).argmax(axis=-1)[0] * 0.08
+    assert normalize_alignment([{"text": "word", "start_time": decoded[0], "end_time": decoded[1]}], 29.41) == [
+        {"word": "word", "start": 29.2, "end": 29.36},
+    ]
+    np.testing.assert_array_equal(scores, before)
+
+
+@pytest.mark.parametrize("duration,interval", [(0.02, 80), (1, 80), (29.41, 80), (30, 80), (300, 80), (1, 20)])
+def test_alignment_timestamp_classes_never_exceed_supplied_audio(duration, interval):
+    scores = np.arange(20000).reshape(1, 1, -1)
+    bounded = bounded_alignment_logits(scores, duration, interval)
+    predicted = int(bounded.argmax(axis=-1)[0, 0])
+    assert predicted * interval / 1000 <= duration
+    assert (predicted + 1) * interval / 1000 > duration
+
+
+@pytest.mark.parametrize("duration,interval", [(0, 80), (-1, 80), (float("nan"), 80), (1, 0), (1, float("inf"))])
+def test_alignment_rejects_invalid_time_grid(duration, interval):
+    with pytest.raises(RecognitionError, match="positive audio duration"):
+        bounded_alignment_logits(np.zeros((1, 2, 3)), duration, interval)

@@ -39,6 +39,17 @@ func TestLocalASRDiagnosticsExposeActionableAlignmentCode(t *testing.T) {
 	require.Equal(t, "alignment", fields["phase"])
 }
 
+func TestLocalASRDiagnosticsIdentifyAlignmentWindow(t *testing.T) {
+	err, fields := localASRWorkerDiagnostic([]byte(`{"error":"private transcript", "diagnostic_code":"application_b359edc1cabd", "exception_class":"RecognitionError", "phase":"alignment", "window_index":61, "window_count":81, "token_limit":1000}`), nil)
+	diagnostic, ok := interfaces.RuntimeDiagnostic(err)
+	require.True(t, ok)
+	require.Equal(t, "application_b359edc1cabd", diagnostic.Code())
+	require.Contains(t, diagnostic.Error(), "Alignment window 61/81")
+	require.NotContains(t, diagnostic.Error(), "private")
+	require.Equal(t, "61", fields["window_index"])
+	require.NotContains(t, fields, "token_limit")
+}
+
 func TestLocalASRDiagnosticsKeepOnlyBoundedTokenWindowDetails(t *testing.T) {
 	err, fields := localASRWorkerDiagnostic([]byte(`{"error":"private transcript", "diagnostic_code":"application_8923ea1c9bdf", "exception_class":"ModelError", "phase":"recognition", "window_index":17, "window_count":82, "token_limit":1000}`), nil)
 	diagnostic, ok := interfaces.RuntimeDiagnostic(err)

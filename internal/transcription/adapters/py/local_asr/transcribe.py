@@ -231,7 +231,8 @@ def execute(config):
                     validate_alignment_language(chunk.get("language") or config.get("language", "en"))
             if any(c.get("text", "").strip() and not c.get("word_segments") and has_alignable_text(c.get("text")) for c in chunks):
                 aligner = model_call(config, device, create_aligner, device, dtype, config)
-        for chunk in chunks:
+        for index, chunk in enumerate(chunks):
+            config["_window_index"], config["_window_count"] = index + 1, len(chunks)
             chunk_text = chunk.get("text", "").strip()
             if chunk_text and not chunk.get("word_segments") and not has_alignable_text(chunk_text):
                 # Some recognizers emit punctuation-only windows. Qwen creates
@@ -344,7 +345,7 @@ def main():
         os.chmod(temporary, 0o600)
         temporary.replace(output)
     except Exception as exc:
-        diagnostic = safe_failure(exc, config.get("_diagnostic_phase", "configuration"))
+        diagnostic = safe_failure(exc, config.get("_diagnostic_phase", "configuration"), config.get("_window_index"), config.get("_window_count"))
         diagnostic.update(resolved_device=config.get("_resolved_device"), gpu_failure_kind=gpu_failure_kind(exc, config.get("_resolved_device"), config.get("_gpu_execution", False)))
         failure = request_path.with_name("error.json")
         failure.write_text(json.dumps(diagnostic), encoding="utf-8")
