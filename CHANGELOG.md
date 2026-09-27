@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.5](https://github.com/jaysqvl/Jotist/compare/v1.7.4...v1.7.5) (2026-09-27)
+
+
+### Bug Fixes
+
+* enforce model resilience contracts ([#20](https://github.com/jaysqvl/Jotist/issues/20)) ([dd454ab](https://github.com/jaysqvl/Jotist/commit/dd454abbc27662dd833979c1f047ed4905d58d34))
+
 ## [1.7.4](https://github.com/jaysqvl/Jotist/compare/v1.7.3...v1.7.4) (2026-09-27)
 
 - Keep completed local ASR recognition as a durable checkpoint before word
