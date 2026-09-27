@@ -2,10 +2,15 @@
 
 ## [1.7.6](https://github.com/jaysqvl/Jotist/compare/v1.7.5...v1.7.6) (2026-09-27)
 
+- Prevent shared Qwen word alignment from failing a recording when a predicted
+  timestamp falls beyond its audio window. Timestamp decoding now selects only
+  times within the supplied audio while preserving the recognized text.
+- Include the affected window number in alignment errors. This applies to
+  LocalASR, legacy Voxtral, and VibeVoice BitNet paths using the shared aligner.
 
-### Bug Fixes
-
-* bound shared Qwen alignment timestamps to audio ([#22](https://github.com/jaysqvl/Jotist/issues/22)) ([0a78f94](https://github.com/jaysqvl/Jotist/commit/0a78f940b74dc28f2a8d71a355c8b65d2f154804))
+Start a new run after upgrading to use the corrected runtime. Existing failed
+runs and their saved recognition text remain available; checkpoint reuse requires
+compatible runtime identities. See the [full changes](https://github.com/jaysqvl/Jotist/compare/v1.7.5...v1.7.6).
 
 ## [1.7.5](https://github.com/jaysqvl/Jotist/compare/v1.7.4...v1.7.5) (2026-09-27)
 
