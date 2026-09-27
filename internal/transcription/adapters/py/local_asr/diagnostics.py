@@ -27,6 +27,8 @@ def safe_failure(exc, phase):
             code = "runtime_dependency_missing"
         elif isinstance(exc, (TypeError, AttributeError, KeyError, IndexError)):
             code = "runtime_api_incompatible"
+        elif phase == "alignment" and isinstance(exc, ValueError):
+            code = "runtime_alignment_error"
         elif kind in {"GatedRepoError", "RepositoryNotFoundError", "HfHubHTTPError"}:
             code = "runtime_model_access"
         elif isinstance(exc, (PermissionError, FileNotFoundError)):

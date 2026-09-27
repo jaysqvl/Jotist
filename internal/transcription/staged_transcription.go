@@ -24,8 +24,13 @@ func runRecoverableTranscription(ctx context.Context, recovery recoveryStageCont
 	var recognitionMetadata map[string]string
 	finalMetadata := map[string]string{}
 	for _, descriptor := range staged.Stages() {
-		if descriptor.Kind == "alignment" && params["timestamps"] == false {
-			continue
+		if descriptor.Kind == "alignment" {
+			if params["timestamps"] == false {
+				continue
+			}
+			if alignWords, present := params["align_words"].(bool); present && !alignWords {
+				continue
+			}
 		}
 		if !descriptor.Recoverable {
 			return nil, nil, fmt.Errorf("%s does not expose a recoverable boundary", descriptor.Kind)

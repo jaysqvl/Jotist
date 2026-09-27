@@ -223,6 +223,24 @@ func TestAdaptiveCandidateFailureClassificationAndContention(t *testing.T) {
 	}
 }
 
+func TestAlignmentRuntimeErrorGetsOneExactStageRetry(t *testing.T) {
+	desc, rule, original := adaptivePolicyFixture()
+	desc.Kind = "alignment"
+	history := adaptiveHistory(original, "initial")
+	next := nextAdaptiveCandidate(RecoveryStageManagement, "runtime_alignment_error", rule, desc, original, original, history, false)
+	if next == nil || next.Reason != "exact_alignment_retry" || next.Settings != original {
+		t.Fatalf("alignment retry changed settings or was not offered: %+v", next)
+	}
+	history = adaptiveHistory(next.Settings, next.Reason, history...)
+	if again := nextAdaptiveCandidate(RecoveryStageManagement, "runtime_alignment_error", rule, desc, original, original, history, false); again != nil {
+		t.Fatalf("alignment retry was not bounded: %+v", again)
+	}
+	desc.Kind = "recognition"
+	if retry := nextAdaptiveCandidate(RecoveryStageManagement, "runtime_alignment_error", rule, desc, original, original, adaptiveHistory(original, "initial"), false); retry != nil {
+		t.Fatalf("recognition received an alignment-only retry: %+v", retry)
+	}
+}
+
 func TestAdaptiveCandidateHostOOMUsesOptedInWindowsAndOriginalDevice(t *testing.T) {
 	desc, rule, original := adaptivePolicyFixture()
 	cpu := original

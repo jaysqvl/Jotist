@@ -169,6 +169,16 @@ func nextAdaptiveCandidate(mode, code string, rule models.AdaptiveStagePolicy, d
 	if level == 0 || len(history) >= 7 {
 		return nil
 	}
+	if desc.Kind == "alignment" && code == "runtime_alignment_error" {
+		for _, attempt := range history {
+			if attempt.Reason == "exact_alignment_retry" {
+				return nil
+			}
+		}
+		// The recognition artifact is already durable. Retry the isolated
+		// aligner once with identical settings before asking the user to act.
+		return &adaptiveCandidate{current, "exact_alignment_retry"}
+	}
 	gpuFailure := code == "cuda_out_of_memory" || code == "cuda_runtime_error"
 	hostFailure := code == "host_out_of_memory"
 	if !gpuFailure && !hostFailure {

@@ -30,6 +30,15 @@ func TestLocalASRDiagnosticsRetainGPURecoverySignal(t *testing.T) {
 	require.Equal(t, "cuda_out_of_memory", gpu.Kind)
 }
 
+func TestLocalASRDiagnosticsExposeActionableAlignmentCode(t *testing.T) {
+	err, fields := localASRWorkerDiagnostic([]byte(`{"error":"private transcript", "diagnostic_code":"runtime_alignment_error", "exception_class":"ValueError", "phase":"alignment"}`), nil)
+	diagnostic, ok := interfaces.RuntimeDiagnostic(err)
+	require.True(t, ok)
+	require.Equal(t, "runtime_alignment_error", diagnostic.Code())
+	require.NotContains(t, diagnostic.Error(), "private transcript")
+	require.Equal(t, "alignment", fields["phase"])
+}
+
 func TestLocalASRDiagnosticsKeepOnlyBoundedTokenWindowDetails(t *testing.T) {
 	err, fields := localASRWorkerDiagnostic([]byte(`{"error":"private transcript", "diagnostic_code":"application_8923ea1c9bdf", "exception_class":"ModelError", "phase":"recognition", "window_index":17, "window_count":82, "token_limit":1000}`), nil)
 	diagnostic, ok := interfaces.RuntimeDiagnostic(err)

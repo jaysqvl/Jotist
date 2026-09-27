@@ -79,4 +79,8 @@ func TestStageManagementIgnoresUnstructuredGPUClaims(t *testing.T) {
 	if code := stageFailureCode(context.Background(), &interfaces.GPUExecutionError{Kind: "cuda_out_of_memory", Err: errors.New("private")}, p, 0); code != "cuda_out_of_memory" {
 		t.Fatal(code)
 	}
+	diagnostic := interfaces.NewSafeRuntimeDiagnostic("runtime_alignment_error", "safe alignment failure", errors.New("private"))
+	if code := stageFailureCode(context.Background(), diagnostic, p, 0); code != "runtime_alignment_error" {
+		t.Fatal(code)
+	}
 }

@@ -37,4 +37,8 @@ func TestUnknownStageErrorStaysPrivate(t *testing.T) {
 	require.NoError(t, e)
 	require.NotContains(t, string(data), "hf_secret")
 	require.NotContains(t, safeOrOriginalStageError("asr", "adapter_failed", err).Error(), "hf_secret")
+	diagnostic := interfaces.NewSafeRuntimeDiagnostic("runtime_alignment_error", "Retry the saved alignment stage.", err)
+	actionable := safeOrOriginalStageError("alignment", "runtime_alignment_error", diagnostic)
+	require.ErrorContains(t, actionable, "Retry the saved alignment stage")
+	require.NotContains(t, actionable.Error(), "hf_secret")
 }

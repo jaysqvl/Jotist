@@ -25,10 +25,14 @@ set -eu
 mode="$1"
 project=""
 config=""
+output=""
+transcript=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --project) shift; project="$1" ;;
     --config) shift; config="$1" ;;
+    --output) shift; output="$1" ;;
+    --transcript) shift; transcript="$1" ;;
   esac
   shift
 done
@@ -42,6 +46,9 @@ if [ "$mode" = sync ]; then
 elif [ -n "$config" ]; then
   printf 'transcribe\n' >> "$LOCAL_ASR_TEST_LOG"
   printf '%s' '{"text":"fixture","language":"en","segments":[{"start":0,"end":1,"text":"fixture"}],"metadata":{"resolved_device":"cpu"}}' > "${config%/*}/result.json"
+elif [ -n "$output" ] && [ -n "$transcript" ]; then
+  printf 'align\n' >> "$LOCAL_ASR_TEST_LOG"
+  printf '%s' '{"text":"fixture","language":"en","segments":[{"start":0.1,"end":0.8,"text":"fixture"}],"word_segments":[{"start":0.1,"end":0.8,"word":"fixture"}],"metadata":{"resolved_device":"cpu","precision":"float32","timestamp_source":"qwen3_forced_alignment"}}' > "$output"
 else
   printf 'import\n' >> "$LOCAL_ASR_TEST_LOG"
 fi
@@ -249,6 +256,63 @@ func TestLocalASRPrivateRequestAndCredentialEnvironment(t *testing.T) {
 	}
 	if config["precision"] != "float32" || config["context_terms"] != "Kubernetes" {
 		t.Fatal("request omitted recognition parameters")
+	}
+}
+
+func TestLocalASRStagesPersistRecognitionBeforeAlignment(t *testing.T) {
+	logPath := fakeLocalASRUV(t)
+	adapter, err := NewLocalASRAdapter(filepath.Join(t.TempDir(), "environment"), "CohereLabs/cohere-transcribe-03-2026")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stages := adapter.Stages()
+	if len(stages) != 2 || stages[0].Kind != "recognition" || stages[1].Kind != "alignment" {
+		t.Fatalf("unexpected local ASR stages: %+v", stages)
+	}
+	if stages[1].ModelArtifacts["Qwen/Qwen3-ForcedAligner-0.6B-hf"] != localASRAlignerRevision {
+		t.Fatal("alignment checkpoint is not pinned in the recovery identity")
+	}
+	var advertised []interfaces.StageDescriptor
+	if err := json.Unmarshal([]byte(adapter.GetCapabilities().Metadata["adaptive_stages"]), &advertised); err != nil || len(advertised) != 2 {
+		t.Fatalf("staged capabilities were not advertised: %+v, %v", advertised, err)
+	}
+
+	params := map[string]interface{}{"device": "cpu", "precision": "float32", "language": "en", "align_words": true}
+	recognitionParams, err := adapter.ResolveStageParameters(stages[0], params, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if recognitionParams["align_words"] != false || params["align_words"] != true {
+		t.Fatal("recognition did not disable only its private alignment pass")
+	}
+	root := t.TempDir()
+	audio := filepath.Join(root, "source.wav")
+	if err := os.WriteFile(audio, []byte("fixture"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	proc := interfaces.ProcessingContext{TempDirectory: filepath.Join(root, "tmp"), OutputDirectory: filepath.Join(root, "run")}
+	recognition, err := adapter.RunStage(context.Background(), stages[0], interfaces.AudioInput{FilePath: audio, Format: "wav", Size: 7}, params, proc, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var coarse interfaces.TranscriptResult
+	if err := json.Unmarshal(recognition, &coarse); err != nil || coarse.Text != "fixture" || len(coarse.WordSegments) != 0 {
+		t.Fatalf("invalid recognition checkpoint: %+v, %v", coarse, err)
+	}
+	aligned, err := adapter.RunStage(context.Background(), stages[1], interfaces.AudioInput{FilePath: audio, Format: "wav", Size: 7}, params, proc, recognition)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var final interfaces.TranscriptResult
+	if err := json.Unmarshal(aligned, &final); err != nil || len(final.WordSegments) != 1 || final.Text != coarse.Text {
+		t.Fatalf("invalid alignment result: %+v, %v", final, err)
+	}
+	calls, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(string(calls), "transcribe\n") != 1 || strings.Count(string(calls), "align\n") != 1 {
+		t.Fatalf("stages did not use separate workers: %s", calls)
 	}
 }
 

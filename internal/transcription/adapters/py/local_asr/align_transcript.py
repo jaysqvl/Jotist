@@ -7,21 +7,26 @@ import subprocess
 import tempfile
 
 from backends import RecognitionError
-from transcribe import resolve_compute, validate_times, word_segments
+from diagnostics import safe_failure
+from transcribe import gpu_failure_kind, model_call, resolve_compute, validate_times, word_segments
 
 
-def align_existing(audio_path, transcript, device="cpu", precision="float32", language="en", temp_parent=None):
+def align_existing(audio_path, transcript, device="cpu", precision="float32", language="en", temp_parent=None, diagnostic_state=None):
     import numpy as np
     import soundfile as sf
     import torch
-    from qwen_backend import create_aligner, validate_alignment_language
+    from qwen_backend import ALIGNER_REVISION, create_aligner, has_alignable_text, validate_alignment_language
 
+    state = diagnostic_state if diagnostic_state is not None else {}
+    state["_diagnostic_phase"] = "runtime_initialization"
     device, dtype = resolve_compute(device, precision, torch)
+    state["_resolved_device"] = device
     if device == "cpu":
         os.environ["CUDA_VISIBLE_DEVICES"] = ""
     else:
         torch.backends.cuda.matmul.allow_tf32 = False
         torch.backends.cudnn.allow_tf32 = False
+    state["_diagnostic_phase"] = "audio_decode"
     if not Path(audio_path).is_file():
         raise RecognitionError("Audio input file is missing.")
     # CLI callers supply the Go-owned job directory so forced termination
@@ -51,18 +56,24 @@ def align_existing(audio_path, transcript, device="cpu", precision="float32", la
         if segment.get("text", "").strip() and segment["end"] <= segment["start"]:
             raise RecognitionError("Nonempty transcript segments need a positive audio duration.")
     language = transcript.get("language") or language
-    words = []
-    if any(segment.get("text", "").strip() for segment in segments):
+    words, coarse_segments = [], []
+    alignable = [segment for segment in segments if has_alignable_text(segment.get("text"))]
+    if alignable:
         validate_alignment_language(language)
         # Recognition happened in the caller. Only the alignment model is loaded.
-        aligner = create_aligner(device, dtype, {"language": language})
+        state["_diagnostic_phase"] = "model_loading"
+        aligner = model_call(state, device, create_aligner, device, dtype, {"language": language})
+        state["_diagnostic_phase"] = "alignment"
         for segment in segments:
             segment_text = segment.get("text", "").strip()
             if not segment_text:
                 continue
+            if not has_alignable_text(segment_text):
+                coarse_segments.append({key: value for key, value in segment.items() if key in {"start", "end", "text", "speaker"}})
+                continue
             start, end = int(segment["start"] * sr), int(segment["end"] * sr)
             sample = audio[start:end]
-            aligned = aligner.align(sample, segment_text, language, sr)
+            aligned = model_call(state, device, aligner.align, sample, segment_text, language, sr)
             if not aligned:
                 raise RecognitionError("Forced alignment returned no words for a nonempty transcript.")
             validate_times(aligned, len(sample) / sr)
@@ -72,13 +83,28 @@ def align_existing(audio_path, transcript, device="cpu", precision="float32", la
                 if segment.get("speaker"):
                     word["speaker"] = segment["speaker"]
             words.extend(aligned)
+    else:
+        coarse_segments = [{key: value for key, value in segment.items() if key in {"start", "end", "text", "speaker"}}
+                           for segment in segments if segment.get("text", "").strip()]
+    state["_diagnostic_phase"] = "output_validation"
+    output_segments = word_segments(words) + coarse_segments
+    output_segments.sort(key=lambda item: (item["start"], item["end"]))
+    metadata = dict(transcript.get("metadata") or {})
+    sources = []
+    if words:
+        sources.append("qwen3_forced_alignment")
+    if coarse_segments:
+        sources.append("audio_window_bounds_nonlexical")
+    metadata.update({"resolved_device": device, "precision": precision,
+                     "timestamp_source": ",".join(sources) or "none", "duration_seconds": str(duration),
+                     "aligner_revision": ALIGNER_REVISION})
     return {
         "text": text or " ".join(segment.get("text", "").strip() for segment in segments).strip(),
         "language": language,
-        "segments": word_segments(words),
+        "segments": output_segments,
         "word_segments": words,
         "model_used": transcript.get("model_used", ""),
-        "metadata": {"resolved_device": device, "precision": precision, "timestamp_source": "qwen3_forced_alignment", "duration_seconds": str(duration)},
+        "metadata": metadata,
     }
 
 
@@ -92,22 +118,22 @@ def main():
     parser.add_argument("--language", default="en")
     args = parser.parse_args()
     output = Path(args.output)
+    state = {}
     try:
         transcript = json.loads(Path(args.transcript).read_text(encoding="utf-8"))
-        result = align_existing(args.audio, transcript, args.device, args.precision, args.language, temp_parent=output.parent)
+        result = align_existing(args.audio, transcript, args.device, args.precision, args.language, temp_parent=output.parent, diagnostic_state=state)
         temporary = output.with_suffix(".partial")
         temporary.write_text(json.dumps(result, ensure_ascii=False, allow_nan=False), encoding="utf-8")
         os.chmod(temporary, 0o600)
         temporary.replace(output)
     except Exception as exc:
-        message = str(exc) if isinstance(exc, RecognitionError) else f"{type(exc).__name__} while aligning the transcript; verify model access and installed runtime."
-        for key in ("HF_TOKEN", "HUGGING_FACE_HUB_TOKEN"):
-            if os.environ.get(key):
-                message = message.replace(os.environ[key], "[redacted]")
+        diagnostic = safe_failure(exc, state.get("_diagnostic_phase", "configuration"))
+        diagnostic.update(resolved_device=state.get("_resolved_device"),
+                          gpu_failure_kind=gpu_failure_kind(exc, state.get("_resolved_device"), state.get("_gpu_execution", False)))
         failure = output.with_name("error.json")
-        failure.write_text(json.dumps({"error": message}), encoding="utf-8")
+        failure.write_text(json.dumps(diagnostic), encoding="utf-8")
         os.chmod(failure, 0o600)
-        print(message, flush=True)
+        print(diagnostic["error"], flush=True)
         raise SystemExit(1) from None
 
 
