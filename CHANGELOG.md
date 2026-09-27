@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.6](https://github.com/jaysqvl/Jotist/compare/v1.7.5...v1.7.6) (2026-09-27)
+
+
+### Bug Fixes
+
+* bound shared Qwen alignment timestamps to audio ([#22](https://github.com/jaysqvl/Jotist/issues/22)) ([0a78f94](https://github.com/jaysqvl/Jotist/commit/0a78f940b74dc28f2a8d71a355c8b65d2f154804))
+
 ## [1.7.5](https://github.com/jaysqvl/Jotist/compare/v1.7.4...v1.7.5) (2026-09-27)
 
 - Require every registered ASR and diarization adapter to declare and test its
