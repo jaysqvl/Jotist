@@ -36,15 +36,19 @@ func localASRDiagnostic(code string, cause error) *interfaces.SafeRuntimeDiagnos
 // authority to persist arbitrary text, even if it calls that text an error.
 func localASRWorkerDiagnostic(data []byte, cause error) (error, map[string]string) {
 	var failure struct {
-		Error       string `json:"error"`
-		Code        string `json:"diagnostic_code"`
-		Class       string `json:"exception_class"`
-		Phase       string `json:"phase"`
-		Device      string `json:"resolved_device"`
-		GPUKind     string `json:"gpu_failure_kind"`
-		WindowIndex int    `json:"window_index"`
-		WindowCount int    `json:"window_count"`
-		TokenLimit  int    `json:"token_limit"`
+		Error                  string `json:"error"`
+		Code                   string `json:"diagnostic_code"`
+		Class                  string `json:"exception_class"`
+		Phase                  string `json:"phase"`
+		Device                 string `json:"resolved_device"`
+		GPUKind                string `json:"gpu_failure_kind"`
+		WindowIndex            int    `json:"window_index"`
+		WindowCount            int    `json:"window_count"`
+		TokenLimit             int    `json:"token_limit"`
+		ParsedSegmentCount     *int   `json:"parsed_segment_count"`
+		TrailingCharacterCount *int   `json:"trailing_character_count"`
+		TrailingTimestampCount *int   `json:"trailing_timestamp_count"`
+		TrailingSpeakerCount   *int   `json:"trailing_speaker_count"`
 	}
 	if len(data) > 64*1024 || json.Unmarshal(data, &failure) != nil {
 		return localASRDiagnostic("worker_failed_without_diagnostic", cause), nil
@@ -63,6 +67,11 @@ func localASRWorkerDiagnostic(data []byte, cause error) (error, map[string]strin
 		}
 	}
 	fields := map[string]string{}
+	for key, value := range map[string]*int{"parsed_segment_count": failure.ParsedSegmentCount, "trailing_character_count": failure.TrailingCharacterCount, "trailing_timestamp_count": failure.TrailingTimestampCount, "trailing_speaker_count": failure.TrailingSpeakerCount} {
+		if value != nil && *value >= 0 && *value <= 1000000 {
+			fields[key] = strconv.Itoa(*value)
+		}
+	}
 	message := localASRDiagnostics[code]
 	if oneOf(failure.Phase, "recognition", "alignment") && failure.WindowIndex >= 1 && failure.WindowCount >= failure.WindowIndex && failure.WindowCount <= 100000 {
 		fields["window_index"] = strconv.Itoa(failure.WindowIndex)
@@ -79,7 +88,7 @@ func localASRWorkerDiagnostic(data []byte, cause error) (error, map[string]strin
 	}
 	// The message contains only catalog text and bounded numeric coordinates.
 	diagnostic := interfaces.NewSafeRuntimeDiagnostic(code, message, cause)
-	if oneOf(failure.Class, "RecognitionError", "RuntimeError", "ValueError", "TypeError", "AttributeError", "KeyError", "IndexError", "ImportError", "ModuleNotFoundError", "OSError", "FileNotFoundError", "PermissionError", "MemoryError", "GatedRepoError", "RepositoryNotFoundError", "HfHubHTTPError", "ModelError") {
+	if oneOf(failure.Class, "RecognitionError", "TimestampBoundsError", "RuntimeError", "ValueError", "TypeError", "AttributeError", "KeyError", "IndexError", "ImportError", "ModuleNotFoundError", "OSError", "FileNotFoundError", "PermissionError", "MemoryError", "GatedRepoError", "RepositoryNotFoundError", "HfHubHTTPError", "ModelError") {
 		fields["exception_class"] = failure.Class
 	}
 	if oneOf(failure.Phase, "configuration", "runtime_initialization", "audio_decode", "model_loading", "recognition", "alignment", "diarization", "output_validation") {

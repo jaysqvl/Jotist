@@ -81,46 +81,58 @@ func (r *transcriptionQueueRepository) Append(ctx context.Context, jobID string,
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var job models.TranscriptionJob
-		if err := tx.First(&job, "id = ?", jobID).Error; err != nil {
-			return err
-		}
-		var nonTerminalCount int64
-		if err := tx.Model(&models.TranscriptionQueueItem{}).
-			Where("transcription_job_id = ? AND status IN ?", jobID, []models.TranscriptionQueueStatus{
-				models.QueueStatusQueued,
-				models.QueueStatusPending,
-				models.QueueStatusProcessing,
-			}).Count(&nonTerminalCount).Error; err != nil {
-			return err
-		}
-		if nonTerminalCount+int64(len(items)) > MaxSequentialRunsPerJob {
-			return ErrQueueLimitReached
-		}
-
-		var maxPosition int
-		if err := tx.Model(&models.TranscriptionQueueItem{}).
-			Where("transcription_job_id = ? AND status = ?", jobID, models.QueueStatusQueued).
-			Select("COALESCE(MAX(position), 0)").
-			Scan(&maxPosition).Error; err != nil {
-			return err
-		}
-
-		for index := range items {
-			items[index].TranscriptionJobID = jobID
-			items[index].Status = models.QueueStatusQueued
-			items[index].Position = maxPosition + index + 1
-			items[index].ExecutionID = nil
-			items[index].ErrorMessage = nil
-			items[index].StartedAt = nil
-			items[index].CompletedAt = nil
-			if err := tx.Create(&items[index]).Error; err != nil {
+	return retryDatabaseContention(ctx, func() error {
+		return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			// Acquire SQLite's writer reservation before reading queue positions.
+			// A deferred read transaction cannot reliably upgrade a stale WAL
+			// snapshot while another stage is checkpointing.
+			locked := tx.Model(&models.TranscriptionJob{}).Where("id = ?", jobID).UpdateColumn("updated_at", gorm.Expr("updated_at"))
+			if locked.Error != nil {
+				return locked.Error
+			}
+			if locked.RowsAffected != 1 {
+				return gorm.ErrRecordNotFound
+			}
+			var job models.TranscriptionJob
+			if err := tx.First(&job, "id = ?", jobID).Error; err != nil {
 				return err
 			}
-		}
+			var nonTerminalCount int64
+			if err := tx.Model(&models.TranscriptionQueueItem{}).
+				Where("transcription_job_id = ? AND status IN ?", jobID, []models.TranscriptionQueueStatus{
+					models.QueueStatusQueued,
+					models.QueueStatusPending,
+					models.QueueStatusProcessing,
+				}).Count(&nonTerminalCount).Error; err != nil {
+				return err
+			}
+			if nonTerminalCount+int64(len(items)) > MaxSequentialRunsPerJob {
+				return ErrQueueLimitReached
+			}
 
-		return nil
+			var maxPosition int
+			if err := tx.Model(&models.TranscriptionQueueItem{}).
+				Where("transcription_job_id = ? AND status = ?", jobID, models.QueueStatusQueued).
+				Select("COALESCE(MAX(position), 0)").
+				Scan(&maxPosition).Error; err != nil {
+				return err
+			}
+
+			for index := range items {
+				items[index].TranscriptionJobID = jobID
+				items[index].Status = models.QueueStatusQueued
+				items[index].Position = maxPosition + index + 1
+				items[index].ExecutionID = nil
+				items[index].ErrorMessage = nil
+				items[index].StartedAt = nil
+				items[index].CompletedAt = nil
+				if err := tx.Create(&items[index]).Error; err != nil {
+					return err
+				}
+			}
+
+			return nil
+		})
 	})
 }
 

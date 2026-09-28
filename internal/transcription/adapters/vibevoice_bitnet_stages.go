@@ -57,7 +57,7 @@ func (v *VibeVoiceBitNetAdapter) ResolveStageParameters(stage interfaces.StageDe
 	}
 	resolved := copyAdapterParameters(params)
 	if stage.Kind == "recognition" {
-		resolved["align_words"] = false
+		resolved = recognitionOnlyParameters(params)
 	} else {
 		resolved["device"] = "cpu"
 		resolved["precision"] = "float32"

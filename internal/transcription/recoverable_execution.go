@@ -169,15 +169,15 @@ func (u *UnifiedTranscriptionService) processRecoverableJob(ctx context.Context,
 			return err
 		}
 	} else {
-		deadline := time.Now().Add(24 * time.Hour)
+		var deadline *time.Time
 		if value, ok := ctx.Deadline(); ok {
-			deadline = value
+			deadline = &value
 		}
 		plan := recoveryPlan{Version: 1, Mode: job.Parameters.RecoveryMode, RequestedSettingsHash: recoveryRequestHash(job.Parameters), GPU: visibleGPU(ctx, job.Parameters.DeviceIndex), MaxStageAttempts: 7, BoundaryVersion: "adapter-boundary-v1", RecordingLayoutHash: recordingLayoutHash(job)}
 		encoded, _ := json.Marshal(plan)
 		id := uuid.NewString()
 		logPath := filepath.Join(u.outputDirectory, jobID, "runs", id, "transcription.log")
-		current = &models.TranscriptionJobExecution{ID: id, TranscriptionJobID: jobID, StartedAt: time.Now(), ActualParameters: job.Parameters.WithoutSecrets(), RecoveryVersion: 1, PlanJSON: string(encoded), DeadlineAt: &deadline, LogPath: &logPath}
+		current = &models.TranscriptionJobExecution{ID: id, TranscriptionJobID: jobID, StartedAt: time.Now(), ActualParameters: job.Parameters.WithoutSecrets(), RecoveryVersion: 1, PlanJSON: string(encoded), DeadlineAt: deadline, LogPath: &logPath}
 		if bound && binding.QueueItemID != "" {
 			current.QueueItemID = &binding.QueueItemID
 		}

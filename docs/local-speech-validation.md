@@ -10,7 +10,7 @@ All **12 shared ASR variants** completed genuine CPU FP32 inference on the publi
 
 These runs exercised checkpoint loading, recognition and output serialization. Qwen3-ASR 1.7B also ran the separate Qwen3 forced aligner. Other variants ran without forced alignment; MOSS Diarize and Granite Plus supplied their native timing output.
 
-For long CPU recordings, review the existing [job timeout setting](model-comparison.md#long-cpu-jobs): `MEDIA_PROCESS_TIMEOUT_MINUTES` defaults to 120 and can be raised to 1440 for queued transcription and media subprocesses.
+Long CPU transcriptions now use the shared [activity policy](model-comparison.md#long-cpu-jobs), with no default wall-clock deadline. The historical qualification results below predate this policy; they are not a guarantee for every recording or model.
 
 | Checkpoint | CPU FP32 result | Timing exercised | Isolated child peak RSS |
 | --- | --- | --- | ---: |

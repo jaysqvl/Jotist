@@ -285,7 +285,7 @@ func (c *CanaryAdapter) setupCanaryEnvironment(ctx context.Context) error {
 	logger.Info("Installing Canary dependencies")
 	cmd := processutil.CommandContext(ctx, "uv", "sync", "--system-certs")
 	cmd.Dir = c.envPath
-	out, err := cmd.CombinedOutput()
+	out, err := processutil.CombinedOutput(ctx, cmd)
 	if err != nil {
 		return fmt.Errorf("uv sync failed: %w: %s", err, strings.TrimSpace(string(out)))
 	}
@@ -415,7 +415,7 @@ func (c *CanaryAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 
 	logger.Info("Executing Canary command", "arg_count", len(args))
 
-	if err := cmd.Run(); err != nil {
+	if err := processutil.Run(ctx, cmd); err != nil {
 		if ctx.Err() == context.Canceled {
 			return nil, fmt.Errorf("transcription was cancelled")
 		}

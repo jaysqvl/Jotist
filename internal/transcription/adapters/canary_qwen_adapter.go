@@ -221,7 +221,7 @@ func (c *CanaryQwenAdapter) setupCanaryQwenEnvironment(ctx context.Context) erro
 	logger.Info("Installing Canary-Qwen dependencies")
 	cmd := processutil.CommandContext(ctx, "uv", "sync", "--system-certs")
 	cmd.Dir = c.envPath
-	out, err := cmd.CombinedOutput()
+	out, err := processutil.CombinedOutput(ctx, cmd)
 	if err != nil {
 		return fmt.Errorf("uv sync failed: %w: %s", err, strings.TrimSpace(string(out)))
 	}
@@ -301,7 +301,7 @@ func (c *CanaryQwenAdapter) Transcribe(ctx context.Context, input interfaces.Aud
 
 	logger.Info("Executing Canary-Qwen command", "arg_count", len(args))
 
-	if err := cmd.Run(); err != nil {
+	if err := processutil.Run(ctx, cmd); err != nil {
 		if ctx.Err() == context.Canceled {
 			return nil, fmt.Errorf("transcription was cancelled")
 		}

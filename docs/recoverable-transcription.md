@@ -57,9 +57,21 @@ Limits are currently code-defined:
 - Confirmed external GPU contention does not justify reducing model context or learning a clean capacity result. Docker/NVML PID ownership uncertainty is recorded separately, permits the eligible recovery ladder, and prevents promotion.
 - Each stage has a saved seven-attempt ceiling, including attempts across explicit resumes. A resume does not reset the count. Waiting attempts can consume an attempt number.
 - Checkpoint persistence can be retried three times using the same attempt and output, without rerunning inference.
-- Execution deadlines are inherited from the processing context, or default to 24 hours when none exists. Queue/quick processing can impose the configured media timeout. Resume preserves the original deadline.
+- Execution deadlines are inherited only when the caller supplies one. Ordinary queue and quick jobs have no default wall-clock deadline. Resume preserves any deadline already saved by an older or explicitly bounded execution.
 
 Cancelled executions cannot resume. An expired deadline or exhausted attempt budget requires a new run; a new run can reuse only qualified compatible artifacts.
+
+## Shared worker lifecycle and release checks
+
+One process supervisor covers environment setup, recognition, alignment and speaker processing across the registered runtimes. SDK adapters still translate checkpoint formats, runtime calls and output schemas; they share stage parameter projection, cancellation, activity observation, resource collection, durable attempt recovery and strict output validation. Recognition receives a copy of the final request with later alignment/external-speaker work disabled. Native recognition keeps its speaker labels.
+
+The Linux supervisor watches the exact worker and its descendants, including PID start identity, monotonic progress counters, CPU/disk activity and scheduling evidence. It stops a worker only after sustained observable inactivity; runnable or I/O-blocked work, contention and missing telemetry defer that decision. A GPU worker also requires confirmed device idleness. The configurable default is thirty idle minutes. There is no default two-hour or hidden twenty-four-hour execution cap. See [the policy and its limits](model-comparison.md#long-cpu-jobs).
+
+Local decoder recovery remains bounded. Native timestamps outside a window can reuse the shared quiet-boundary split once, on the same model and device, for recognizers without native speaker identity. A naturally completed native speaker result with exactly one terminal untimed turn can use the existing forced aligner for that retained turn. Malformed middle content, generation cutoff and invalid timing remain failures. Both forms of recovery are reported as recovery, not ordinary completion; neither guesses an end timestamp or discards the terminal text.
+
+PR and release validation run shared Python contracts, installed-runtime imports, dependency audits and the actual staged Whisper CPU path on a pinned small public speech fixture. The opt-in `TestRuntimeQualification` uses isolated temporary workers and a host reservation to serialize model restoration. Target checks reuse installed runtimes and cached models without modifying production environments or queue items. A changed backend still needs focused target inference where its behavior cannot be established by the shared gate.
+
+These checks prove the exercised contracts and runtime paths. They do not establish word/speaker accuracy without a reviewed reference, every model's full-recording completion, or safe concurrent inference with unrelated applications.
 
 ## Exact reuse and fresh runs
 

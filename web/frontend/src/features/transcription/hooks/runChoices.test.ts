@@ -159,6 +159,20 @@ test('unknown terminal outcomes remain accessible and running times do not grow 
 	assert.equal(runElapsedLabel(timed, Date.parse('2026-09-28T10:00:00Z')), '1h 20m');
 });
 
+test('window recovery is visible and failed retried runs remain failed', () => {
+	const recovered: RunChoice = {
+		...gpu,
+		runtime_metadata: { ...gpu.runtime_metadata, auto_token_split_windows: '1', native_timing_retry_windows: '2' }
+	};
+	assert.equal(runOutcomeLabel(recovered), 'Completed with recovery');
+	assert.equal(runRecoveryBehavior(recovered).details, '3 window recoveries');
+	assert.equal(runOutcomeLabel({ ...recovered, status: 'failed' }), 'Failed');
+	assert.equal(runOutcomeLabel({ ...gpu, runtime_metadata: { token_retries: 'private' } }), 'Completed');
+	const repaired = { ...gpu, runtime_metadata: { output_repair_count: '1' } };
+	assert.equal(runOutcomeLabel(repaired), 'Completed with recovery');
+	assert.equal(runRecoveryBehavior(repaired).details, '1 output repair');
+});
+
 test('cloud recognition keeps local speaker devices separate and does not imply an ASR fallback', () => {
 	const cloud: RunChoice = {
 		id: 'cloud',

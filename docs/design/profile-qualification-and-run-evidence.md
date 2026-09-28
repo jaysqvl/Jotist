@@ -1,195 +1,64 @@
 # Profile qualification and run evidence
 
-Status: draft preparation updated, 2026-09-28. Production remains on
-v1.7.6 while the existing meeting benchmark finishes. Checked tasks below mean
-that implementation and local verification are complete. Hardware qualification
-and meeting quality assessment remain separate gates; a completed process alone
-is not proof of transcription quality or useful CPU/GPU performance.
+Status: release candidate, 2026-09-28. The operator closed the original benchmark by cancelling its remaining CPU work: **20 completed, 17 failed, 3 cancelled**. Production remains on v1.7.6 during focused qualification. Implementation, contract checks, real inference and human quality assessment are distinct evidence; no single check clears every model.
 
-## Ordered task list
+## Release docket
 
-- [x] **1. Replace vague dropdowns with a searchable run picker.** Include readable completed,
-  failed, running, pending, cancelled, and interrupted labels in the selected
-  value and options. Preserve access to failed runs, logs, and retained partial
-  output. Show saved profile, model, diarizer, CPU/GPU, precision, elapsed time,
-  and pinned transcript markers. Filter by outcome and device. Keep requested
-  settings distinct from reported runtime and fallback devices. Verify the picker and comparison
-  selector using local rendered fixtures. Completed with recovery has its own
-  outcome filter and badge. A failed fallback remains failed. Auto resolving to
-  CPU and explicitly configured GPU recognition with CPU speakers are ordinary
-  completion, unless recorded attempts show retries or fallback.
-- [x] **2. Inventory and extend resource measurement across adapters.** Record
-  peak and time averaged owned process RAM, process CPU consumption, device
-  VRAM, measurement duration/count, and ownership/contamination evidence. Keep
-  requested settings, measured values, and unavailable data distinct. Include
-  children of model workers; separate whole device VRAM from process VRAM and
-  allocator peaks. Use one shared execution path for all model families. Local
-  process, ownership, averaging, persistence, and cancellation fixtures pass;
-  live sampling overhead and hardware qualification are pending.
-- [x] **3. Present run and stage measurements in execution details.** Include
-  total processing time, stage/attempt timing, retries, actual devices, RAM and
-  VRAM usage, CPU convention, headroom, measurement availability, and checkpoint
-  reuse. Do not infer a safe batch size from one memory sample. Do not report
-  old runs' missing averages as zero. Desktop and narrow-screen rendered fixture
-  review is complete; the screenshots use synthetic values.
-- [x] **4. Fix the reproducible Canary aligned-word checkpoint failure.** Trace
-  both failed profiles through adapter output and checkpoint validation. Add a
-  local regression fixture based on the shape of the failure. Preserve valid
-  text and timestamps without accepting corrupt output. Skip blank separator
-  rows while retaining valid words and strict timestamp validation. Actual
-  Canary inference with the fix is deferred.
-- [x] **5. Fix DiariZen memory error classification and batching.** The saved
-  GPU profile failed with a CUDA OOM wrapped in a Python MemoryError. Verify
-  propagation of batch settings and typed memory failures so supported recovery
-  can act. Retain the configured recovery policy and report actual attempts.
-  Forward the saved batch size to both DiariZen segmentation and embedding;
-  inspect nested CUDA memory failures without reclassifying unrelated errors.
-  Actual CPU/GPU inference with these changes is deferred.
-- [ ] **6. Address MOSS native long recording output.** The GPU run produced an
-  incomplete timestamped result; its CPU counterpart reached the job deadline.
-  Verify the native model's long audio/output contract and supported windows,
-  token budgets, and speaker stitching before choosing a fix. Do not label the
-  model unusable solely from one adapter failure.
-- [ ] **7. Triage every additional terminal failure.** Separate adapter/format
-  errors, memory failures, job deadlines, unsupported runtimes, and checkpoint
-  persistence failures. Link each reproducible defect to a targeted regression
-  and concrete disposition. Track the transient SQLite queue insertion lock.
-- [ ] **8. Produce the private transcription comparison report.** Compare all
-  completed outputs on the same recording: technical vocabulary, omissions,
-  repetition, punctuation, timestamps, speaker attribution, elapsed time,
-  stage cost, memory, and device evidence. Include CPU/GPU pairs and clear
-  limitations. Agreement with another model is not reference accuracy; do not
-  claim WER/DER without a reviewed reference. Keep meeting text, context,
-  vocabulary, credentials, and private artifacts outside the public repository.
-- [ ] **9. Review profile cleanup after the batch ends.**
-  List affected names, devices, completion times, output quality, exact failures,
-  and retain/remove/repair rationale first. Recommend a GPU-only failure for
-  removal only when the CPU counterpart actually completes and is useful.
-  Recommend a redundant CPU profile only when the corresponding GPU profile
-  comfortably completes the full meeting with acceptable output quality.
-  Different diarizers are separate profile choices. Preserve a private profile
-  export before any separately authorized cleanup; benchmark IDs and history
-  must stay intact. This preparation phase does not change saved profiles.
-- [x] **10. Prepare GitHub changes and report the stopping point.** Commit
-  implementation and regression evidence in reviewable draft PRs. Record which
-  checks are local, which require later hardware qualification, and which tasks
-  await the running batch. Do not merge, publish a release, or replace the live
-  container during this preparation phase. [Draft PR #25](https://github.com/jaysqvl/Jotist/pull/25)
-  contains the local implementation and regression evidence. GitHub checks are
-  separate from the completed local checks; the PR remains draft for review and
-  later hardware qualification.
+- [x] **Readable run selection.** Searchable run and comparison pickers show saved profile, exact model/diarizer, requested and reported CPU/GPU devices, precision, elapsed time and the pinned transcript. Filters distinguish ordinary completion, completion with recovery and failure. A failed fallback remains failed; deliberately different recognition/speaker devices do not imply fallback.
+- [x] **Shared resource measurements.** Run/stage details show worker descendant RAM and CPU, whole-device and owned VRAM, reserve, measurement availability, retries, actual attempts and checkpoint reuse. Unknown readings stay unknown. Numeric measurements survive cancellation without bypassing write ownership.
+- [x] **Remove default execution duration caps.** Queue and quick jobs have no default two-hour deadline; recoverable execution has no hidden twenty-four-hour default. Explicit caller and historical saved deadlines remain enforced. Active quick audio is retained and its cleanup period starts at completion.
+- [x] **Use one conservative activity supervisor.** Shared process execution covers setup, recognition, alignment and speakers. Monotonic progress, descendant CPU/disk activity, runnable work and scheduling/I/O contention keep work alive. Missing telemetry defers termination. A sleeping GPU worker also requires confirmed device idleness. The default is thirty idle minutes. This detects sustained observable inactivity, not every busy-loop hang.
+- [x] **Shared recognition-stage boundary.** Clone the final request and disable later alignment/external-speaker requirements during recognition. Retain native speaker labels. This fixes BitNet's pre-inference rejection of a saved final request requiring aligned external speakers.
+- [x] **SQLite writer contention.** Apply a busy timeout on every pooled connection, reserve the writer before reading queue positions and retry only rolled-back transient lock failures. A real second-connection regression passes.
+- [x] **English selection and language comparison.** Default to eight English checkpoints while retaining the full catalog and saved specialist selections. Shared comparison metadata distinguishes exact variants, publisher language coverage and available per-language results. Incomplete sets do not acquire fabricated rankings. Retire Mini 4B Realtime while retaining Mini 3B and historical run labels.
+- [ ] **Complete focused target inference.** Qualify Canary's blank aligned-row normalization, DiariZen's batch/typed-memory propagation, MOSS terminal timing recovery and Granite PLUS's bounded invalid-timestamp retry. Fixtures pass; target evidence below records each exercised path separately.
+- [x] **Private comparison and profile export.** Read the closed cohort without changing its queue/history. Back up all forty profiles and their revisions outside the public repository. Derive counts, timing, vocabulary match counts, repetition and peer token agreement without exposing meeting text or hints. Agreement is not accuracy, and unreviewed trailing audio remains unknown.
+- [ ] **Publish, deploy and finish cleanup.** Merge the validated source, publish its release and deploy an immutable image digest. Preserve rollback identity, bound Docker log rotation, check audio/history/baseline pin, retire only the two explicitly selected Realtime profiles and remove qualification scratch.
 
-## Validation boundary
+The review is [PR #25](https://github.com/jaysqvl/Jotist/pull/25). Changes run through the release workflow; local source checks do not imply deployment.
 
-The current benchmark has priority. The NAS receives brief, indexed read-only
-status queries only. Do not add inference work, copy large live data trees,
-perform database integrity scans, change profile settings, restart containers,
-cancel/requeue items, or deploy while it runs. Implementation, fixture tests,
-mocked subprocess tests, and UI review run locally on the Mac. Hardware
-qualification is deferred until the current queue is terminal and the user
-authorizes replacing the deployed version.
+## Failure disposition
 
-## Evidence rules
-
-An RTX 3060 has 12 GiB nominal device memory in this study. A comfortable GPU
-result requires the whole meeting's output, all enabled inference stages on
-CUDA, real time factor at most 1, no recovery retry/fallback or observed external
-contention, and at least 15 percent device headroom. Completion with less
-headroom remains a fragile success. CPU results use the same time/output rules
-and observed host reserve. A two hour deadline is a runtime limit, not an
-accuracy measure. A timestamp coverage percentage must distinguish final speech
-from the trailing silence in the recording.
-
-Per-run statistics describe the execution that was measured. Reused stages,
-missing ownership information, unavailable sensors, legacy runs, other GPU
-workloads, and short sampling intervals must remain visible. Summing attempt
-peaks is invalid; time averages must be weighted by their measurement intervals.
-
-## Implementation and verification log
-
-- Initial branch: `jaysqvl/run-evidence-and-profile-fixes`, based on main commit
-  `06c6be4be904216d830042da2ddc4c80cd2cb21f` (v1.7.6).
-- Existing production benchmark: 40 profiles, one recording, fresh checkpoint
-  policy, serial execution. Profile disposition and full quality findings are
-  awaiting CPU completion.
-- Run history uses the submitted profile name and a closed runtime metadata
-  projection. A lightweight attempt summary distinguishes retries within a
-  stage from intentionally different devices across stages. The resource
-  endpoint returns numeric measurements and allowed attempt fields without
-  reading checkpoint payloads or returning private adapter parameters.
-- Whole-run measurements retain separate invocations across resume. Numeric
-  measurements can be retained after cancellation or a deadline, while stale
-  owners and deletion reservations still fence writes. Output publication and
-  checkpoint ownership rules remain unchanged.
-- Local verification includes frontend type checks, compiled Node fixtures,
-  ESLint, a Vite production build, Python adapter fixtures, targeted Go API and
-  repository tests, and existing ownership/cancellation/recovery tests. These
-  checks exercise contracts and UI behavior; they do not establish actual
-  inference success, speed, or accuracy on every model.
-- Final local results: 95 frontend tests passed; type checks, ESLint, and Vite
-  build passed. Python fixtures passed (6 Canary, 16 runtime controls, 3 research
-  diarization). Targeted Go tests passed for the picker/resource API,
-  measurement persistence, process sampling, batching, and existing recovery,
-  cancellation, deadline, deletion, and ownership behavior. `go vet` passed for
-  the affected API, repository, transcription, and adapter packages. The server
-  binary compiled locally with the freshly embedded frontend assets.
-- Generated API documentation includes the authenticated resource endpoint.
-  Draft branch changes do not deploy; merge, release, and NAS replacement are
-  deferred.
-- English model selection now defaults to eight exact checkpoints covering
-  accuracy, GPU efficiency, smaller CPU candidates, and the Whisper baseline.
-  The full catalog remains available; saved selections and non-English or
-  translation configurations retain access. Five English starters use the
-  picker's shared model/device defaults, including Parakeet FP32. Existing
-  reference profiles are preserved. Local type checks, 49 relevant frontend
-  tests, targeted ESLint, Vite build, and Go comparison/catalog tests passed.
-  No inference, NAS workload, live profile change, or runtime qualification was
-  performed for this selector update.
-- Retire Voxtral Mini 4B Realtime from the source catalog and its execution
-  branch, retaining historical labels and presentation support. Add publisher
-  language coverage and pinned per-language WER through shared comparison
-  metadata. The picker distinguishes publisher coverage from its own language
-  choices and does not rank incomplete language sets or borrow variant scores.
-  Remove unsupported Canary v2 language choices while preserving saved values
-  for editing. Local Go packages, 46 selected frontend tests, 16 lightweight
-  backend contract tests, type checks, ESLint, and Vite build passed. Rendered
-  local fixtures verified the common European and Hindi rankings. No NAS
-  access, inference, queue/profile edits, release or deployment occurred.
-
-## Failure disposition during preparation
-
-| Observed failure | Prepared response | Remaining gate |
+| Observed failure | Prepared response | Qualification boundary |
 | --- | --- | --- |
-| Canary alignment checkpoint rejects a blank aligned word | Normalize blank separator rows; retain strict validation of nonblank rows | Actual recognition, alignment, and diarization on the target hardware |
-| DiariZen CUDA OOM is wrapped in `MemoryError`; default pipeline batch differs from the saved attempt | Follow exception causes/contexts for typed memory failures; forward the saved batch to segmentation and embedding | Actual CUDA/CPU completion, recovery behavior, throughput, and peak memory |
-| MOSS GPU native output is incomplete; CPU recognition reaches the job deadline | Evidence retained; no output clipping, windowing, or token-budget change guessed | Verify native long-audio/output and speaker stitching contracts |
-| Granite base CPU run reaches the deadline during diarization | Evidence retained; interrupted numeric measurements will survive deadlines in the prepared version | Separate recognition cost, diarization cost, and host contention using recorded evidence |
-| Granite PLUS CPU output has timestamps outside its audio window | Strict bounds retained; the offending numeric bounds were not recorded in the current failure evidence | Reproduce the bounds without exposing meeting text, then target the adapter defect |
-| Transient SQLite queue insertion lock | Tracked separately; no queue changes made during the batch | Reproduce transaction contention and verify an appropriate insertion policy |
+| Eleven CPU runs reach the old two-hour deadline, mostly during speakers | Remove ordinary execution duration defaults; shared conservative activity supervision | Each model still needs full-recording speed/output evidence |
+| Canary checkpoint rejects blank aligned words | Skip blank separators, retain valid words and strict time validation | Target staged recognition/alignment |
+| DiariZen wraps CUDA OOM in MemoryError; saved batch not forwarded consistently | Follow typed exception causes; forward batch to segmentation and embedding | Target CPU/GPU inference and resource behavior |
+| MOSS returns complete turns followed by one terminal turn without its end timestamp | After natural EOS, retain terminal text/speaker and use the existing aligner for its timing after unloading recognition | Repaired full-recording replay; no guessed end or partial publication |
+| Granite PLUS predicts native timing outside a recognition window | Retain strict validation; reuse a quiet-boundary split once for the offending window on the same model/device | Full-recording CPU replay |
+| BitNet recognition inherits final speaker requirements | Common recognition-only parameter projection | Staged CPU fixture passed; full meeting remains unqualified |
+| SQLite queue insertion collides with a writer | Per-connection busy timeout, writer reservation and bounded transient-lock retry | Real cross-connection regression passed |
 
-The table records defects observed so far. It is not an all-model clearance or a
-profile deletion list. Full output quality assessment awaits batch completion.
+Native timing recovery uses the same bounded window machinery for recognizers without native speaker identities. MOSS retains recording-scoped native speaker IDs. Malformed middle output, generation cutoff, unsupported alignment language or an invalid terminal audio range remain explicit failures. Decoder/window retries and output repairs appear as recovery in run selection and details.
 
-## Measurement limits and interpretation
+## Current checks
 
-- Linux workers are sampled about every 500 milliseconds. Peak values can miss
-  short bursts and processes that start and exit between samples. RSS sums can
-  count shared pages more than once; these are sampled process RSS statistics.
-- CPU percent uses 100 percent for one logical CPU. Capacity comes from CPU
-  affinity and cgroup quota. Worker descendants are measured; shared application
-  work and short-lived processes outside observed samples are not included.
-- Averages are weighted by observed time, and missing observations break an
-  interval. Valid zero measurements remain zero; absent data remains unknown.
-  Full-run invocation averages include adapter setup and gaps between stages.
-- Whole-device VRAM includes unrelated GPU work. Owned VRAM requires matching
-  process identity across Docker's PID namespace. If ownership is unavailable,
-  the UI leaves owned VRAM unknown and keeps the device measurement separate.
-- Existing runs cannot acquire missing historical averages retroactively.
-  Reused checkpoints report reuse; they do not fabricate inference cost for the
-  current invocation. Peaks across attempts are maxima, never sums.
-- Available RAM and GPU headroom are observed reserve, not a demonstrated safe
-  batch-size increase. Full host CPU contention is not measured by this change.
-  Existing GPU ownership and external workload evidence remains visible.
-- Whole-run and stage collectors currently sample independently. The extra GPU
-  probes and `/proc` reads require an overhead check on the target hardware
-  after the benchmark; no claim of zero overhead is made.
+- 104 frontend tests pass. Type checking, ESLint and the production Vite build pass. Desktop and narrow rendered fixtures were reviewed with synthetic data.
+- Affected Go API, queue, database, repository, transcription, adapter and process packages pass; go vet passes. Ownership, cancellation, explicit deadlines, deletion and checkpoint regression coverage remains intact.
+- Shared Python contracts pass **114 tests and 28 subtests**. Script tests validate the pinned fixture and actual-inference gate invocation.
+- Actual Linux process tests on the target exercise idle descendant termination, CPU activity, monotonic progress and cancellation. Recovery fixtures allow resuming an execution started more than two hours earlier without a default deadline and protect active quick audio from expiry.
+- The CI installed-import workflow now also requires real staged Whisper CPU recognition/alignment on a revision- and hash-pinned public speech fixture. Imports, audits and actual inference are separate checks.
+- BitNet CPU recognition plus Qwen alignment completed the **16.02-second public fixture in 31.10 seconds**, producing 37 words with valid timing.
+- A full MOSS GPU replay reproduced the native terminal omission after 538 complete turns. The terminal repair has fixture coverage; its repaired target replay is pending. Granite PLUS CPU is receiving a full-recording replay.
+- Concurrent Canary model restoration caused host memory pressure and temporarily delayed health responses. Both qualification workers were stopped and health recovered. These interrupted checks are not passes. The opt-in harness now reserves one host slot across test binaries; heavy target checks run serially.
+
+Target qualification uses isolated container temporary projects and installed cached runtimes. It does not edit production environments, recordings or queue items. No new forty-profile campaign is needed. Check for new production work before replacement, and remove only this task's temporary assets when done.
+
+## Profile disposition and evidence rules
+
+Only the two saved Mini 4B Realtime profiles are selected for retirement. Their immutable run history remains. Completed CPU profiles use different diarizers from their GPU counterparts; model identity alone does not make them redundant. The original GPU results have unknown process ownership, so they do not prove uncontended comfortable operation. Retain other CPU profiles until equivalent-stage evidence justifies removal.
+
+The historical study used an RTX 3060 with 12 GiB nominal VRAM. Comfortable GPU use requires complete output, all enabled inference stages on CUDA, real time factor at most one, no retry/fallback/observed contention and at least 15% device reserve. Completion with lower reserve or recovery is fragile; unknown ownership or incomplete coverage is inconclusive. CPU interpretation likewise needs observed host reserve and contention evidence. Timestamp endpoints near 99.7% do not prove whether the remaining audio is silence or omitted speech. No WER or DER is claimed without a reviewed reference.
+
+Private comparison statistics show token counts, punctuation, repeated four-token windows, timestamp validity, saved vocabulary term counts and token agreement with another model. Natural repetition, differing tokenization and legitimate punctuation can affect these values. They are review aids, not a deletion ranking or a human assessment of technical accuracy/speaker identity.
+
+## Measurement limits
+
+- Worker sampling is about every 500 ms. Peaks can miss short bursts and short-lived descendants. Summed RSS can count shared pages more than once.
+- CPU uses 100% for one logical core; capacity comes from affinity/cgroup quota. Full host CPU contention is not measured by the resource collection change.
+- Time averages are weighted by observed intervals. Missing observations break an interval; valid zero readings remain zero. Peaks across attempts are maxima.
+- Whole-device VRAM includes unrelated applications. Owned VRAM needs matching process identity across Docker's PID namespace; unavailable ownership remains unknown. Reserve does not establish a safe batch-size increase.
+- Reused stages do not fabricate inference cost. Old runs cannot acquire missing averages retroactively. Separate invocations preserve resume timing history.
+- Run and stage collectors sample independently. Their GPU probes and process reads add overhead; no zero-overhead or all-model runtime guarantee is made.
+
+See [shared lifecycle and release checks](../recoverable-transcription.md#shared-worker-lifecycle-and-release-checks) and [long CPU job policy](../model-comparison.md#long-cpu-jobs).

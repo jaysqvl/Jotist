@@ -48,7 +48,7 @@ func Initialize(dbPath string) error {
 		"_pragma=cache_size(-64000)&"+ // 64MB cache size
 		"_pragma=temp_store(MEMORY)&"+ // Store temp tables in memory
 		"_pragma=mmap_size(268435456)&"+ // 256MB mmap size
-		"_timeout=30000", // 30 second timeout
+		"_pragma=busy_timeout(30000)", // Applies to every pooled SQLite connection.
 		dbPath)
 
 	// Open database connection with optimized config

@@ -104,11 +104,17 @@ Loading can temporarily increase memory. Full-recording context, larger batches,
 
 **Auto · GPU, then CPU** uses an available GPU first and retries once on CPU after a confirmed GPU execution failure. CPU retry uses FP32 where the runtime supports floating precision. A CPU-only host goes directly to CPU. Explicit GPU selection remains explicit; missing model access, invalid input, cancellation and expired job deadlines are not converted into another attempt.
 
-The failed adapter process exits before CPU retry, and the job publishes a transcript only after processing succeeds. Run logs record the attempts; successful recovery is also shown under Runs → Devices used. If both attempts fail, the job reports that CPU fallback failed after the GPU failure. Each stage gets its own recovery: **Same as transcription** follows the actual ASR device after fallback, while an independently selected speaker **Auto** can try GPU and then CPU itself. Both attempts share the original job deadline.
+The failed adapter process exits before CPU retry, and the job publishes a transcript only after processing succeeds. Run logs record the attempts; successful recovery is also shown under Runs → Devices used. If both attempts fail, the job reports that CPU fallback failed after the GPU failure. Each stage gets its own recovery: **Same as transcription** follows the actual ASR device after fallback, while an independently selected speaker **Auto** can try GPU and then CPU itself. Both attempts share the saved attempt budget and any explicitly supplied execution deadline.
 
 ## Long CPU jobs
 
-`MEDIA_PROCESS_TIMEOUT_MINUTES` already controls the queued transcription deadline and media subprocess limits. It defaults to **120 minutes** and accepts **5–1440 minutes**; for example, `MEDIA_PROCESS_TIMEOUT_MINUTES=1440` allows up to 24 hours. Set the server environment before starting a long CPU run. The transcription deadline includes first-use installation and model loading, recognition, alignment and external diarization, so leave time for the complete pipeline. Increasing this setting also extends media subprocess limits.
+Queued and quick transcription have **no default wall-clock deadline**. A healthy CPU worker can continue beyond two hours. Active quick jobs retain their audio; their six-hour cleanup period starts when processing ends.
+
+All model workers use the same inactivity supervisor. `TRANSCRIPTION_STALL_MINUTES` defaults to **30 minutes** and accepts **0–1440**; `0` disables automatic inactivity termination. On Linux, advancing progress counters, descendant CPU or disk activity, runnable workers, blocked I/O and scheduler contention keep a worker alive. A sleeping GPU worker is stopped only when GPU idleness is confirmed. Missing activity or GPU readings defer termination. Repeated heartbeats alone do not count as progress.
+
+This conservative policy detects sustained observable inactivity, not every possible hang: a busy loop, ongoing background I/O or an unverified GPU can defer termination. Cancellation still stops the worker process group and retained checkpoints remain available. Explicit caller deadlines and deadlines saved by older executions remain enforced on those executions; a new ordinary run has no such deadline.
+
+`MEDIA_PROCESS_TIMEOUT_MINUTES` continues to control download/conversion subprocess limits (**120 minutes**, range **5–1440**), independently of inference. Model setup downloads and resource admission have their own bounded waits. GPU and stage capacity waits currently allow ten minutes; these are admission limits before inference, not transcription duration limits. See [shared lifecycle and release checks](recoverable-transcription.md#shared-worker-lifecycle-and-release-checks).
 
 ## Profile starters and Quick Add Presets
 

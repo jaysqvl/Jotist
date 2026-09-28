@@ -57,6 +57,17 @@ func TestRunPickerUsesSubmittedProfileNameAndKeepsFailedRuns(t *testing.T) {
 	require.Equal(t, "failed", response.Runs[0].Status)
 }
 
+func TestRunPickerRecoveryCountsAreBoundedNumericMetadata(t *testing.T) {
+	raw := `{"metadata":{"auto_token_split_windows":"2","native_timing_retry_windows":"1","token_retries":"100001"}}`
+	require.Equal(t, map[string]string{"auto_token_split_windows": "2", "native_timing_retry_windows": "1"}, runRuntimeMetadata(&raw))
+	for _, count := range []string{"-1", "private content", "1.5", "99999999999999999999999999999"} {
+		encoded, err := json.Marshal(map[string]interface{}{"metadata": map[string]string{"token_retries": count}})
+		require.NoError(t, err)
+		value := string(encoded)
+		require.Empty(t, runRuntimeMetadata(&value))
+	}
+}
+
 func TestRunRecoverySummaryKeepsDifferentStageDevicesSeparate(t *testing.T) {
 	ordinary := summarizeRunAttempts([]models.RecoveryAttempt{
 		{StageID: "recognition", AttemptNumber: 1, Device: "cuda", Reason: "initial"},

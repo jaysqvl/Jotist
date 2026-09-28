@@ -231,7 +231,7 @@ func (a *LocalASRAdapter) PrepareEnvironment(ctx context.Context) error {
 	}
 	cmd := processutil.CommandContext(ctx, "uv", "sync", "--system-certs", "--project", a.envPath)
 	// Do not include package-manager output: authenticated URLs may appear there.
-	if err := cmd.Run(); err != nil {
+	if err := processutil.Run(ctx, cmd); err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
@@ -241,7 +241,7 @@ func (a *LocalASRAdapter) PrepareEnvironment(ctx context.Context) error {
 		return localASRDiagnostic("environment_install_failed", err)
 	}
 	cmd = processutil.CommandContext(ctx, "uv", "run", "--no-sync", "--project", a.envPath, "python", "-c", "import torch, transformers, soundfile; from transformers import AutoProcessor")
-	if err := cmd.Run(); err != nil {
+	if err := processutil.Run(ctx, cmd); err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
@@ -411,7 +411,7 @@ func (a *LocalASRAdapter) Transcribe(ctx context.Context, input interfaces.Audio
 	cmd.Env = env
 	// The runner emits only progress counters and sanitised error classes. Keep
 	// third-party stderr out of user logs; Python writes a safe error.json itself.
-	if err := cmd.Run(); err != nil {
+	if err := processutil.Run(ctx, cmd); err != nil {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}

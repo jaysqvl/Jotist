@@ -123,7 +123,7 @@ func (r *ResearchDiarizationAdapter) PrepareEnvironment(ctx context.Context) err
 		return err
 	}
 	cmd := processutil.CommandContext(ctx, "uv", "sync", "--system-certs", "--project", r.envPath)
-	if output, err := cmd.CombinedOutput(); err != nil {
+	if output, err := processutil.CombinedOutput(ctx, cmd); err != nil {
 		return fmt.Errorf("%s environment setup failed: %w: %s", r.engine, err, output)
 	}
 	r.initialized = true
@@ -193,7 +193,7 @@ func (r *ResearchDiarizationAdapter) Diarize(ctx context.Context, input interfac
 	}
 	defer log.Close()
 	cmd.Stdout, cmd.Stderr = log, log
-	if err := cmd.Run(); err != nil {
+	if err := processutil.Run(ctx, cmd); err != nil {
 		return nil, fmt.Errorf("%s diarization failed: %w; see transcription log", r.engine, err)
 	}
 	data, err := os.ReadFile(filepath.Join(directory, "result.json"))

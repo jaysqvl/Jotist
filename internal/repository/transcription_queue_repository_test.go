@@ -3,7 +3,9 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"scriberr/internal/models"
 
@@ -11,6 +13,35 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
+
+func TestQueueAppendRetriesRolledBackWriterContentionWithoutDuplicates(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "queue.db") + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(0)"
+	db, err := gorm.Open(sqlite.Open(path), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&models.TranscriptionJob{}, &models.TranscriptionQueueItem{}))
+	createQueueRepositoryTestJob(t, db, "contended", models.StatusCompleted)
+	writer, err := gorm.Open(sqlite.Open(path), &gorm.Config{})
+	require.NoError(t, err)
+	held := writer.Begin()
+	require.NoError(t, held.Exec("UPDATE transcription_jobs SET updated_at=updated_at WHERE id=?", "contended").Error)
+	done := make(chan error, 1)
+	repo := NewTranscriptionQueueRepository(db)
+	go func() {
+		done <- repo.Append(context.Background(), "contended", []models.TranscriptionQueueItem{{ID: "single"}})
+	}()
+	time.Sleep(70 * time.Millisecond)
+	require.NoError(t, held.Commit().Error)
+	select {
+	case err := <-done:
+		require.NoError(t, err)
+	case <-time.After(2 * time.Second):
+		t.Fatal("queue insertion did not recover from a released writer lock")
+	}
+	items, err := repo.List(context.Background(), "contended", true)
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	require.Equal(t, "single", items[0].ID)
+}
 
 func newQueueRepositoryTestDB(t *testing.T) *gorm.DB {
 	t.Helper()

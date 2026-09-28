@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import os
 import re
 import shlex
 import shutil
@@ -9,12 +11,18 @@ import subprocess
 import sys
 import tempfile
 import tomllib
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
 SECURITY_DIRECT_PINS = {"lightning", "pytorch-lightning", "hydra-core", "nltk"}
+SPEECH_FIXTURE_URL = (
+    "https://huggingface.co/datasets/hf-internal-testing/dummy-audio-samples/resolve/"
+    "798f2c7208aacc481351b60b8a39605d8bdae7c2/mary_had_lamb.mp3"
+)
+SPEECH_FIXTURE_SHA256 = "b8cb3a2adfa0b9be35bd6ce4fb9fb27f96d44c181b1271fca7dee2bf037269b5"
 
 
 @dataclass(frozen=True)
@@ -565,6 +573,40 @@ def run_adapter_audit(
     print(completed.stdout.strip())
 
 
+def run_inference_smoke(workdir: Path, args: argparse.Namespace) -> None:
+    """Actual shared Go process/stage path, with a pinned public speech fixture.
+
+    This is a small CPU recognition/alignment gate, not a long-meeting or
+    all-model hardware qualification. Reuse the just-installed Python runtime.
+    """
+    try:
+        with urllib.request.urlopen(SPEECH_FIXTURE_URL, timeout=60) as response:
+            data = response.read(1024 * 1024)
+    except (OSError, ValueError) as exc:
+        raise CheckError("cannot download the pinned public speech fixture") from exc
+    if hashlib.sha256(data).hexdigest() != SPEECH_FIXTURE_SHA256:
+        raise CheckError("public speech fixture checksum differs")
+    audio = workdir / "public-speech.mp3"
+    audio.write_bytes(data)
+    environment = os.environ.copy()
+    environment.update(
+        JOTIST_RUNTIME_MODEL="whisperx",
+        JOTIST_RUNTIME_DEVICE="cpu",
+        JOTIST_RUNTIME_AUDIO=str(audio),
+        JOTIST_RUNTIME_ENV=str(workdir),
+        OMP_NUM_THREADS="2",
+        MKL_NUM_THREADS="2",
+    )
+    # Never inherit private target qualification inputs in the public gate.
+    for key in ("JOTIST_RUNTIME_CONTEXT_FILE", "JOTIST_RUNTIME_REPORT", "HF_TOKEN"):
+        environment.pop(key, None)
+    completed = run(
+        [str(args.inference_smoke_binary.resolve()), "-test.run=^TestRuntimeQualification$", "-test.v", "-test.timeout=0"],
+        cwd=ROOT, timeout=args.timeout, verbose=args.verbose, env=environment,
+    )
+    print(completed.stdout.strip())
+
+
 def selected_adapters(keys: list[str] | None) -> list[AdapterSpec]:
     if not keys:
         return list(ADAPTERS)
@@ -615,6 +657,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--verbose", action="store_true", help="Print full uv command output."
     )
+    parser.add_argument(
+        "--inference-smoke-binary", type=Path,
+        help="In WhisperX import mode, run the compiled Go qualification test on pinned public speech.",
+    )
     return parser.parse_args()
 
 
@@ -627,6 +673,9 @@ def main() -> int:
         )
         return 2
     adapters = selected_adapters(args.adapter)
+    if args.inference_smoke_binary and (args.mode != "import" or not any(spec.key == "whisperx" for spec in adapters)):
+        print("--inference-smoke-binary requires WhisperX --mode import", file=sys.stderr)
+        return 2
     failures: list[str] = []
 
     with tempfile.TemporaryDirectory(prefix="jotist-adapter-envs-") as temp_dir:
@@ -663,6 +712,8 @@ def main() -> int:
                     )
                     if args.audit:
                         run_adapter_audit(spec, workdir, args)
+                    if args.inference_smoke_binary and spec.key == "whisperx":
+                        run_inference_smoke(workdir, args)
             except CheckError as exc:
                 failures.append(f"{spec.key}: {exc}")
                 print(f"    FAILED: {exc}", file=sys.stderr)

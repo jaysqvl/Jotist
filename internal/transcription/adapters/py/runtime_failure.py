@@ -2,6 +2,15 @@
 from contextlib import contextmanager
 import json
 
+_completed_units = 0
+
+
+def progress():
+    """Shared monotonic work evidence; no transcript, prompt or credentials."""
+    global _completed_units
+    _completed_units += 1
+    print("JOTIST_PROGRESS=" + json.dumps({"completed_units": _completed_units}), flush=True)
+
 
 def exception_chain(exc):
     seen = set()
@@ -56,3 +65,5 @@ def gpu_execution(device):
         if kind:
             print("SCRIBERR_GPU_FAILURE=" + json.dumps({"device": "cuda", "kind": kind}), flush=True)
         raise
+    else:
+        progress()

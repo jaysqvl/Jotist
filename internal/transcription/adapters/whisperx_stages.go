@@ -72,8 +72,7 @@ func (w *WhisperXAdapter) ResolveStageParameters(stage interfaces.StageDescripto
 	resolved := copyAdapterParameters(params)
 	switch stage.Kind {
 	case "recognition":
-		resolved["no_align"] = true
-		resolved["diarize"] = false
+		resolved = recognitionOnlyParameters(params)
 	case "alignment":
 		resolved["no_align"] = false
 		resolved["diarize"] = false
@@ -185,7 +184,7 @@ func (w *WhisperXAdapter) runPostRecognitionStage(ctx context.Context, kind stri
 		defer log.Close()
 		cmd.Stdout, cmd.Stderr = log, log
 	}
-	if err := cmd.Run(); err != nil {
+	if err := processutil.Run(ctx, cmd); err != nil {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}

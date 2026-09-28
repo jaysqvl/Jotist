@@ -364,14 +364,14 @@ func (w *WhisperXAdapter) PrepareEnvironment(ctx context.Context) error {
 		}
 	}
 	cmd := processutil.CommandContext(ctx, "uv", "sync", "--system-certs", "--project", whisperxPath)
-	if output, err := cmd.CombinedOutput(); err != nil {
+	if output, err := processutil.CombinedOutput(ctx, cmd); err != nil {
 		return fmt.Errorf("WhisperX environment setup failed: %w: %s", err, output)
 	}
 	// WhisperX's package-level functions import lazily. Import the actual CLI
 	// modules to catch incompatible Torch/TorchVision wheels before job execution.
 	cmd = processutil.CommandContext(ctx, "uv", "run", "--no-sync", "--project", whisperxPath, "python", "-I", "-c",
 		"from whisperx.alignment import load_align_model; from whisperx.asr import load_model; from whisperx.transcribe import transcribe_task; from whisperx.diarize import DiarizationPipeline; import torchcodec")
-	if output, err := cmd.CombinedOutput(); err != nil {
+	if output, err := processutil.CombinedOutput(ctx, cmd); err != nil {
 		w.initialized = false
 		return fmt.Errorf("WhisperX runtime import check failed: %w: %s", err, output)
 	}
@@ -481,7 +481,7 @@ func (w *WhisperXAdapter) Transcribe(ctx context.Context, input interfaces.Audio
 
 	logger.Info("Executing WhisperX command", "arg_count", len(args))
 
-	if err := cmd.Run(); err != nil {
+	if err := processutil.Run(ctx, cmd); err != nil {
 		if ctx.Err() == context.Canceled {
 			return nil, fmt.Errorf("transcription was cancelled")
 		}

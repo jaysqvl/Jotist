@@ -92,6 +92,7 @@ func (u *UnifiedTranscriptionService) SetBroadcaster(b *sse.Broadcaster) {
 
 // Initialize prepares all registered models for use
 func (u *UnifiedTranscriptionService) Initialize(ctx context.Context) error {
+	ctx = processutil.WithSupervision(ctx, processutil.DefaultSupervisionPolicy())
 	if u.recoveryInitError != nil {
 		return u.recoveryInitError
 	}
@@ -123,6 +124,13 @@ func (u *UnifiedTranscriptionService) Initialize(ctx context.Context) error {
 //
 //nolint:gocyclo // Complex orchestration required
 func (u *UnifiedTranscriptionService) ProcessJob(ctx context.Context, jobID string) error {
+	policy := processutil.DefaultSupervisionPolicy()
+	policy.Observe = func(event processutil.SupervisionEvent) {
+		if event.State != "active_or_unverified" {
+			logger.Warn("Worker inactivity observation", "job_id", jobID, "state", event.State, "idle_seconds", event.IdleSeconds)
+		}
+	}
+	ctx = processutil.WithSupervision(ctx, policy)
 	if u.recoveryInitError != nil {
 		return u.recoveryInitError
 	}

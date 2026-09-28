@@ -49,6 +49,13 @@ export function runStatusLabel(status?: string): string {
 
 export function runRecoveryBehavior(run: RunChoice) {
 	const retries = run.recovery_summary?.retry_count || 0;
+	const count = (key: string) => {
+		const raw = run.runtime_metadata?.[key] || '';
+		return /^\d+$/.test(raw) && Number(raw) <= 100000 ? Number(raw) : 0;
+	};
+	const windows = count('auto_token_split_windows') + count('native_timing_retry_windows');
+	const decoderRetries = count('token_retries');
+	const outputRepairs = count('output_repair_count');
 	const params = run.actual_parameters || {};
 	const localASR = !['openai', 'openai_whisper'].includes(params.model_family || '');
 	const requestedSpeaker = requestedDiarizationDevice(
@@ -72,9 +79,12 @@ export function runRecoveryBehavior(run: RunChoice) {
 			) === 'cpu');
 	const details = [
 		cpuFallback ? 'CPU fallback' : '',
-		retries ? `${retries} stage ${retries === 1 ? 'retry' : 'retries'}` : ''
+		retries ? `${retries} stage ${retries === 1 ? 'retry' : 'retries'}` : '',
+		windows ? `${windows} window ${windows === 1 ? 'recovery' : 'recoveries'}` : '',
+		decoderRetries ? `${decoderRetries} decoder ${decoderRetries === 1 ? 'retry' : 'retries'}` : '',
+		outputRepairs ? `${outputRepairs} output ${outputRepairs === 1 ? 'repair' : 'repairs'}` : ''
 	].filter(Boolean);
-	return { recovered: retries > 0 || cpuFallback, details: details.join(' · ') };
+	return { recovered: retries > 0 || windows > 0 || decoderRetries > 0 || outputRepairs > 0 || cpuFallback, details: details.join(' · ') };
 }
 
 export function runOutcome(run: RunChoice): string {
