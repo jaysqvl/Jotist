@@ -96,8 +96,6 @@ func (u *UnifiedTranscriptionService) Initialize(ctx context.Context) error {
 	if u.recoveryInitError != nil {
 		return u.recoveryInitError
 	}
-	logger.Info("Initializing unified transcription service")
-
 	// Create necessary directories
 	if err := os.MkdirAll(u.tempDirectory, 0755); err != nil {
 		return fmt.Errorf("failed to create temp directory: %w", err)
@@ -105,6 +103,13 @@ func (u *UnifiedTranscriptionService) Initialize(ctx context.Context) error {
 	if err := os.MkdirAll(u.outputDirectory, 0755); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
+	// Already prepared CPU work must not wait behind an unrelated GPU stage
+	// just to repeat the registry's no-op startup check. Each service still
+	// prepares its own directories even when it shares an initialized registry.
+	if u.registry.IsInitialized() {
+		return ctx.Err()
+	}
+	logger.Info("Initializing unified transcription service")
 
 	// Initialize all registered models
 	release, err := acquireGPUStage(ctx, map[string]interface{}{"device": "auto"})

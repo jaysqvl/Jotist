@@ -1,6 +1,7 @@
 package transcription
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -9,6 +10,21 @@ import (
 	"github.com/stretchr/testify/require"
 	"scriberr/internal/models"
 )
+
+func TestPreparedInitializationDoesNotWaitForAnotherGPUStage(t *testing.T) {
+	f := newRecoveryServiceFixture(t, false)
+	require.NoError(t, f.service.Initialize(context.Background()))
+	f.service.tempDirectory = filepath.Join(t.TempDir(), "prepared-temp")
+	f.service.outputDirectory = filepath.Join(t.TempDir(), "prepared-output")
+	release, err := acquireGPUStage(context.Background(), map[string]interface{}{"device": "cuda"})
+	require.NoError(t, err)
+	defer release()
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	require.NoError(t, f.service.Initialize(ctx), "prepared CPU startup must not depend on GPU admission")
+	require.DirExists(t, f.service.tempDirectory)
+	require.DirExists(t, f.service.outputDirectory)
+}
 
 func TestRecoverableExecutionCanResumeAfterMoreThanTwoHours(t *testing.T) {
 	f := newRecoveryServiceFixture(t, false)
