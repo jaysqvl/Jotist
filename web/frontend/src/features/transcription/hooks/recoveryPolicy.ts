@@ -45,6 +45,36 @@ export interface RunSubmissionOptions {
     reuse_checkpoints?: boolean;
 }
 
+export interface ResourceMeasurements {
+    invocation_id?: string;
+    process_peak_rss_bytes?: number;
+    process_average_rss_bytes?: number;
+    process_peak_vram_bytes?: number;
+    process_average_vram_bytes?: number;
+    device_average_used_bytes?: number;
+    process_cpu_average_percent?: number;
+    cpu_capacity_cores?: number;
+    rss_sampled_seconds?: number;
+    process_vram_sampled_seconds?: number;
+    device_sampled_seconds?: number;
+    cpu_sampled_seconds?: number;
+    torch_peak_allocated_bytes?: number;
+    torch_peak_reserved_bytes?: number;
+    host_total_bytes?: number;
+    host_available_before_bytes?: number;
+    host_minimum_available_bytes?: number;
+    gpu_total_bytes?: number;
+    device_used_before_bytes?: number;
+    device_peak_used_bytes?: number;
+    process_peak_bytes?: number;
+    available_after_bytes?: number;
+    external_contention: boolean;
+    ownership_unknown?: boolean;
+    samples: number;
+    elapsed_seconds: number;
+    scope: string;
+}
+
 export interface RecoveryAttempt {
     id: string;
     attempt_number: number;
@@ -56,13 +86,7 @@ export interface RecoveryAttempt {
     overlap_seconds?: number;
     stitching_version?: string;
     plan_version?: number;
-    measurements?: {
-        torch_peak_allocated_bytes?: number; torch_peak_reserved_bytes?: number;
-        host_total_bytes?: number; host_available_before_bytes?: number; host_minimum_available_bytes?: number;
-        gpu_total_bytes?: number; device_used_before_bytes?: number; device_peak_used_bytes?: number;
-        process_peak_bytes?: number; available_after_bytes?: number; external_contention: boolean; ownership_unknown?: boolean;
-        samples: number; elapsed_seconds: number; scope: string;
-    } | null;
+    measurements?: ResourceMeasurements | null;
     reason?: string;
     error_message?: string;
     error_code?: string;

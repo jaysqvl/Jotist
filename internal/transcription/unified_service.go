@@ -164,7 +164,11 @@ func (u *UnifiedTranscriptionService) ProcessJob(ctx context.Context, jobID stri
 	}
 
 	// Helper function to update execution status
+	finishMeasurements := startStageMeasurements(ctx, executionMeasurementDevice(job.Parameters), visibleGPU(ctx, job.Parameters.DeviceIndex), filepath.Dir(logPath))
+	defer finishMeasurements()
 	updateExecutionStatus := func(status models.JobStatus, errorMsg string) {
+		measurements := finishMeasurements()
+		execution.ResourceMeasurements = []models.StageMeasurements{measurements}
 		completedAt := time.Now()
 		execution.CompletedAt = &completedAt
 		execution.Status = status

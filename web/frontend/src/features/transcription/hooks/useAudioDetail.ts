@@ -48,6 +48,9 @@ export interface ExecutionRun extends ExecutionData {
     actual_parameters?: WhisperXParams;
     has_transcript?: boolean;
     has_logs?: boolean;
+    profile_name?: string;
+    runtime_metadata?: Record<string, string>;
+    recovery_summary?: { evidence_available: boolean; retry_count: number; cpu_fallback: boolean; reasons: string[] };
 }
 
 export interface ExecutionRunsData {

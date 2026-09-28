@@ -170,6 +170,7 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			transcription.GET("/:id/runs/:run_id/transcript", handler.GetRunTranscript)
 			transcription.GET("/:id/runs/:run_id/logs", handler.GetRunLogs)
 			transcription.GET("/:id/runs/:run_id/recovery", handler.GetRunRecovery)
+			transcription.GET("/:id/runs/:run_id/resources", handler.GetRunResources)
 			transcription.POST("/:id/runs/:run_id/resume", handler.ResumeRun)
 			transcription.POST("/:id/runs/:run_id/active", handler.SetActiveRun)
 			transcription.GET("/:id/merge-status", handler.GetMergeStatus)

@@ -400,6 +400,9 @@ type TranscriptionJobExecution struct {
 	StartedAt          time.Time  `json:"started_at" gorm:"not null"`
 	CompletedAt        *time.Time `json:"completed_at,omitempty"`
 	ProcessingDuration *int64     `json:"processing_duration,omitempty"` // Duration in milliseconds
+	// Separate invocations preserve resume history. They must not be confused
+	// with elapsed wall time spent paused between invocations.
+	ResourceMeasurements []StageMeasurements `json:"resource_measurements,omitempty" gorm:"serializer:json;type:text"`
 
 	// Multi-track specific timing data
 	MultiTrackTimings *string    `json:"multi_track_timings,omitempty" gorm:"type:text"` // JSON-serialized []MultiTrackTiming

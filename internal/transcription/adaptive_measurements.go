@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -24,58 +23,13 @@ type capacitySample struct {
 // /proc sampling is read-only and limited to this coordinator's process tree.
 // Matching the stage's private output directory separates overlapping CPU work.
 func stageProcesses(directory string) map[int]int64 {
-	entries, err := os.ReadDir("/proc")
-	if err != nil {
+	readings := stageProcessReadings(directory)
+	if readings == nil {
 		return nil
 	}
-	type process struct {
-		parent  int
-		rss     int64
-		matches bool
-	}
-	all := map[int]process{}
-	for _, entry := range entries {
-		pid, err := strconv.Atoi(entry.Name())
-		if err != nil {
-			continue
-		}
-		data, err := os.ReadFile(filepath.Join("/proc", entry.Name(), "stat"))
-		if err != nil {
-			continue
-		}
-		end := strings.LastIndexByte(string(data), ')')
-		if end < 0 {
-			continue
-		}
-		fields := strings.Fields(string(data)[end+1:])
-		if len(fields) < 22 {
-			continue
-		}
-		parent, _ := strconv.Atoi(fields[1])
-		rss, _ := strconv.ParseInt(fields[21], 10, 64)
-		cmd, _ := os.ReadFile(filepath.Join("/proc", entry.Name(), "cmdline"))
-		all[pid] = process{parent, rss * int64(os.Getpagesize()), directory != "" && strings.Contains(string(cmd), directory)}
-	}
 	result := map[int]int64{}
-	for pid, p := range all {
-		current := pid
-		matched := p.matches
-		ours := false
-		for depth := 0; depth < 64; depth++ {
-			if current == os.Getpid() {
-				ours = true
-				break
-			}
-			ancestor, ok := all[current]
-			if !ok || ancestor.parent == current {
-				break
-			}
-			matched = matched || ancestor.matches
-			current = ancestor.parent
-		}
-		if ours && matched {
-			result[pid] = policyMax(0, p.rss)
-		}
+	for pid, reading := range readings {
+		result[pid] = reading.rss
 	}
 	return result
 }
@@ -198,55 +152,24 @@ func gpuCapacitySince(ctx context.Context, gpu gpuInventory, directory string, b
 func startStageMeasurements(ctx context.Context, device string, gpu gpuInventory, directory string) func() models.StageMeasurements {
 	started := time.Now()
 	sampleCtx, cancel := context.WithCancel(ctx)
-	var mu sync.Mutex
 	measurement := models.StageMeasurements{Scope: "unavailable"}
 	ptr := func(v int64) *int64 { return &v }
+	number := func(v float64) *float64 { return &v }
+	peak := func(target **int64, value int64) {
+		if *target == nil || **target < value {
+			*target = ptr(value)
+		}
+	}
+	var rssAverage, deviceAverage, vramAverage sampledAverage
+	var cpu processCPUAccumulator
+	clock := processClockTicks()
+	observedProcess := false
 	var baseline map[int]bool
 	preflight := true
 	sample := func() {
-		if device == "cuda" {
-			initial := preflight
-			preflight = false // Even an unavailable initial query must not classify a later worker as preexisting.
-			value, ok := gpuCapacitySince(sampleCtx, gpu, directory, baseline, initial)
-			if initial && ok {
-				baseline = value.pids
-			}
-			if !ok {
-				mu.Lock()
-				measurement.OwnershipUnknown = true
-				mu.Unlock()
-				return
-			}
-			mu.Lock()
-			defer mu.Unlock()
-			measurement.Scope = "sampled-device-and-owned-process-vram"
-			measurement.GPUTotalBytes = ptr(value.total)
-			if measurement.DeviceUsedBeforeBytes == nil {
-				measurement.DeviceUsedBeforeBytes = ptr(value.used)
-			}
-			if measurement.DevicePeakUsedBytes == nil || *measurement.DevicePeakUsedBytes < value.used {
-				measurement.DevicePeakUsedBytes = ptr(value.used)
-			}
-			if value.processKnown && (measurement.ProcessPeakBytes == nil || *measurement.ProcessPeakBytes < value.process) {
-				measurement.ProcessPeakBytes = ptr(value.process)
-			}
-			measurement.AvailableAfterBytes = ptr(policyMax(0, value.total-value.used))
-			measurement.ExternalContention = measurement.ExternalContention || value.external
-			measurement.OwnershipUnknown = measurement.OwnershipUnknown || value.ownershipUnknown
-			measurement.Samples++
-		} else {
-			total, available := hostCapacity()
-			if total <= 0 {
-				return
-			}
-			processes := stageProcesses(directory)
-			rss := int64(0)
-			for _, v := range processes {
-				rss += v
-			}
-			mu.Lock()
-			defer mu.Unlock()
-			measurement.Scope = "sampled-owned-process-rss-and-host-or-cgroup"
+		at := time.Now()
+		total, available := hostCapacity()
+		if total > 0 {
 			measurement.HostTotalBytes = ptr(total)
 			if measurement.HostAvailableBeforeBytes == nil {
 				measurement.HostAvailableBeforeBytes = ptr(available)
@@ -254,9 +177,61 @@ func startStageMeasurements(ctx context.Context, device string, gpu gpuInventory
 			if measurement.HostMinimumAvailableBytes == nil || available < *measurement.HostMinimumAvailableBytes {
 				measurement.HostMinimumAvailableBytes = ptr(available)
 			}
-			if len(processes) > 0 && (measurement.ProcessPeakBytes == nil || rss > *measurement.ProcessPeakBytes) {
-				measurement.ProcessPeakBytes = ptr(rss)
+		}
+		processes := stageProcessReadings(directory)
+		if processes != nil {
+			var rss int64
+			for _, process := range processes {
+				rss += process.rss
 			}
+			if len(processes) > 0 {
+				observedProcess = true
+				peak(&measurement.ProcessPeakRSSBytes, rss)
+				if device == "cpu" {
+					peak(&measurement.ProcessPeakBytes, rss)
+				}
+			}
+			rssAverage.observe(at, number(float64(rss)))
+			cpu.observe(at, processes, clock)
+			measurement.CPUCapacityCores = number(permittedCPUCount())
+			measurement.Scope = "sampled-owned-process-rss-cpu-and-host-or-cgroup"
+		} else {
+			rssAverage.observe(at, nil)
+			cpu.observe(at, nil, clock)
+		}
+		// Sample CPU/RAM on every adapter, including GPU recognition.
+		if device != "cpu" && gpu.UUID != "" {
+			initial := preflight
+			preflight = false
+			value, ok := gpuCapacitySince(sampleCtx, gpu, directory, baseline, initial)
+			if initial && ok {
+				baseline = value.pids
+			}
+			if !ok {
+				measurement.OwnershipUnknown = true
+				deviceAverage.observe(at, nil)
+				vramAverage.observe(at, nil)
+			} else {
+				measurement.Scope = "sampled-owned-process-rss-cpu-and-device-vram"
+				measurement.GPUTotalBytes = ptr(value.total)
+				if measurement.DeviceUsedBeforeBytes == nil {
+					measurement.DeviceUsedBeforeBytes = ptr(value.used)
+				}
+				peak(&measurement.DevicePeakUsedBytes, value.used)
+				deviceAverage.observe(at, number(float64(value.used)))
+				if value.processKnown {
+					peak(&measurement.ProcessPeakVRAMBytes, value.process)
+					peak(&measurement.ProcessPeakBytes, value.process) // Historical CUDA field semantics.
+					vramAverage.observe(at, number(float64(value.process)))
+				} else {
+					vramAverage.observe(at, nil)
+				}
+				measurement.AvailableAfterBytes = ptr(policyMax(0, value.total-value.used))
+				measurement.ExternalContention = measurement.ExternalContention || value.external
+				measurement.OwnershipUnknown = measurement.OwnershipUnknown || value.ownershipUnknown
+			}
+		}
+		if total > 0 || processes != nil || measurement.GPUTotalBytes != nil {
 			measurement.Samples++
 		}
 	}
@@ -275,12 +250,31 @@ func startStageMeasurements(ctx context.Context, device string, gpu gpuInventory
 			}
 		}
 	}()
+	var finish sync.Once
 	return func() models.StageMeasurements {
-		cancel()
-		<-done
-		mu.Lock()
-		defer mu.Unlock()
-		measurement.ElapsedSeconds = time.Since(started).Seconds()
+		finish.Do(func() {
+			cancel()
+			<-done
+			measurement.ElapsedSeconds = time.Since(started).Seconds()
+			averageBytes := func(average *sampledAverage) *int64 {
+				if v := average.average(); v != nil {
+					return ptr(int64(*v))
+				}
+				return nil
+			}
+			if observedProcess {
+				measurement.ProcessAverageRSSBytes = averageBytes(&rssAverage)
+				measurement.RSSSampledSeconds = rssAverage.seconds
+			}
+			measurement.ProcessAverageVRAMBytes = averageBytes(&vramAverage)
+			measurement.DeviceAverageUsedBytes = averageBytes(&deviceAverage)
+			measurement.ProcessVRAMSampledSeconds = vramAverage.seconds
+			measurement.DeviceSampledSeconds = deviceAverage.seconds
+			measurement.ProcessCPUAveragePercent = cpu.average()
+			if measurement.ProcessCPUAveragePercent != nil {
+				measurement.CPUSampledSeconds = cpu.seconds
+			}
+		})
 		return measurement
 	}
 }
