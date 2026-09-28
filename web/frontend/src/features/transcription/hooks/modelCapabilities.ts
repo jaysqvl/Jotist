@@ -60,10 +60,15 @@ export function contextSupport(model?: TranscriptionModelCapability) {
 }
 
 export function findModelCapability(models: TranscriptionModelCapability[], family: string, model: string) {
-    return models.find((entry) => entry.model_id === model)
-        ?? (LEGACY_MODEL_FAMILIES.some((entry) => entry.value === family)
-            ? models.find((entry) => entry.model_family === family || (family === "openai" && entry.model_family === "openai_whisper"))
-            : undefined);
+    const exact = models.find((entry) => entry.model_id === model || entry.metadata?.model_id === model);
+    if (exact) return exact;
+    // An unavailable exact repository must not inherit another checkpoint's
+    // capabilities through a legacy family alias.
+    const legacyVoxtral = family === "mistral_voxtral" && model === "mistralai/Voxtral-mini";
+    if (model.includes("/") && !isCloudASR(family) && !legacyVoxtral) return undefined;
+    return LEGACY_MODEL_FAMILIES.some((entry) => entry.value === family)
+        ? models.find((entry) => entry.model_family === family || (family === "openai" && entry.model_family === "openai_whisper"))
+        : undefined;
 }
 
 export function modelDetailsApply(model: TranscriptionModelCapability, variant: string) {

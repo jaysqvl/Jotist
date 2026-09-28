@@ -60,8 +60,10 @@ func TestVoxtralDoesNotSubstituteUnknownCheckpoint(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, ModelVoxtral, id)
 	}
-	_, _, err := s.selectModels(models.WhisperXParams{ModelFamily: FamilyMistralVoxtral, Model: "mistralai/Voxtral-Mini-4B-Realtime-typo"})
-	require.Error(t, err)
+	for _, model := range []string{"mistralai/Voxtral-Mini-4B-Realtime-typo", "mistralai/Voxtral-Mini-4B-Realtime-2602"} {
+		_, _, err := s.selectModels(models.WhisperXParams{ModelFamily: FamilyMistralVoxtral, Model: model})
+		require.Error(t, err, "Removed and unknown checkpoints must not be substituted with Mini 3B")
+	}
 }
 
 func TestWhisperExternalDiarizerDoesNotReachInlineValidation(t *testing.T) {

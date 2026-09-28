@@ -129,7 +129,7 @@ func NewLocalASRAdapter(envPath, modelID string) (*LocalASRAdapter, error) {
 		"resilience_contract":   "durable_recognition_alignment",
 	}
 	switch spec.Engine {
-	case "granite_ctc", "voxtral_realtime":
+	case "granite_ctc":
 		metadata["generation_completion_policy"] = "architecture_managed_no_output_cap"
 	default:
 		metadata["generation_completion_policy"] = "duration_budget_bounded_split_end_marker_required"

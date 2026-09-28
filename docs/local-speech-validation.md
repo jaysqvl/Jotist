@@ -1,5 +1,7 @@
 # Local speech integration validation
 
+This is a dated validation record. Voxtral Mini 4B Realtime was subsequently retired from the supported source catalog on 2026-09-28; its earlier results below remain historical evidence. Voxtral Mini 3B remains supported.
+
 Validation date: **2026-09-12 UTC**. Published benchmark results and memory estimates are explained separately in [Reading the model comparison](model-comparison.md).
 
 ## Actual model inference

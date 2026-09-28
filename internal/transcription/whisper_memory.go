@@ -6,16 +6,18 @@ import (
 	"math"
 )
 
+var whisperCheckpointParameters = []struct {
+	model      string
+	parameters float64
+}{
+	{"tiny", .039}, {"tiny.en", .039}, {"base", .074}, {"base.en", .074},
+	{"small", .244}, {"small.en", .244}, {"medium", .769}, {"medium.en", .769},
+	{"large", 1.55}, {"large-v1", 1.55}, {"large-v2", 1.55}, {"large-v3", 1.55},
+}
+
 func whisperVariantMemoryEstimates() string {
 	rows := make([]map[string]string, 0)
-	for _, checkpoint := range []struct {
-		model      string
-		parameters float64
-	}{
-		{"tiny", .039}, {"tiny.en", .039}, {"base", .074}, {"base.en", .074},
-		{"small", .244}, {"small.en", .244}, {"medium", .769}, {"medium.en", .769},
-		{"large", 1.55}, {"large-v1", 1.55}, {"large-v2", 1.55}, {"large-v3", 1.55},
-	} {
+	for _, checkpoint := range whisperCheckpointParameters {
 		estimate := func(bytes float64) string {
 			return fmt.Sprintf("%.0f–%.0f", math.Ceil(checkpoint.parameters*bytes+2), math.Ceil(checkpoint.parameters*bytes+6))
 		}

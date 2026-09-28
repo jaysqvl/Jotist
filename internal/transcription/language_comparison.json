@@ -1,0 +1,792 @@
+{
+  "retrieved": "2026-09-28",
+  "benchmark_source": "https://huggingface.co/datasets/hf-audio/multilingual_evals/tree/d2341ed252c0bc3f692b4dd02839f41d96673c3b",
+  "benchmark_revision": "d2341ed252c0bc3f692b4dd02839f41d96673c3b",
+  "evaluator_source": "https://huggingface.co/spaces/hf-audio/open_asr_leaderboard/blob/4295ce2e317d85022f232f5c12a1f10586b41ca7/app.py",
+  "benchmark_notes": "Mean of available WER datasets per language, rounded to two decimals as in the source. Only rows covering every selected language receive a macro mean. German uses FLEURS/MCV; French, Italian, Spanish and Dutch use FLEURS/MCV/MLS; Portuguese uses FLEURS/MLS. Hindi uses the distinct conversational Monsoon protocol. These are published recognition results, not Jotist speed, alignment, diarization or mixed-language meeting qualification.",
+  "models": [
+    {
+      "model": "Qwen/Qwen3-ASR-1.7B-hf",
+      "publisher_coverage": "30 languages + 22 Chinese dialects",
+      "publisher_languages": [
+        "zh",
+        "en",
+        "yue",
+        "ar",
+        "de",
+        "fr",
+        "es",
+        "pt",
+        "id",
+        "it",
+        "ko",
+        "ru",
+        "th",
+        "vi",
+        "ja",
+        "tr",
+        "hi",
+        "ms",
+        "nl",
+        "sv",
+        "da",
+        "fi",
+        "pl",
+        "cs",
+        "fil",
+        "fa",
+        "el",
+        "hu",
+        "mk",
+        "ro"
+      ],
+      "publisher_source": "https://huggingface.co/Qwen/Qwen3-ASR-1.7B-hf",
+      "notes": "The default Qwen word aligner supports 11 languages; recognition coverage alone does not qualify the complete pipeline. Jotist currently exposes 12 recognition languages.",
+      "wer": {
+        "de": {
+          "mean_wer": 3.97,
+          "datasets": {
+            "FLEURS": 3.35,
+            "MCV": 4.6
+          }
+        },
+        "fr": {
+          "mean_wer": 5.68,
+          "datasets": {
+            "FLEURS": 4.06,
+            "MCV": 7.84,
+            "MLS": 5.15
+          }
+        },
+        "it": {
+          "mean_wer": 5.44,
+          "datasets": {
+            "FLEURS": 2.23,
+            "MCV": 4.6,
+            "MLS": 9.48
+          }
+        },
+        "es": {
+          "mean_wer": 3.8,
+          "datasets": {
+            "FLEURS": 2.92,
+            "MCV": 4.03,
+            "MLS": 4.46
+          }
+        },
+        "pt": {
+          "mean_wer": 6.31,
+          "datasets": {
+            "FLEURS": 3.97,
+            "MLS": 8.64
+          }
+        },
+        "nl": {
+          "mean_wer": 7.95,
+          "datasets": {
+            "FLEURS": 6.59,
+            "MCV": 5.43,
+            "MLS": 11.82
+          }
+        },
+        "hi": {
+          "mean_wer": 12.25,
+          "datasets": {
+            "Monsoon": 12.25
+          }
+        }
+      }
+    },
+    {
+      "model": "Qwen/Qwen3-ASR-0.6B-hf",
+      "publisher_coverage": "30 languages + 22 Chinese dialects",
+      "publisher_languages": [
+        "zh",
+        "en",
+        "yue",
+        "ar",
+        "de",
+        "fr",
+        "es",
+        "pt",
+        "id",
+        "it",
+        "ko",
+        "ru",
+        "th",
+        "vi",
+        "ja",
+        "tr",
+        "hi",
+        "ms",
+        "nl",
+        "sv",
+        "da",
+        "fi",
+        "pl",
+        "cs",
+        "fil",
+        "fa",
+        "el",
+        "hu",
+        "mk",
+        "ro"
+      ],
+      "publisher_source": "https://huggingface.co/Qwen/Qwen3-ASR-0.6B-hf",
+      "notes": "Smaller checkpoint with the same published coverage. The default Qwen word aligner supports 11 languages; Jotist currently exposes 12 recognition languages.",
+      "wer": {
+        "de": {
+          "mean_wer": 6.69,
+          "datasets": {
+            "FLEURS": 5.41,
+            "MCV": 7.97
+          }
+        },
+        "fr": {
+          "mean_wer": 8.76,
+          "datasets": {
+            "FLEURS": 7.06,
+            "MCV": 10.78,
+            "MLS": 8.44
+          }
+        },
+        "it": {
+          "mean_wer": 9.09,
+          "datasets": {
+            "FLEURS": 4.57,
+            "MCV": 8.56,
+            "MLS": 14.14
+          }
+        },
+        "es": {
+          "mean_wer": 5.82,
+          "datasets": {
+            "FLEURS": 4.46,
+            "MCV": 6.39,
+            "MLS": 6.62
+          }
+        },
+        "pt": {
+          "mean_wer": 10.12,
+          "datasets": {
+            "FLEURS": 6.03,
+            "MLS": 14.22
+          }
+        },
+        "nl": {
+          "mean_wer": 13.57,
+          "datasets": {
+            "FLEURS": 12.92,
+            "MCV": 11.88,
+            "MLS": 15.9
+          }
+        },
+        "hi": {
+          "mean_wer": 18.13,
+          "datasets": {
+            "Monsoon": 18.13
+          }
+        }
+      }
+    },
+    {
+      "model": "CohereLabs/cohere-transcribe-03-2026",
+      "publisher_coverage": "14 languages",
+      "publisher_languages": [
+        "en",
+        "de",
+        "fr",
+        "it",
+        "es",
+        "pt",
+        "el",
+        "nl",
+        "pl",
+        "vi",
+        "zh",
+        "ar",
+        "ja",
+        "ko"
+      ],
+      "publisher_source": "https://huggingface.co/CohereLabs/cohere-transcribe-03-2026",
+      "notes": "Choose one known language. The publisher does not promise automatic language identification or consistent mixed-language recognition.",
+      "wer": {
+        "de": {
+          "mean_wer": 3.1,
+          "datasets": {
+            "FLEURS": 3.33,
+            "MCV": 2.87
+          }
+        },
+        "fr": {
+          "mean_wer": 4.02,
+          "datasets": {
+            "FLEURS": 4.33,
+            "MCV": 5.28,
+            "MLS": 2.44
+          }
+        },
+        "it": {
+          "mean_wer": 2.97,
+          "datasets": {
+            "FLEURS": 2.33,
+            "MCV": 2.51,
+            "MLS": 4.06
+          }
+        },
+        "es": {
+          "mean_wer": 2.81,
+          "datasets": {
+            "FLEURS": 3.26,
+            "MCV": 2.79,
+            "MLS": 2.38
+          }
+        },
+        "pt": {
+          "mean_wer": 5.99,
+          "datasets": {
+            "FLEURS": 4.24,
+            "MLS": 7.74
+          }
+        },
+        "nl": {
+          "mean_wer": 4.17,
+          "datasets": {
+            "FLEURS": 4.9,
+            "MCV": 4.1,
+            "MLS": 3.5
+          }
+        }
+      }
+    },
+    {
+      "model": "nvidia/canary-1b-v2",
+      "publisher_coverage": "25 European languages",
+      "publisher_languages": [
+        "bg",
+        "hr",
+        "cs",
+        "da",
+        "nl",
+        "en",
+        "et",
+        "fi",
+        "fr",
+        "de",
+        "el",
+        "hu",
+        "it",
+        "lv",
+        "lt",
+        "mt",
+        "pl",
+        "pt",
+        "ro",
+        "sk",
+        "sl",
+        "es",
+        "sv",
+        "ru",
+        "uk"
+      ],
+      "publisher_source": "https://huggingface.co/nvidia/canary-1b-v2",
+      "notes": "Speech translation is available between English and the other supported languages. Jotist currently exposes eight languages from its existing integration; the full publisher language set has not been qualified here.",
+      "wer": {
+        "de": {
+          "mean_wer": 4.06,
+          "datasets": {
+            "FLEURS": 3.43,
+            "MCV": 4.69
+          }
+        },
+        "fr": {
+          "mean_wer": 4.79,
+          "datasets": {
+            "FLEURS": 4.35,
+            "MCV": 6.58,
+            "MLS": 3.45
+          }
+        },
+        "it": {
+          "mean_wer": 4.75,
+          "datasets": {
+            "FLEURS": 2.35,
+            "MCV": 4.51,
+            "MLS": 7.4
+          }
+        },
+        "es": {
+          "mean_wer": 3.23,
+          "datasets": {
+            "FLEURS": 2.63,
+            "MCV": 3.94,
+            "MLS": 3.13
+          }
+        },
+        "pt": {
+          "mean_wer": 6.26,
+          "datasets": {
+            "FLEURS": 4.16,
+            "MLS": 8.35
+          }
+        },
+        "nl": {
+          "mean_wer": 6.73,
+          "datasets": {
+            "FLEURS": 5.27,
+            "MCV": 5.58,
+            "MLS": 9.33
+          }
+        }
+      }
+    },
+    {
+      "model": "nvidia/parakeet-tdt-0.6b-v3",
+      "publisher_coverage": "25 European languages",
+      "publisher_languages": [
+        "bg",
+        "hr",
+        "cs",
+        "da",
+        "nl",
+        "en",
+        "et",
+        "fi",
+        "fr",
+        "de",
+        "el",
+        "hu",
+        "it",
+        "lv",
+        "lt",
+        "mt",
+        "pl",
+        "pt",
+        "ro",
+        "sk",
+        "sl",
+        "es",
+        "sv",
+        "ru",
+        "uk"
+      ],
+      "publisher_source": "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3",
+      "notes": "Fast recognition candidate with automatic language identification and no speech translation. Jotist currently advertises English and labels its output English; the broader language pipeline needs qualification.",
+      "wer": {
+        "de": {
+          "mean_wer": 4.12,
+          "datasets": {
+            "FLEURS": 4.16,
+            "MCV": 4.07
+          }
+        },
+        "fr": {
+          "mean_wer": 5.38,
+          "datasets": {
+            "FLEURS": 4.68,
+            "MCV": 6.35,
+            "MLS": 5.12
+          }
+        },
+        "it": {
+          "mean_wer": 4.66,
+          "datasets": {
+            "FLEURS": 2.42,
+            "MCV": 3.38,
+            "MLS": 8.19
+          }
+        },
+        "es": {
+          "mean_wer": 3.71,
+          "datasets": {
+            "FLEURS": 3.25,
+            "MCV": 3.53,
+            "MLS": 4.36
+          }
+        },
+        "pt": {
+          "mean_wer": 6.08,
+          "datasets": {
+            "FLEURS": 4.46,
+            "MLS": 7.7
+          }
+        },
+        "nl": {
+          "mean_wer": 7.53,
+          "datasets": {
+            "FLEURS": 6.39,
+            "MCV": 5.41,
+            "MLS": 10.79
+          }
+        }
+      }
+    },
+    {
+      "model": "ibm-granite/granite-speech-4.1-2b",
+      "publisher_coverage": "6 languages",
+      "publisher_languages": [
+        "en",
+        "fr",
+        "de",
+        "es",
+        "pt",
+        "ja"
+      ],
+      "publisher_source": "https://huggingface.co/ibm-granite/granite-speech-4.1-2b",
+      "notes": "No exact-checkpoint result in this multilingual snapshot. The separate 4.1-2b-nar row is not assigned to this checkpoint. Publisher speech translation is not exposed by this Jotist backend."
+    },
+    {
+      "model": "ibm-granite/granite-speech-4.1-2b-plus",
+      "publisher_coverage": "5 languages",
+      "publisher_languages": [
+        "en",
+        "fr",
+        "de",
+        "es",
+        "pt"
+      ],
+      "publisher_source": "https://huggingface.co/ibm-granite/granite-speech-4.1-2b-plus",
+      "notes": "Word timing is integrated. No exact-checkpoint result in this multilingual snapshot; the base and NAR checkpoints are different models."
+    },
+    {
+      "model": "ibm-granite/granite-speech-5.0-470m-turboctc",
+      "publisher_coverage": "English only",
+      "publisher_languages": [
+        "en"
+      ],
+      "publisher_source": "https://huggingface.co/ibm-granite/granite-speech-5.0-470m-turboctc",
+      "notes": "Small English recognition candidate. No multilingual support is claimed."
+    },
+    {
+      "model": "ibm-granite/granite-speech-5.0-470m-turboctc-nc",
+      "publisher_coverage": "English only",
+      "publisher_languages": [
+        "en"
+      ],
+      "publisher_source": "https://huggingface.co/ibm-granite/granite-speech-5.0-470m-turboctc-nc",
+      "notes": "A separate noncommercial checkpoint; no multilingual support is claimed."
+    },
+    {
+      "model": "Edge0/ARK-ASR-3B",
+      "publisher_coverage": "19 languages",
+      "publisher_languages": [
+        "zh",
+        "en",
+        "de",
+        "ja",
+        "fr",
+        "ko",
+        "es",
+        "pl",
+        "it",
+        "ro",
+        "hu",
+        "cs",
+        "nl",
+        "fi",
+        "hr",
+        "sk",
+        "sl",
+        "et",
+        "lt"
+      ],
+      "publisher_source": "https://huggingface.co/Edge0/ARK-ASR-3B",
+      "notes": "No exact-checkpoint result in this multilingual snapshot. Chinese publisher evaluations use different datasets and cannot determine a universal multilingual rank."
+    },
+    {
+      "model": "OpenMOSS-Team/MOSS-Transcribe-Diarize",
+      "publisher_coverage": "50+ languages (publisher claim)",
+      "publisher_source": "https://huggingface.co/OpenMOSS-Team/MOSS-Transcribe-Diarize",
+      "notes": "Native speaker labels and timing make this a distinct option. Jotist currently exposes 15 languages. The publisher does not enumerate every claimed language; the six measured languages do not qualify all 50+.",
+      "wer": {
+        "de": {
+          "mean_wer": 8.02,
+          "datasets": {
+            "FLEURS": 6.26,
+            "MCV": 9.78
+          }
+        },
+        "fr": {
+          "mean_wer": 10.66,
+          "datasets": {
+            "FLEURS": 8.53,
+            "MCV": 15.19,
+            "MLS": 8.27
+          }
+        },
+        "it": {
+          "mean_wer": 8.47,
+          "datasets": {
+            "FLEURS": 4.14,
+            "MCV": 9.97,
+            "MLS": 11.3
+          }
+        },
+        "es": {
+          "mean_wer": 5.5,
+          "datasets": {
+            "FLEURS": 3.66,
+            "MCV": 7.75,
+            "MLS": 5.09
+          }
+        },
+        "pt": {
+          "mean_wer": 7.28,
+          "datasets": {
+            "FLEURS": 4.98,
+            "MLS": 9.57
+          }
+        },
+        "nl": {
+          "mean_wer": 14.53,
+          "datasets": {
+            "FLEURS": 12.55,
+            "MCV": 17.28,
+            "MLS": 13.76
+          }
+        }
+      }
+    },
+    {
+      "model": "OpenMOSS-Team/MOSS-Transcribe-preview-2B",
+      "publisher_coverage": "English only",
+      "publisher_languages": [
+        "en"
+      ],
+      "publisher_source": "https://huggingface.co/OpenMOSS-Team/MOSS-Transcribe-preview-2B",
+      "notes": "English preview checkpoint, distinct from multilingual MOSS Transcribe Diarize."
+    },
+    {
+      "model": "mistralai/Voxtral-Mini-3B-2507",
+      "publisher_coverage": "8 languages",
+      "publisher_languages": [
+        "en",
+        "es",
+        "fr",
+        "pt",
+        "hi",
+        "de",
+        "nl",
+        "it"
+      ],
+      "publisher_source": "https://huggingface.co/mistralai/Voxtral-Mini-3B-2507",
+      "notes": "The older transcription model remains supported. Automatic language identification is published; audio question answering and other publisher tasks are not exposed by this ASR backend.",
+      "wer": {
+        "de": {
+          "mean_wer": 4.46,
+          "datasets": {
+            "FLEURS": 3.64,
+            "MCV": 5.29
+          }
+        },
+        "fr": {
+          "mean_wer": 5.96,
+          "datasets": {
+            "FLEURS": 4.13,
+            "MCV": 7.8,
+            "MLS": 5.96
+          }
+        },
+        "it": {
+          "mean_wer": 5.12,
+          "datasets": {
+            "FLEURS": 2.22,
+            "MCV": 5.52,
+            "MLS": 7.63
+          }
+        },
+        "es": {
+          "mean_wer": 4.16,
+          "datasets": {
+            "FLEURS": 3.25,
+            "MCV": 4.36,
+            "MLS": 4.86
+          }
+        },
+        "pt": {
+          "mean_wer": 5.08,
+          "datasets": {
+            "FLEURS": 3.52,
+            "MLS": 6.63
+          }
+        },
+        "nl": {
+          "mean_wer": 6.39,
+          "datasets": {
+            "FLEURS": 5.59,
+            "MCV": 5.52,
+            "MLS": 8.05
+          }
+        },
+        "hi": {
+          "mean_wer": 22.9,
+          "datasets": {
+            "Monsoon": 22.9
+          }
+        }
+      }
+    },
+    {
+      "model": "microsoft/VibeVoice-ASR-BitNet",
+      "publisher_coverage": "7 named languages, plus others claimed",
+      "publisher_languages": [
+        "en",
+        "zh",
+        "fr",
+        "it",
+        "ko",
+        "pt",
+        "vi"
+      ],
+      "publisher_source": "https://huggingface.co/microsoft/VibeVoice-ASR-BitNet",
+      "notes": "CPU runtime with compressed weights. Jotist has no enumerated language restriction; that is not verification of every language. The full VibeVoice-ASR-HF leaderboard row does not apply to BitNet."
+    },
+    {
+      "model": "nvidia/canary-qwen-2.5b",
+      "publisher_coverage": "English only",
+      "publisher_languages": [
+        "en"
+      ],
+      "publisher_source": "https://huggingface.co/nvidia/canary-qwen-2.5b",
+      "notes": "The multilingual encoder does not make the complete English-trained checkpoint multilingual."
+    },
+    {
+      "model": "tiny",
+      "publisher_coverage": "Multilingual",
+      "publisher_source": "https://github.com/openai/whisper#available-models-and-languages",
+      "notes": "Different Whisper checkpoint; large-v3 multilingual scores do not apply."
+    },
+    {
+      "model": "tiny.en",
+      "publisher_coverage": "English only",
+      "publisher_languages": [
+        "en"
+      ],
+      "publisher_source": "https://github.com/openai/whisper#available-models-and-languages",
+      "notes": "English-only Whisper checkpoint. No multilingual result is assigned."
+    },
+    {
+      "model": "base",
+      "publisher_coverage": "Multilingual",
+      "publisher_source": "https://github.com/openai/whisper#available-models-and-languages",
+      "notes": "Different Whisper checkpoint; large-v3 multilingual scores do not apply."
+    },
+    {
+      "model": "base.en",
+      "publisher_coverage": "English only",
+      "publisher_languages": [
+        "en"
+      ],
+      "publisher_source": "https://github.com/openai/whisper#available-models-and-languages",
+      "notes": "English-only Whisper checkpoint. No multilingual result is assigned."
+    },
+    {
+      "model": "small",
+      "publisher_coverage": "Multilingual",
+      "publisher_source": "https://github.com/openai/whisper#available-models-and-languages",
+      "notes": "Different Whisper checkpoint; large-v3 multilingual scores do not apply."
+    },
+    {
+      "model": "small.en",
+      "publisher_coverage": "English only",
+      "publisher_languages": [
+        "en"
+      ],
+      "publisher_source": "https://github.com/openai/whisper#available-models-and-languages",
+      "notes": "English-only Whisper checkpoint. No multilingual result is assigned."
+    },
+    {
+      "model": "medium",
+      "publisher_coverage": "Multilingual",
+      "publisher_source": "https://github.com/openai/whisper#available-models-and-languages",
+      "notes": "Different Whisper checkpoint; large-v3 multilingual scores do not apply."
+    },
+    {
+      "model": "medium.en",
+      "publisher_coverage": "English only",
+      "publisher_languages": [
+        "en"
+      ],
+      "publisher_source": "https://github.com/openai/whisper#available-models-and-languages",
+      "notes": "English-only Whisper checkpoint. No multilingual result is assigned."
+    },
+    {
+      "model": "large",
+      "publisher_coverage": "Multilingual",
+      "publisher_source": "https://github.com/openai/whisper#available-models-and-languages",
+      "notes": "Different Whisper checkpoint; large-v3 multilingual scores do not apply."
+    },
+    {
+      "model": "large-v1",
+      "publisher_coverage": "Multilingual",
+      "publisher_source": "https://github.com/openai/whisper#available-models-and-languages",
+      "notes": "Different Whisper checkpoint; large-v3 multilingual scores do not apply."
+    },
+    {
+      "model": "large-v2",
+      "publisher_coverage": "Multilingual",
+      "publisher_source": "https://github.com/openai/whisper#available-models-and-languages",
+      "notes": "Different Whisper checkpoint; large-v3 multilingual scores do not apply."
+    },
+    {
+      "model": "large-v3",
+      "publisher_coverage": "100 languages",
+      "publisher_source": "https://huggingface.co/openai/whisper-large-v3/blob/main/generation_config.json",
+      "notes": "Publisher language count is from the 100 lang_to_id entries. Jotist exposes 99 language codes plus auto detection. The published score is for this exact upstream checkpoint, not a local WhisperX quality measurement.",
+      "wer": {
+        "de": {
+          "mean_wer": 4,
+          "datasets": {
+            "FLEURS": 3.2,
+            "MCV": 4.79
+          }
+        },
+        "fr": {
+          "mean_wer": 6.24,
+          "datasets": {
+            "FLEURS": 4.84,
+            "MCV": 9.97,
+            "MLS": 3.9
+          }
+        },
+        "it": {
+          "mean_wer": 4.45,
+          "datasets": {
+            "FLEURS": 2.28,
+            "MCV": 4.82,
+            "MLS": 6.26
+          }
+        },
+        "es": {
+          "mean_wer": 3.35,
+          "datasets": {
+            "FLEURS": 2.3,
+            "MCV": 4.29,
+            "MLS": 3.47
+          }
+        },
+        "pt": {
+          "mean_wer": 4.94,
+          "datasets": {
+            "FLEURS": 3.5,
+            "MLS": 6.37
+          }
+        },
+        "nl": {
+          "mean_wer": 4.42,
+          "datasets": {
+            "FLEURS": 4.37,
+            "MCV": 4.1,
+            "MLS": 4.8
+          }
+        },
+        "hi": {
+          "mean_wer": 28.17,
+          "datasets": {
+            "Monsoon": 28.17
+          }
+        }
+      }
+    }
+  ]
+}

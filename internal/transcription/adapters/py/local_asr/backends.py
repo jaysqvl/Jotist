@@ -310,7 +310,7 @@ def create_backend(model_id, device, dtype, config):
     if config["engine"] == "qwen":
         from qwen_backend import create_backend as create_qwen
         return create_qwen(model_id, device, dtype, config)
-    if config["engine"] in {"voxtral", "voxtral_realtime"}:
+    if config["engine"] == "voxtral":
         from voxtral_backend import create_backend as create_voxtral
         return create_voxtral(model_id, device, dtype, config)
     return TransformersBackend(model_id, device, dtype, config)

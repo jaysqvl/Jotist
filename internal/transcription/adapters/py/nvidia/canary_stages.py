@@ -418,8 +418,9 @@ def main():
     parser.add_argument("--upstream")
     parser.add_argument("--device", choices=["cpu", "cuda"], required=True)
     parser.add_argument("--precision", choices=["float16", "bfloat16", "float32"], default="float32")
-    parser.add_argument("--source-lang", default="en")
-    parser.add_argument("--target-lang", default="en")
+    languages = ["en", "de", "es", "fr", "it", "pl", "pt", "ru"]
+    parser.add_argument("--source-lang", choices=languages, default="en")
+    parser.add_argument("--target-lang", choices=languages, default="en")
     parser.add_argument("--task", choices=["transcribe", "translate"], default="transcribe")
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--alignment-batch-size", type=int, default=0)

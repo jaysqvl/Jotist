@@ -35,7 +35,6 @@ var meetingRecommendations = []meetingRecommendation{
 	{"microsoft/VibeVoice-ASR-BitNet", 14, "Quantized CPU alternative with promising publisher meeting results; requires separate runtime qualification.", "specialist"},
 	{"nvidia/canary-1b-v2", 15, "Multilingual recognition and speech translation between English and 24 languages; lower priority for English-only meetings.", "specialist"},
 	{"mistralai/Voxtral-Mini-3B-2507", 16, "Multilingual alternative; published English meeting results and memory requirements favor the core choices.", "specialist"},
-	{"mistralai/Voxtral-Mini-4B-Realtime-2602", 17, "Live streaming specialist; lower priority for recorded English meetings.", "specialist"},
 	{"large-v2", 18, "Older full-size Whisper baseline; prefer large-v3 as the first Whisper candidate.", "legacy"},
 	{"large-v1", 19, "Original full-size Whisper checkpoint; retained for established profiles.", "legacy"},
 	{"medium.en", 20, "English-only Whisper compromise when full-size Whisper is too expensive.", "specialist"},

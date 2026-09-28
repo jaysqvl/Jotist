@@ -14,7 +14,9 @@ import { Loader2, Check, XCircle } from "lucide-react";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { TranscriptionContextFields } from "./TranscriptionContextFields";
 import { RecoveryPolicyFields } from "./RecoveryPolicyFields";
+import { ModelLanguageDetails, ModelLanguageTable } from "./ModelLanguageComparison";
 import { devicePolicyDescription } from "@/features/transcription/hooks/recoveryPolicy";
+import { offeredModelLanguages } from "@/features/transcription/hooks/modelLanguages";
 import { adaptivePolicyErrors, adaptiveStageChoices, alignmentMemoryForConfiguration } from "@/features/transcription/hooks/adaptivePolicy";
 import type { WhisperXParams } from "@/features/transcription/types";
 import {
@@ -167,14 +169,10 @@ const CANARY_LANGUAGES = [
     { value: "de", label: "German" },
     { value: "es", label: "Spanish" },
     { value: "fr", label: "French" },
-    { value: "hi", label: "Hindi" },
     { value: "it", label: "Italian" },
-    { value: "ja", label: "Japanese" },
-    { value: "ko", label: "Korean" },
     { value: "pl", label: "Polish" },
     { value: "pt", label: "Portuguese" },
     { value: "ru", label: "Russian" },
-    { value: "zh", label: "Chinese" },
 ];
 
 const CANARY_QWEN_LANGUAGES = [
@@ -258,6 +256,11 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
     const selectedChoice = modelChoices.find((choice) => choice.value === modelChoiceValue(params.model_family, params.model));
     const cloudSelected = isCloudASR(params.model_family);
     const requiresCustomHFToken = !cloudSelected && needsCustomHFToken(params, isExistingProfile);
+    const unavailableModel = !cloudSelected && !catalogLoading && !catalogError && modelCapabilities.length > 0 && !selectedCapability;
+    const knownLanguages = selectedCapability ? offeredModelLanguages(selectedCapability, params.model) : [];
+    const unsupportedLanguage = !cloudSelected && knownLanguages.length > 0 && !knownLanguages.includes("*")
+        && [params.language, params.task === "translate" ? params.nvidia_target_language : undefined]
+            .some((language) => language && language !== "auto" && !knownLanguages.includes(language));
     const adaptiveStages = adaptiveStageChoices(params, modelCapabilities);
     const adaptiveErrors = cloudSelected ? [] : adaptivePolicyErrors(params, adaptiveStages);
 
@@ -367,7 +370,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
     };
 
     const handleSubmit = () => {
-        if (requiresCustomHFToken || adaptiveErrors.length) return;
+        if (requiresCustomHFToken || adaptiveErrors.length || (!isProfileMode && (catalogLoading || unavailableModel || unsupportedLanguage))) return;
         if (isProfileMode) {
             onStartTranscription({ ...params, profileName, profileDescription });
         } else {
@@ -452,14 +455,20 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                                     setDefaultsNotice("Model defaults applied: precision, batch size and chunk settings updated for your device. Review speaker processing below.");
                                 }
                             }}
-                            options={modelChoices.map((choice) => ({ value: choice.value, label: choice.label, description: modelChoiceMetrics(choice, modelSort), disabled: false }))} />
-                        {activeModelList === "english" && <p className="text-xs leading-5 text-[var(--text-secondary)]">Accuracy, efficient GPU and smaller CPU choices for recorded English meetings. All models includes translation, streaming, specialist and cloud options. Your current selection stays available.</p>}
+                            options={modelChoices.map((choice) => ({ value: choice.value, label: choice.label, description: modelChoiceMetrics(choice, modelSort), disabled: !cloudSelected && modelCapabilities.length > 0 && !catalogError && !choice.capability && choice.location !== "cloud" }))} />
+                        {activeModelList === "english" && <p className="text-xs leading-5 text-[var(--text-secondary)]">Accuracy, efficient GPU and smaller CPU choices for recorded English meetings. All models includes translation, specialist and cloud options. Your current selection stays available.</p>}
                         {selectedChoice?.recommendationReason && <p className="text-sm leading-6 text-[var(--text-primary)]">{selectedChoice.recommendationCategory === "core" ? "English shortlist" : selectedChoice.recommendationCategory === "legacy" ? "Legacy option" : selectedChoice.recommendationCategory === "specialist" ? "Specialist option" : "English meeting guidance"} · {selectedChoice.recommendationReason}</p>}
                         {modelSort === "recommended" && <p className="text-xs leading-5 text-[var(--text-secondary)]">Recommendation based on published results and meeting features; not measured on your recordings.</p>}
                         <p className="text-xs leading-5 text-[var(--text-secondary)]">Local models run on your Jotist server. Cloud APIs upload audio. Published WER is not accuracy on your recordings. RAM and VRAM are planning estimates for batch size 1. Unknown results sort last.</p>
                         {catalogLoading && <p role="status" className="text-xs text-[var(--text-secondary)]">Loading model capabilities…</p>}
                         {catalogError && <p role="alert" className="text-xs text-[var(--warning-solid)]">{catalogError}</p>}
                     </div>
+                    {unavailableModel && <InfoBanner variant="warning" title="Saved model is no longer available">
+                        This exact checkpoint is absent from the server catalog. Existing run history and saved settings are retained. Choose a supported model before starting another run.
+                    </InfoBanner>}
+                    {unsupportedLanguage && <InfoBanner variant="warning" title="Saved language is not offered by this model">
+                        Your stored language is retained. Choose one of this model’s supported languages before starting another run; publisher coverage is shown in the comparison.
+                    </InfoBanner>}
                     {defaultsNotice && <p role="status" className="text-xs leading-5 text-[var(--text-secondary)]">{defaultsNotice}</p>}
                     {cloudSelected ? <InfoBanner variant="warning" title="Cloud · audio uploaded to OpenAI">
                         This model sends your recording to the OpenAI API for transcription. It runs on OpenAI’s servers and requires an API key.
@@ -468,6 +477,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                         {selectedCapability && <ModelComparisonDetails model={selectedCapability} variant={params.model} device={params.device} precision={transcriptionPrecision(params)} batchSize={params.batch_size} />}
                         {selectedCapability && <PipelineMemoryDetails params={params} models={modelCapabilities} />}
                     </>}
+                    <ModelLanguageTable choices={allModelChoices} />
 
                     {!cloudSelected && <RecoveryPolicyFields params={params} stages={adaptiveStages} validationErrors={adaptiveErrors} onModeChange={(value) => updateParam("recovery_mode", value)} onReuseChange={(value) => updateParam("reuse_checkpoints", value)} onPolicyChange={(value) => updateParam("adaptive_policy", value)} />}
 
@@ -536,7 +546,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                     </Button>
                     <Button
                         onClick={handleSubmit}
-                        disabled={loading || requiresCustomHFToken || adaptiveErrors.length > 0 || (isProfileMode && !profileName.trim())}
+                        disabled={loading || requiresCustomHFToken || adaptiveErrors.length > 0 || (!isProfileMode && (catalogLoading || unavailableModel || unsupportedLanguage)) || (isProfileMode && !profileName.trim())}
                         className="rounded-xl text-white cursor-pointer bg-gradient-to-r from-[#6356E5] to-[#5143C6] hover:opacity-90 active:scale-[0.98] transition-all shadow-lg shadow-brand-500/20"
                     >
                         {loading ? (
@@ -794,14 +804,18 @@ function ParakeetConfig({ params, updateParam, isMultiTrack }: ConfigProps) {
 }
 
 function CanaryConfig({ params, updateParam, isMultiTrack }: ConfigProps) {
+    const offered = useContext(ModelCapabilitiesContext).find((model) => model.model_family === "nvidia_canary")?.supported_languages;
+    const languages = CANARY_LANGUAGES.filter((language) => !offered || offered.includes(language.value));
+    const languageOptions = (saved: string) => languages.some((language) => language.value === saved) ? languages
+        : [...languages, { value: saved, label: `${LANGUAGES.find((language) => language.value === saved)?.label || saved} · saved, unsupported`, disabled: true }];
     return (
         <div className="space-y-6">
             <Section title="Language Settings">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <SelectField label="Task" description={PARAM_DESCRIPTIONS.task} value={params.task} onValueChange={(v) => updateParam('task', v)} options={[{ value: "transcribe", label: "Transcribe" }, { value: "translate", label: "Translate" }]} />
-                    <SelectField label="Source Language" description={PARAM_DESCRIPTIONS.language} value={params.language || "en"} onValueChange={(v) => updateParam('language', v)} options={CANARY_LANGUAGES} />
+                    <SelectField label="Source Language" description={PARAM_DESCRIPTIONS.language} value={params.language || "en"} onValueChange={(v) => updateParam('language', v)} options={languageOptions(params.language || "en")} />
                     {params.task === "translate" && (
-                        <SelectField label="Target Language" description={PARAM_DESCRIPTIONS.task} value={params.nvidia_target_language || "en"} onValueChange={(v) => updateParam('nvidia_target_language', v)} options={CANARY_LANGUAGES} />
+                        <SelectField label="Target Language" description={PARAM_DESCRIPTIONS.task} value={params.nvidia_target_language || "en"} onValueChange={(v) => updateParam('nvidia_target_language', v)} options={languageOptions(params.nvidia_target_language || "en")} />
                     )}
                 </div>
             </Section>
@@ -1060,6 +1074,7 @@ function ModelComparisonDetails({ model, variant, device, precision, batchSize }
                     {memoryEstimate.gpuFloat32RAM && gpu.precision !== "FP32" && <p>GPU FP32 alternative: {memoryEstimate.gpuFloat32RAM} GB estimated.</p>}
                 </div>
             </details>
+            <ModelLanguageDetails model={model} variant={variant} />
             <OtherBenchmarkDetails model={model} variant={variant} />
         </div>
     );

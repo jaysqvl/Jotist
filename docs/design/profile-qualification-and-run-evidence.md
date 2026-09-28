@@ -145,6 +145,16 @@ peaks is invalid; time averages must be weighted by their measurement intervals.
   tests, targeted ESLint, Vite build, and Go comparison/catalog tests passed.
   No inference, NAS workload, live profile change, or runtime qualification was
   performed for this selector update.
+- Retire Voxtral Mini 4B Realtime from the source catalog and its execution
+  branch, retaining historical labels and presentation support. Add publisher
+  language coverage and pinned per-language WER through shared comparison
+  metadata. The picker distinguishes publisher coverage from its own language
+  choices and does not rank incomplete language sets or borrow variant scores.
+  Remove unsupported Canary v2 language choices while preserving saved values
+  for editing. Local Go packages, 46 selected frontend tests, 16 lightweight
+  backend contract tests, type checks, ESLint, and Vite build passed. Rendered
+  local fixtures verified the common European and Hindi rankings. No NAS
+  access, inference, queue/profile edits, release or deployment occurred.
 
 ## Failure disposition during preparation
 
