@@ -1,6 +1,6 @@
 # Profile qualification and run evidence
 
-Status: implementation prepared locally, 2026-09-27. Production remains on
+Status: draft preparation complete, 2026-09-27. Production remains on
 v1.7.6 while the existing meeting benchmark finishes. Checked tasks below mean
 that implementation and local verification are complete. Hardware qualification
 and meeting quality assessment remain separate gates; a completed process alone
@@ -70,11 +70,14 @@ is not proof of transcription quality or useful CPU/GPU performance.
   Different diarizers are separate profile choices. Preserve a private profile
   export before any separately authorized cleanup; benchmark IDs and history
   must stay intact. This preparation phase does not change saved profiles.
-- [ ] **10. Prepare GitHub changes and report the stopping point.** Commit
+- [x] **10. Prepare GitHub changes and report the stopping point.** Commit
   implementation and regression evidence in reviewable draft PRs. Record which
   checks are local, which require later hardware qualification, and which tasks
   await the running batch. Do not merge, publish a release, or replace the live
-  container during this preparation phase.
+  container during this preparation phase. [Draft PR #25](https://github.com/jaysqvl/Jotist/pull/25)
+  contains the local implementation and regression evidence. GitHub checks are
+  separate from the completed local checks; the PR remains draft for review and
+  later hardware qualification.
 
 ## Validation boundary
 
