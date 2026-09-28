@@ -242,8 +242,20 @@ def normalized_result(results, offsets, args):
         value, word, segment, _ = baseline.collect_result(result, offset, args.timestamps, args.include_confidence)
         if value.strip():
             text.append(value.strip())
-        words.extend({"word": w["word"], "start": w["start"], "end": w["end"], "score": 1.0} for w in word)
-        segments.extend({"text": s["segment"], "start": s["start"], "end": s["end"]} for s in segment)
+        for w in word:
+            token = w["word"]
+            if not isinstance(token, str):
+                raise ValueError("Canary aligned word must be text")
+            # NeMo's forced alignment can emit separator/blank rows. They
+            # carry no lexical content and cannot be canonical word records.
+            if token.strip():
+                words.append({"word": token, "start": w["start"], "end": w["end"], "score": 1.0})
+        for s in segment:
+            content = s["segment"]
+            if not isinstance(content, str):
+                raise ValueError("Canary aligned segment must be text")
+            if content.strip():
+                segments.append({"text": content, "start": s["start"], "end": s["end"]})
     return {"text": " ".join(text), "language": args.target_lang if args.task == "translate" else args.source_lang,
             "segments": segments, "word_segments": words, "model_used": "canary-1b-v2", "metadata": {}}
 

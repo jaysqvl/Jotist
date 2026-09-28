@@ -7,7 +7,40 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"scriberr/internal/transcription/interfaces"
 )
+
+func TestResearchDiarizationPassesTheSavedBatchToDiariZen(t *testing.T) {
+	adapter := NewDiariZenAdapter(t.TempDir())
+	input := interfaces.AudioInput{FilePath: "/synthetic/audio.wav"}
+	for _, test := range []struct {
+		params map[string]interface{}
+		want   string
+	}{
+		{map[string]interface{}{}, "1"},
+		{map[string]interface{}{"batch_size": 8}, "8"},
+	} {
+		args := adapter.buildDiarizationArgs(input, test.params, t.TempDir())
+		found := false
+		for i := 0; i+1 < len(args); i++ {
+			if args[i] == "--batch-size" {
+				found = true
+				if args[i+1] != test.want {
+					t.Fatalf("batch argument = %q, want %q", args[i+1], test.want)
+				}
+			}
+		}
+		if !found {
+			t.Fatal("DiariZen invocation omitted the saved batch size")
+		}
+	}
+	for _, value := range []int{0, -1, 65} {
+		if err := adapter.ValidateParameters(map[string]interface{}{"batch_size": value}); err == nil {
+			t.Fatalf("accepted unsupported batch size %d", value)
+		}
+	}
+}
 
 func TestResearchDiarizationMaterializesVendoredRuntime(t *testing.T) {
 	fakeLocalASRUV(t)

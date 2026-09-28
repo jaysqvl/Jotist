@@ -81,6 +81,9 @@ func newResearchDiarizationAdapter(envPath, engine, displayName, defaultModel st
 		{Name: "min_speakers", Type: "int", Min: &[]float64{1}[0], Max: &[]float64{20}[0], Description: "Minimum number of speakers, if known", Group: "basic"},
 		{Name: "max_speakers", Type: "int", Min: &[]float64{1}[0], Max: &[]float64{20}[0], Description: "Maximum number of speakers, if known", Group: "basic"},
 	}
+	if engine == "diarizen" {
+		schema = append(schema, interfaces.ParameterSchema{Name: "batch_size", Type: "int", Default: 1, Min: &[]float64{1}[0], Max: &[]float64{64}[0], Description: "Segmentation and speaker embedding batch size", Group: "advanced"})
+	}
 	return &ResearchDiarizationAdapter{BaseAdapter: NewBaseAdapter(engine, envPath, capabilities, schema), envPath: envPath, engine: engine}
 }
 
@@ -153,6 +156,9 @@ func (r *ResearchDiarizationAdapter) buildDiarizationArgs(input interfaces.Audio
 		if value := r.GetIntParameter(params, key); value > 0 {
 			args = append(args, "--"+strings.ReplaceAll(key, "_", "-"), strconv.Itoa(value))
 		}
+	}
+	if r.engine == "diarizen" {
+		args = append(args, "--batch-size", strconv.Itoa(r.GetIntParameter(params, "batch_size")))
 	}
 	return args
 }
