@@ -208,6 +208,8 @@ export const WHISPER_CHECKPOINTS = [
 ];
 
 export type ModelSort = "recommended" | "meeting" | "conversational" | "memory" | "gpu_memory";
+export type ModelList = "english" | "all";
+type RecommendationCategory = "core" | "specialist" | "legacy";
 export interface TranscriptionModelChoice {
     value: string;
     family: string;
@@ -226,6 +228,7 @@ export interface TranscriptionModelChoice {
     otherWER?: AdditionalBenchmark;
     recommendationRank?: number;
     recommendationReason?: string;
+    recommendationCategory?: RecommendationCategory;
 }
 
 export function isCloudASR(family: string) {
@@ -259,6 +262,7 @@ function makeModelChoice(family: string, checkpoint: string, label: string, capa
         value: modelChoiceValue(family, checkpoint), family, model: checkpoint,
         label: `${location === "local" ? "Local" : location === "cloud" ? "Cloud" : "Location unknown"} · ${label}`, capability, location,
         recommendationRank: recommendation?.rank, recommendationReason: recommendation?.reason,
+        recommendationCategory: recommendation?.category,
         hasOtherResults: evaluations.length > 0,
         otherWER: evaluations.find((result) => result.metric.toUpperCase() === "WER"),
         cpuPrecision: memory?.cpuPrecision.toLowerCase().includes("quantized") ? "quantized" : "FP32",
@@ -297,6 +301,17 @@ export function transcriptionModelChoices(models: TranscriptionModelCapability[]
         else choices.push(saved);
     }
     return choices;
+}
+
+export function defaultModelList(params?: { language?: string | null; task?: string }): ModelList {
+    return params?.task === "translate" || (params?.language && !["auto", "en"].includes(params.language))
+        ? "all" : "english";
+}
+
+export function filterModelChoices(choices: TranscriptionModelChoice[], list: ModelList, selectedValue?: string) {
+    // Older servers lack shortlist metadata. Preserve their complete catalog.
+    if (list === "all" || !choices.some((choice) => choice.recommendationCategory === "core")) return choices;
+    return choices.filter((choice) => choice.recommendationCategory === "core" || choice.value === selectedValue);
 }
 
 export function sortModelChoices(choices: TranscriptionModelChoice[], sort: ModelSort = "recommended") {
@@ -392,17 +407,27 @@ export function diarizationBenchmarkApplies(model: TranscriptionModelCapability,
 }
 
 
-export function meetingRecommendation(model: TranscriptionModelCapability, variant?: string): { rank: number; reason: string } | undefined {
+export function meetingRecommendation(model: TranscriptionModelCapability, variant?: string): { rank: number; reason: string; category?: RecommendationCategory } | undefined {
     const metadata = model.metadata ?? {};
     const checkpoint = effectiveCheckpoint(model, variant);
     try {
         const rows: unknown = JSON.parse(metadata.meeting_recommendations || "[]");
         const matched = Array.isArray(rows) ? rows.find((row) => row && row.model === checkpoint) : undefined;
-        if (matched && typeof matched.rank === "number" && Number.isFinite(matched.rank)) return { rank: matched.rank, reason: typeof matched.reason === "string" ? matched.reason : "" };
+        if (matched && typeof matched.rank === "number" && Number.isFinite(matched.rank)) return {
+            rank: matched.rank, reason: typeof matched.reason === "string" ? matched.reason : "",
+            category: recommendationCategory(matched.category),
+        };
     } catch { /* Single-checkpoint metadata remains usable if optional rows are malformed. */ }
     if (model.model_family === "whisper") return undefined;
     const rank = numericMetric(metadata.meeting_recommendation_rank);
-    return rank === undefined ? undefined : { rank, reason: metadata.meeting_recommendation_reason || "" };
+    return rank === undefined ? undefined : {
+        rank, reason: metadata.meeting_recommendation_reason || "",
+        category: recommendationCategory(metadata.meeting_recommendation_category),
+    };
+}
+
+function recommendationCategory(value: unknown): RecommendationCategory | undefined {
+    return value === "core" || value === "specialist" || value === "legacy" ? value : undefined;
 }
 
 export interface ModelMemoryEstimate {

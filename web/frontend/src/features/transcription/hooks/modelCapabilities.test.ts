@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { gpuMemoryEstimate, referenceGPUFit, alignmentMemoryEstimate, modelMemoryEstimate, additionalBenchmarks, diarizationBenchmarkApplies, hfTokenSource, needsCustomHFToken, WHISPER_CHECKPOINTS, transcriptionModelChoices, sortModelChoices, modelChoiceMetrics, modelChoiceValue, modelExecutionLocation, selectTranscriptionModel, normalizeModelCapabilities, modelVariants, contextSupport, findModelCapability, modelFamilyOptions, modelDetailsApply, requestedDiarizationDevice, selectCatalogModel, transcriptionModelLabel, transcriptionPrecision, type TranscriptionModelCapability } from "./modelCapabilities.ts";
+import { gpuMemoryEstimate, referenceGPUFit, alignmentMemoryEstimate, modelMemoryEstimate, additionalBenchmarks, diarizationBenchmarkApplies, hfTokenSource, needsCustomHFToken, WHISPER_CHECKPOINTS, transcriptionModelChoices, sortModelChoices, filterModelChoices, defaultModelList, modelChoiceMetrics, modelChoiceValue, modelExecutionLocation, selectTranscriptionModel, normalizeModelCapabilities, modelVariants, contextSupport, findModelCapability, modelFamilyOptions, modelDetailsApply, requestedDiarizationDevice, selectCatalogModel, transcriptionModelLabel, transcriptionPrecision, type TranscriptionModelCapability } from "./modelCapabilities.ts";
 
 const model = (changes: Partial<TranscriptionModelCapability> = {}): TranscriptionModelCapability => ({
     model_id: "org/model-a", model_family: "new_asr", display_name: "Model A", description: "", features: {}, ...changes,
@@ -144,6 +144,44 @@ test("native speaker defaults apply only on entering native ASR and respect mult
 });
 
 // Selection order and privacy labels are checked independently of component markup.
+test("English shortlist preserves a saved specialist or cloud selection and leaves the full catalog intact", () => {
+    const capabilities = [
+        model({ model_id: "org/english", metadata: { meeting_recommendation_rank: "1", meeting_recommendation_category: "core" } }),
+        model({ model_id: "org/streaming", metadata: { meeting_recommendation_rank: "2", meeting_recommendation_category: "specialist" } }),
+        model({ model_id: "whisper", model_family: "whisper", metadata: { meeting_recommendations: JSON.stringify([
+            { model: "large-v3", rank: 3, reason: "Established baseline", category: "core" },
+            { model: "small", rank: 4, reason: "Constrained systems", category: "specialist" },
+        ]) } }),
+    ];
+    const choices = transcriptionModelChoices(capabilities, { model_family: "new_asr", model: "org/retired" });
+    const original = structuredClone(choices);
+    const shortlist = filterModelChoices(choices, "english");
+    assert.deepEqual(shortlist.map((choice) => choice.model), ["large-v3", "org/english"]);
+    for (const [family, checkpoint] of [["new_asr", "org/streaming"], ["new_asr", "org/retired"], ["openai", "whisper-1"]]) {
+        const selected = filterModelChoices(choices, "english", modelChoiceValue(family, checkpoint));
+        assert.equal(selected.length, shortlist.length + 1);
+        assert.equal(selected.some((choice) => choice.model === checkpoint), true);
+    }
+    assert.deepEqual(filterModelChoices(choices, "all"), original);
+    assert.deepEqual(choices, original, "Filtering must not change a saved selection or catalog metadata");
+});
+
+test("English shortlist falls back to the full catalog when older servers lack recommendation categories", () => {
+    const choices = transcriptionModelChoices([model({ metadata: { meeting_recommendation_rank: "1" } })]);
+    assert.deepEqual(filterModelChoices(choices, "english"), choices);
+});
+
+test("non-English profiles and translation open the complete model list without changing parameters", () => {
+    for (const params of [undefined, {}, { language: null }, { language: "auto" }, { language: "en", task: "transcribe" }]) {
+        assert.equal(defaultModelList(params), "english");
+    }
+    for (const params of [{ language: "fr" }, { language: "en", task: "translate" }]) {
+        const original = { ...params };
+        assert.equal(defaultModelList(params), "all");
+        assert.deepEqual(params, original);
+    }
+});
+
 test("global ranking compares checkpoints across families and leaves unknown variants last", () => {
     const models = [
         model({ model_family: "family-a", metadata: { benchmark_ami_wer: "8.31", benchmark_conversational_wer: "12.14", cpu_float32_ram_gb: "13–17", execution_location: "local" } }),

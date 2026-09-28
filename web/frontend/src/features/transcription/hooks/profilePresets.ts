@@ -1,4 +1,5 @@
 import { REFERENCE_PROFILE_VALUES } from "./referenceProfilePresets.ts";
+import { applyModelSelectionDefaults } from "./selectionDefaults.ts";
 
 export interface PresetParameters {
     [key: string]: unknown;
@@ -28,22 +29,47 @@ export interface TranscriptionPreset {
     parameters: PresetParameters;
 }
 
-type PresetModel = "canary" | "canary_qwen" | "whisper" | "parakeet" | "cohere" | "qwen";
+type PresetModel = "canary" | "canary_qwen" | "whisper" | "parakeet" | "cohere" | "qwen" | "qwen_small" | "granite_compact";
 type PresetDiarizer = "pyannote" | "nvidia_sortformer" | "none";
 
 const checkpoints: Record<PresetModel, { family: string; model: string; label: string }> = {
     canary: { family: "nvidia_canary", model: "canary", label: "Canary" },
     canary_qwen: { family: "nvidia_canary_qwen", model: "canary_qwen", label: "Canary-Qwen" },
     whisper: { family: "whisper", model: "large-v3", label: "Whisper large-v3" },
-    parakeet: { family: "nvidia_parakeet", model: "parakeet", label: "Parakeet" },
+    parakeet: { family: "nvidia_parakeet", model: "parakeet", label: "Parakeet TDT 0.6B v3" },
     cohere: { family: "cohere_transcribe", model: "CohereLabs/cohere-transcribe-03-2026", label: "Cohere Transcribe" },
     qwen: { family: "qwen3_asr", model: "Qwen/Qwen3-ASR-1.7B-hf", label: "Qwen3 ASR 1.7B" },
+    qwen_small: { family: "qwen3_asr", model: "Qwen/Qwen3-ASR-0.6B-hf", label: "Qwen3 ASR 0.6B" },
+    granite_compact: { family: "ibm_granite_speech", model: "ibm-granite/granite-speech-5.0-470m-turboctc", label: "Granite Speech 5.0 470M" },
 };
 
 function preset(id: string, model: PresetModel, device: "cpu" | "cuda", diarizer: PresetDiarizer, notes: string, speakerDevice = device): TranscriptionPreset {
     const selected = checkpoints[model];
     const group = device !== speakerDevice ? "Hybrid" : device === "cpu" ? "CPU" : "GPU";
     const speakers = diarizer === "none" ? "without speakers" : diarizer === "pyannote" ? "Pyannote" : "Sortformer";
+    const parameters = {
+        model_family: selected.family,
+        recovery_mode: "fixed",
+        reuse_checkpoints: true,
+        // Trigger the shared explicit-selection defaults for this new draft.
+        model: "",
+        device,
+        diarization_device: speakerDevice,
+        compute_type: "float32",
+        nvidia_precision: "float32",
+        fp16: false,
+        batch_size: 1,
+        task: "transcribe",
+        language: "en",
+        diarize: diarizer !== "none",
+        diarize_model: diarizer === "none" ? "pyannote" : diarizer,
+        ...(diarizer === "pyannote" ? { diarization_checkpoint: "pyannote/speaker-diarization-community-1" } : {}),
+        ...(diarizer === "nvidia_sortformer" ? { max_speakers: 4 } : {}),
+        hf_token_source: "default",
+        transcription_context: null,
+        transcription_context_terms: null,
+        is_multi_track_enabled: false,
+    } satisfies PresetParameters;
     return {
         id,
         name: `${group} ${selected.label} ${diarizer === "none" ? speakers : `+ ${speakers}`}`,
@@ -51,40 +77,16 @@ function preset(id: string, model: PresetModel, device: "cpu" | "cuda", diarizer
         origin: "recommended",
         description: `${selected.label} on ${device === "cpu" ? "CPU" : "GPU"}${diarizer === "none" ? ", with speaker labels disabled." : `, with ${speakers} on ${speakerDevice === "cpu" ? "CPU" : "GPU"}.`}`,
         notes,
-        parameters: {
-            model_family: selected.family,
-            recovery_mode: "fixed",
-            reuse_checkpoints: true,
-            model: selected.model,
-            device,
-            diarization_device: speakerDevice,
-            compute_type: device === "cpu" ? "float32" : "float16",
-            nvidia_precision: device === "cpu" ? "float32" : "float16",
-            fp16: device === "cuda",
-            batch_size: 1,
-            task: "transcribe",
-            language: "en",
-            diarize: diarizer !== "none",
-            diarize_model: diarizer === "none" ? "pyannote" : diarizer,
-            ...(diarizer === "pyannote" ? { diarization_checkpoint: "pyannote/speaker-diarization-community-1" } : {}),
-            ...(diarizer === "nvidia_sortformer" ? { max_speakers: 4 } : {}),
-            no_align: false,
-            nvidia_chunk_duration: model === "parakeet" ? 30 : 40,
-            nvidia_timestamps: true,
-            nvidia_use_chunking: model !== "whisper",
-            audio_chunk_duration: model === "cohere" || model === "qwen" ? 30 : null,
-            hf_token_source: "default",
-            transcription_context: null,
-            transcription_context_terms: null,
-            is_multi_track_enabled: false,
-        },
+        parameters: applyModelSelectionDefaults(parameters, { family: selected.family, model: selected.model }, []),
     };
 }
 
 export const RECOMMENDED_PRESETS: readonly TranscriptionPreset[] = [
     preset("cpu-cohere-pyannote", "cohere", "cpu", "pyannote", "A strong candidate in the published meeting benchmark. Cohere and Pyannote require model access; allow room for word alignment."),
     preset("cpu-qwen-pyannote", "qwen", "cpu", "pyannote", "A strong candidate in the published conversational benchmark, with context and vocabulary hints. Pyannote requires model access."),
-    preset("hybrid-canary-pyannote", "canary", "cuda", "pyannote", "For 12 GB GPU setups: Canary uses GPU and Pyannote uses CPU, reducing GPU demand for speaker attribution. Fit depends on recording length and settings.", "cpu"),
+    preset("hybrid-parakeet-pyannote", "parakeet", "cuda", "pyannote", "English GPU efficiency candidate: Parakeet TDT 0.6B v3 on GPU, with Community-1 speakers on CPU. Parakeet keeps FP32 weights. Full-recording runtime and memory still require qualification.", "cpu"),
+    preset("cpu-qwen-small-pyannote", "qwen_small", "cpu", "pyannote", "Smaller English CPU candidate with context and vocabulary support. Uses less model memory than Qwen 1.7B; full-pipeline runtime still requires qualification."),
+    preset("cpu-granite-compact-pyannote", "granite_compact", "cpu", "pyannote", "Compact Apache-licensed English CPU candidate. Word alignment and Community-1 speaker processing also need host memory and runtime qualification."),
 ];
 
 const referencePresets: TranscriptionPreset[] = REFERENCE_PROFILE_VALUES.map(({ name, ...parameters }) => {

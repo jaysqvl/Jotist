@@ -18,7 +18,7 @@ import { devicePolicyDescription } from "@/features/transcription/hooks/recovery
 import { adaptivePolicyErrors, adaptiveStageChoices, alignmentMemoryForConfiguration } from "@/features/transcription/hooks/adaptivePolicy";
 import type { WhisperXParams } from "@/features/transcription/types";
 import {
-    LEGACY_MODEL_FAMILIES, contextSupport, findModelCapability, modelDetailsApply, requestedDiarizationDevice, normalizeModelCapabilities, modelVariants, isTranscriptionModel, transcriptionPrecision, transcriptionModelChoices, sortModelChoices, modelChoiceMetrics, modelChoiceValue, isCloudASR, modelExecutionLocation, hfTokenSource, needsCustomHFToken, additionalBenchmarks, diarizationBenchmarkApplies, modelMemoryEstimate, gpuMemoryEstimate, referenceGPUFit, type ModelSort,
+    LEGACY_MODEL_FAMILIES, contextSupport, findModelCapability, modelDetailsApply, requestedDiarizationDevice, normalizeModelCapabilities, modelVariants, isTranscriptionModel, transcriptionPrecision, transcriptionModelChoices, sortModelChoices, filterModelChoices, defaultModelList, modelChoiceMetrics, modelChoiceValue, isCloudASR, modelExecutionLocation, hfTokenSource, needsCustomHFToken, additionalBenchmarks, diarizationBenchmarkApplies, modelMemoryEstimate, gpuMemoryEstimate, referenceGPUFit, type ModelSort, type ModelList,
     type TranscriptionModelCapability,
 } from "@/features/transcription/hooks/modelCapabilities";
 import { applyModelSelectionDefaults, applyDeviceSelectionDefaults } from "@/features/transcription/hooks/selectionDefaults";
@@ -241,6 +241,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
 
     const { getAuthHeaders } = useAuth();
     const [modelSort, setModelSort] = useState<ModelSort>("recommended");
+    const [modelList, setModelList] = useState<ModelList>("english");
     const [hasSavedHFToken, setHasSavedHFToken] = useState(false);
     const [modelCapabilities, setModelCapabilities] = useState<TranscriptionModelCapability[]>([]);
     const [catalogLoading, setCatalogLoading] = useState(false);
@@ -251,7 +252,9 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
     const selectedContextSupport = contextSupport(selectedCapability);
     const isDynamicFamily = !LEGACY_MODEL_FAMILIES.some((family) => family.value === params.model_family);
     const isDynamicModel = isDynamicFamily || selectedCapability?.model_id.includes("/") === true;
-    const modelChoices = sortModelChoices(transcriptionModelChoices(modelCapabilities, params, availableModels), modelSort);
+    const activeModelList = defaultModelList(params) === "all" ? "all" : modelList;
+    const allModelChoices = transcriptionModelChoices(modelCapabilities, params, availableModels);
+    const modelChoices = sortModelChoices(filterModelChoices(allModelChoices, activeModelList, modelChoiceValue(params.model_family, params.model)), modelSort);
     const selectedChoice = modelChoices.find((choice) => choice.value === modelChoiceValue(params.model_family, params.model));
     const cloudSelected = isCloudASR(params.model_family);
     const requiresCustomHFToken = !cloudSelected && needsCustomHFToken(params, isExistingProfile);
@@ -309,6 +312,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
             setNameEdited(false);
             setDescriptionEdited(false);
             setModelSort("recommended");
+            setModelList(defaultModelList(initialParams));
             setProfileName(initialName);
             setProfileDescription(initialDescription);
         }
@@ -426,8 +430,12 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                     )}
 
                     <div className="space-y-3">
+                        <SelectField label="Model list" value={activeModelList} onValueChange={(value) => setModelList(value as ModelList)} options={[
+                            { value: "english", label: "English meeting shortlist", disabled: defaultModelList(params) === "all" },
+                            { value: "all", label: "All models" },
+                        ]} />
                         <SelectField label="Sort models by" value={modelSort} onValueChange={(value) => setModelSort(value as ModelSort)} options={[
-                            { value: "recommended", label: "Recommended for meetings" },
+                            { value: "recommended", label: "Recommended for English meetings" },
                             { value: "meeting", label: "Meeting WER · lowest first" },
                             { value: "conversational", label: "Conversational WER · lowest first" },
                             { value: "memory", label: "Estimated CPU RAM · lowest first" },
@@ -437,14 +445,16 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                             onValueChange={(value) => {
                                 const choice = modelChoices.find((entry) => entry.value === value);
                                 if (choice) {
-                                    const next = applyModelSelectionDefaults(params, choice, modelCapabilities, isMultiTrack);
+                                    const selectionParams = activeModelList === "english" ? { ...params, language: "en" } : params;
+                                    const next = applyModelSelectionDefaults(selectionParams, choice, modelCapabilities, isMultiTrack);
                                     setParams(next);
                                     updateDraftIdentity(next);
                                     setDefaultsNotice("Model defaults applied: precision, batch size and chunk settings updated for your device. Review speaker processing below.");
                                 }
                             }}
                             options={modelChoices.map((choice) => ({ value: choice.value, label: choice.label, description: modelChoiceMetrics(choice, modelSort), disabled: false }))} />
-                        {selectedChoice?.recommendationReason && <p className="text-sm leading-6 text-[var(--text-primary)]">Recommended #{selectedChoice.recommendationRank} · {selectedChoice.recommendationReason}</p>}
+                        {activeModelList === "english" && <p className="text-xs leading-5 text-[var(--text-secondary)]">Accuracy, efficient GPU and smaller CPU choices for recorded English meetings. All models includes translation, streaming, specialist and cloud options. Your current selection stays available.</p>}
+                        {selectedChoice?.recommendationReason && <p className="text-sm leading-6 text-[var(--text-primary)]">{selectedChoice.recommendationCategory === "core" ? "English shortlist" : selectedChoice.recommendationCategory === "legacy" ? "Legacy option" : selectedChoice.recommendationCategory === "specialist" ? "Specialist option" : "English meeting guidance"} · {selectedChoice.recommendationReason}</p>}
                         {modelSort === "recommended" && <p className="text-xs leading-5 text-[var(--text-secondary)]">Recommendation based on published results and meeting features; not measured on your recordings.</p>}
                         <p className="text-xs leading-5 text-[var(--text-secondary)]">Local models run on your Jotist server. Cloud APIs upload audio. Published WER is not accuracy on your recordings. RAM and VRAM are planning estimates for batch size 1. Unknown results sort last.</p>
                         {catalogLoading && <p role="status" className="text-xs text-[var(--text-secondary)]">Loading model capabilities…</p>}

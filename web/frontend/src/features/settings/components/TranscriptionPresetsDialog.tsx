@@ -39,8 +39,8 @@ export function TranscriptionPresetsDialog({ open, onOpenChange, onSelect, onAdd
                 <div className="min-h-0 space-y-6 overflow-y-auto pr-1">
                     {(["existing", "recommended"] as const).map((origin) => (
                         <section key={origin} aria-labelledby={`presets-${origin}`}>
-                            <h3 id={`presets-${origin}`} className="mb-3 text-sm font-semibold text-[var(--text-primary)]">{origin === "existing" ? "Your existing configurations" : "Recommended starting points"}</h3>
-                            {origin === "recommended" && <p className="mb-3 text-xs text-[var(--text-secondary)]">Batch size 1, explicit devices, CPU Float32 or GPU Float16 where supported.</p>}
+                            <h3 id={`presets-${origin}`} className="mb-3 text-sm font-semibold text-[var(--text-primary)]">{origin === "existing" ? "Your existing configurations" : "English meeting starting points"}</h3>
+                            {origin === "recommended" && <p className="mb-3 text-xs text-[var(--text-secondary)]">English transcription, batch size 1 and explicit devices. Precision follows each runtime. These starters still require full-recording runtime qualification.</p>}
                             <div className="grid gap-3 sm:grid-cols-2">
                                 {TRANSCRIPTION_PRESETS.filter((preset) => preset.origin === origin).map((preset) => {
                                     const alreadyAdded = presetAlreadyAdded(preset, existingNames);

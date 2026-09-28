@@ -1,6 +1,6 @@
 # Profile qualification and run evidence
 
-Status: draft preparation complete, 2026-09-27. Production remains on
+Status: draft preparation updated, 2026-09-28. Production remains on
 v1.7.6 while the existing meeting benchmark finishes. Checked tasks below mean
 that implementation and local verification are complete. Hardware qualification
 and meeting quality assessment remain separate gates; a completed process alone
@@ -136,6 +136,15 @@ peaks is invalid; time averages must be weighted by their measurement intervals.
 - Generated API documentation includes the authenticated resource endpoint.
   Draft branch changes do not deploy; merge, release, and NAS replacement are
   deferred.
+- English model selection now defaults to eight exact checkpoints covering
+  accuracy, GPU efficiency, smaller CPU candidates, and the Whisper baseline.
+  The full catalog remains available; saved selections and non-English or
+  translation configurations retain access. Five English starters use the
+  picker's shared model/device defaults, including Parakeet FP32. Existing
+  reference profiles are preserved. Local type checks, 49 relevant frontend
+  tests, targeted ESLint, Vite build, and Go comparison/catalog tests passed.
+  No inference, NAS workload, live profile change, or runtime qualification was
+  performed for this selector update.
 
 ## Failure disposition during preparation
 
