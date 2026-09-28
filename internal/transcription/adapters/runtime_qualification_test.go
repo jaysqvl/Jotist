@@ -121,6 +121,19 @@ func TestRuntimeQualification(t *testing.T) {
 	started := time.Now()
 	var transcript *interfaces.TranscriptResult
 	var diarization *interfaces.DiarizationResult
+	stageEvidence := []map[string]interface{}{}
+	projectRuntime := func(metadata map[string]string, row map[string]interface{}) {
+		for _, key := range []string{"resolved_device", "recognition_resolved_device", "alignment_resolved_device"} {
+			if value := metadata[key]; value == "cpu" || value == "cuda" {
+				row[key] = value
+			}
+		}
+		for _, key := range []string{"precision", "resolved_precision"} {
+			if value := metadata[key]; value == "float32" || value == "float16" || value == "bfloat16" || value == "int8" {
+				row[key] = value
+			}
+		}
+	}
 	var stages []interfaces.StageDescriptor
 	var staged interface {
 		interfaces.StagedTranscriptionAdapter
@@ -214,6 +227,16 @@ func TestRuntimeQualification(t *testing.T) {
 				break
 			}
 			upstream, err = staged.RunStage(ctx, stage, input, resolved, procCtx, upstream)
+			row := map[string]interface{}{"kind": stage.Kind, "completed": err == nil}
+			if err == nil {
+				var payload struct {
+					Metadata map[string]string `json:"metadata"`
+				}
+				if json.Unmarshal(upstream, &payload) == nil {
+					projectRuntime(payload.Metadata, row)
+				}
+			}
+			stageEvidence = append(stageEvidence, row)
 			if err != nil {
 				break
 			}
@@ -224,6 +247,9 @@ func TestRuntimeQualification(t *testing.T) {
 		}
 	}
 	report := map[string]interface{}{"model": model, "device": device, "audio_seconds": seconds, "elapsed_seconds": time.Since(started).Seconds(), "completed": err == nil}
+	if len(stageEvidence) > 0 {
+		report["stages"] = stageEvidence
+	}
 	if err != nil {
 		code := "unclassified_runtime_failure"
 		if diagnostic, ok := interfaces.RuntimeDiagnostic(err); ok {
@@ -249,6 +275,7 @@ func TestRuntimeQualification(t *testing.T) {
 			}
 		}
 	} else if transcript != nil {
+		projectRuntime(transcript.Metadata, report)
 		report["segments"], report["words"], report["text_characters"] = len(transcript.Segments), len(transcript.WordSegments), len(transcript.Text)
 		for _, key := range []string{"auto_token_split_windows", "native_timing_retry_windows", "output_repair_count", "token_retries"} {
 			if value, parseErr := strconv.Atoi(transcript.Metadata[key]); parseErr == nil && value >= 0 && value <= 100000 {
@@ -257,7 +284,7 @@ func TestRuntimeQualification(t *testing.T) {
 		}
 		speakers := map[string]bool{}
 		end := 0.0
-		valid := strings.TrimSpace(transcript.Text) != ""
+		valid := strings.TrimSpace(transcript.Text) != "" && len(transcript.Segments) > 0
 		for _, segment := range transcript.Segments {
 			valid = valid && !math.IsNaN(segment.Start) && !math.IsNaN(segment.End) && segment.Start >= 0 && segment.End >= segment.Start && segment.End <= seconds+0.25
 			end = max(end, segment.End)
@@ -265,11 +292,15 @@ func TestRuntimeQualification(t *testing.T) {
 				speakers[*segment.Speaker] = true
 			}
 		}
+		for _, word := range transcript.WordSegments {
+			valid = valid && !math.IsNaN(word.Start) && !math.IsInf(word.Start, 0) && !math.IsNaN(word.End) && !math.IsInf(word.End, 0) && word.Start >= 0 && word.End >= word.Start && word.End <= seconds+0.25
+		}
 		report["transcript_end_seconds"], report["speakers"], report["valid_output"] = end, len(speakers), valid
 		if !valid {
 			err = errors.New("qualification output failed validation")
 		}
 	} else if diarization != nil {
+		projectRuntime(diarization.Metadata, report)
 		report["segments"], report["speakers"] = len(diarization.Segments), diarization.SpeakerCount
 		if len(diarization.Segments) == 0 {
 			err = errors.New("qualification speaker output is empty")
