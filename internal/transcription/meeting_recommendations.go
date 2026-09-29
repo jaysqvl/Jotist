@@ -29,7 +29,7 @@ var meetingRecommendations = []meetingRecommendation{
 	{"large-v3", 8, "Established Whisper baseline for English: broad evaluations and compatibility with existing workflows.", "core"},
 	{"ibm-granite/granite-speech-5.0-470m-turboctc-nc", 9, "Compact alternative with lower published meeting WER; weights carry a noncommercial license.", "specialist"},
 	{"Edge0/ARK-ASR-3B", 10, "Strong English results; its larger memory requirements favor it as an additional accuracy experiment.", "specialist"},
-	{"ibm-granite/granite-speech-4.1-2b-plus", 11, "Specialist vocabulary, speaker attribution and timing features; its publisher evaluation uses a separate test setup.", "specialist"},
+	{"ibm-granite/granite-speech-4.1-2b-plus", 11, "Specialist vocabulary and native word timing; its publisher evaluation uses a separate test setup.", "specialist"},
 	{"OpenMOSS-Team/MOSS-Transcribe-Diarize", 12, "Native speaker labeling with competitive recognition; full-recording context increases memory demand.", "specialist"},
 	{"OpenMOSS-Team/MOSS-Transcribe-preview-2B", 13, "Additional English ASR experiment: strong AMI result, with weaker conversational results than the leading choices.", "specialist"},
 	{"microsoft/VibeVoice-ASR-BitNet", 14, "Quantized CPU alternative with promising publisher meeting results; requires separate runtime qualification.", "specialist"},

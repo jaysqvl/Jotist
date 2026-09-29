@@ -167,7 +167,10 @@ func TestRuntimeQualification(t *testing.T) {
 		if model == "suplime" {
 			adapter = NewSUPlimeAdapter(environment)
 		}
-		script, _ := researchDiarizationScripts.ReadFile("py/research_diarize.py")
+		script, scriptErr := researchDiarizationScripts.ReadFile("py/research/research_diarize.py")
+		if scriptErr != nil || len(script) == 0 {
+			t.Fatal("cannot read embedded speaker worker")
+		}
 		if writeRuntimeScript(filepath.Join(environment, "research_diarize.py"), script, 0600) != nil {
 			t.Fatal("cannot materialize speaker worker")
 		}
@@ -266,6 +269,12 @@ func TestRuntimeQualification(t *testing.T) {
 				}
 				var row map[string]string
 				if json.Unmarshal([]byte(strings.TrimPrefix(line, "JOTIST_RUNTIME_DIAGNOSTIC=")), &row) == nil {
+					if oneOf(row["phase"], "configuration", "runtime_initialization", "audio_decode", "model_loading", "recognition", "alignment", "diarization", "output_validation", "preparing", "worker_launch") {
+						report["error_phase"] = row["phase"]
+					}
+					if oneOf(row["exception_class"], "RecognitionError", "TimestampBoundsError", "RuntimeError", "ValueError", "TypeError", "AttributeError", "KeyError", "IndexError", "ImportError", "ModuleNotFoundError", "OSError", "FileNotFoundError", "PermissionError", "MemoryError", "GatedRepoError", "RepositoryNotFoundError", "HfHubHTTPError", "ModelError") {
+						report["exception_class"] = row["exception_class"]
+					}
 					for _, key := range []string{"parsed_segment_count", "trailing_character_count", "trailing_timestamp_count", "trailing_speaker_count", "window_index", "window_count", "token_limit"} {
 						if value, parseErr := strconv.Atoi(row[key]); parseErr == nil && value >= 0 && value <= 1000000 {
 							report[key] = value
@@ -297,14 +306,29 @@ func TestRuntimeQualification(t *testing.T) {
 		}
 		report["transcript_end_seconds"], report["speakers"], report["valid_output"] = end, len(speakers), valid
 		if !valid {
+			report["error_code"] = "qualification_output_invalid"
 			err = errors.New("qualification output failed validation")
 		}
 	} else if diarization != nil {
 		projectRuntime(diarization.Metadata, report)
 		report["segments"], report["speakers"] = len(diarization.Segments), diarization.SpeakerCount
-		if len(diarization.Segments) == 0 {
-			err = errors.New("qualification speaker output is empty")
+		end := 0.0
+		speakers := map[string]bool{}
+		valid := len(diarization.Segments) > 0 && diarization.SpeakerCount > 0
+		for _, segment := range diarization.Segments {
+			valid = valid && !math.IsNaN(segment.Start) && !math.IsInf(segment.Start, 0) && !math.IsNaN(segment.End) && !math.IsInf(segment.End, 0) && segment.Start >= 0 && segment.End >= segment.Start && segment.End <= seconds+0.25 && strings.TrimSpace(segment.Speaker) != ""
+			end = max(end, segment.End)
+			speakers[segment.Speaker] = true
 		}
+		valid = valid && len(speakers) == diarization.SpeakerCount
+		report["diarization_end_seconds"], report["valid_output"] = end, valid
+		if !valid {
+			report["error_code"] = "qualification_output_invalid"
+			err = errors.New("qualification speaker output failed validation")
+		}
+	} else {
+		report["error_code"] = "qualification_output_missing"
+		err = errors.New("qualification returned no output")
 	}
 	report["completed"] = err == nil
 	encoded, _ := json.Marshal(report)
