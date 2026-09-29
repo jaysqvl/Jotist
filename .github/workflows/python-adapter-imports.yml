@@ -38,6 +38,19 @@ permissions:
   contents: read
 
 jobs:
+  runtime-contracts:
+    name: Shared worker and output contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.source_ref }}
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - name: Test shared controls and native output recovery
+        run: uv run --no-project --python 3.12 --with numpy --with pytest python -m pytest -q internal/transcription/adapters/py/local_asr/tests internal/transcription/adapters/py/nvidia/tests/test_canary_stages.py internal/transcription/adapters/py/nvidia/tests/test_nvidia_compat.py internal/transcription/adapters/py/test_runtime_controls.py internal/transcription/adapters/py/research/test_research_diarize.py internal/transcription/adapters/py/whisperx/test_vad_asset.py
+
   imports:
     name: import ${{ matrix.adapter }} on Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
@@ -73,12 +86,28 @@ jobs:
         if: github.event_name != 'workflow_dispatch' || inputs.adapter == 'all' || inputs.adapter == matrix.adapter
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg libsndfile1
 
-      - name: Import adapter and decode audio
+      - name: Setup Go for real CPU inference
+        if: matrix.adapter == 'whisperx' && (github.event_name != 'workflow_dispatch' || inputs.adapter == 'all' || inputs.adapter == matrix.adapter)
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build shared runtime qualification test
+        if: matrix.adapter == 'whisperx' && (github.event_name != 'workflow_dispatch' || inputs.adapter == 'all' || inputs.adapter == matrix.adapter)
+        run: go test -c ./internal/transcription/adapters -o /tmp/jotist-runtime.test
+
+      - name: Import adapter, decode audio and qualify shared CPU inference
         if: github.event_name != 'workflow_dispatch' || inputs.adapter == 'all' || inputs.adapter == matrix.adapter
         env:
           ADAPTER: ${{ matrix.adapter }}
           ADAPTER_PYTHON: ${{ matrix.python-version }}
-        run: python scripts/verify-python-adapter-envs.py --mode import --torch-index cpu --python "$ADAPTER_PYTHON" --adapter "$ADAPTER" --audit --audit-output-dir artifacts/python-audit
+        run: |
+          inference=()
+          if [ "$ADAPTER" = "whisperx" ]; then
+            inference=(--inference-smoke-binary /tmp/jotist-runtime.test)
+          fi
+          python scripts/verify-python-adapter-envs.py --mode import --torch-index cpu --python "$ADAPTER_PYTHON" --adapter "$ADAPTER" --audit --audit-output-dir artifacts/python-audit "${inference[@]}"
 
       - name: Preserve installed dependency audit
         if: always() && hashFiles('artifacts/python-audit/*.json') != ''

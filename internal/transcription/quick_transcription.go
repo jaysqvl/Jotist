@@ -70,11 +70,6 @@ func NewQuickTranscriptionService(cfg *config.Config, unifiedProcessor *UnifiedJ
 	if maxUploadBytes <= 0 {
 		maxUploadBytes = 20 * 1024 * 1024 * 1024
 	}
-	processTimeout := 2 * time.Hour
-	if cfg.MediaTimeoutMinutes > 0 {
-		processTimeout = time.Duration(cfg.MediaTimeoutMinutes) * time.Minute
-	}
-
 	serviceCtx, serviceCancel := context.WithCancel(context.Background())
 	service := &QuickTranscriptionService{
 		config:           cfg,
@@ -85,7 +80,6 @@ func NewQuickTranscriptionService(cfg *config.Config, unifiedProcessor *UnifiedJ
 		stopCleanup:      make(chan bool),
 		jobSlots:         make(chan struct{}, concurrency),
 		maxUploadBytes:   maxUploadBytes,
-		processTimeout:   processTimeout,
 		ctx:              serviceCtx, cancel: serviceCancel,
 	}
 
@@ -214,7 +208,7 @@ func (qs *QuickTranscriptionService) GetQuickJob(jobID string) (*QuickTranscript
 	}
 
 	// Check if expired
-	if time.Now().After(job.ExpiresAt) {
+	if time.Now().After(job.ExpiresAt) && job.Status != models.StatusPending && job.Status != models.StatusProcessing {
 		return nil, fmt.Errorf("job expired")
 	}
 
@@ -224,7 +218,13 @@ func (qs *QuickTranscriptionService) GetQuickJob(jobID string) (*QuickTranscript
 // processQuickJob processes a quick transcription job
 func (qs *QuickTranscriptionService) processQuickJob(jobID string) {
 	defer qs.workers.Done()
-	ctx, cancel := context.WithTimeout(qs.ctx, qs.processTimeout)
+	ctx, cancel := context.WithCancel(qs.ctx)
+	// An explicit test/embedder override remains available; media conversion's
+	// timeout no longer imposes an unrelated limit on inference.
+	if qs.processTimeout > 0 {
+		cancel()
+		ctx, cancel = context.WithTimeout(qs.ctx, qs.processTimeout)
+	}
 	defer cancel()
 	defer func() { <-qs.jobSlots }()
 	// Update job status to processing
@@ -242,6 +242,7 @@ func (qs *QuickTranscriptionService) processQuickJob(jobID string) {
 		qs.jobsMutex.Lock()
 		if job, exists := qs.jobs[jobID]; exists {
 			job.Status = models.StatusFailed
+			job.ExpiresAt = time.Now().Add(6 * time.Hour)
 			msg := fmt.Sprintf("env setup failed: %v", err)
 			job.ErrorMessage = &msg
 		}
@@ -264,6 +265,7 @@ func (qs *QuickTranscriptionService) processQuickJob(jobID string) {
 		qs.jobsMutex.Lock()
 		if job, exists := qs.jobs[jobID]; exists {
 			job.Status = models.StatusFailed
+			job.ExpiresAt = time.Now().Add(6 * time.Hour)
 			errMsg := fmt.Sprintf("failed to create temp database entry: %v", err)
 			job.ErrorMessage = &errMsg
 		}
@@ -302,6 +304,7 @@ func (qs *QuickTranscriptionService) processQuickJob(jobID string) {
 	defer qs.jobsMutex.Unlock()
 
 	if job, exists := qs.jobs[jobID]; exists {
+		job.ExpiresAt = time.Now().Add(6 * time.Hour)
 		if err != nil {
 			job.Status = models.StatusFailed
 			errMsg := err.Error()
@@ -367,7 +370,7 @@ func (qs *QuickTranscriptionService) cleanupExpiredJobs() {
 
 	now := time.Now()
 	for jobID, job := range qs.jobs {
-		if now.After(job.ExpiresAt) {
+		if now.After(job.ExpiresAt) && job.Status != models.StatusPending && job.Status != models.StatusProcessing {
 			// Remove files
 			os.Remove(job.AudioPath)
 			os.Remove(filepath.Join(qs.tempDir, jobID+"_transcript.json"))

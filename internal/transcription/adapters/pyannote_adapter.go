@@ -215,7 +215,7 @@ func (p *PyAnnoteAdapter) PrepareEnvironment(ctx context.Context) error {
 
 	// Verify PyAnnote is now available
 	testCmd := processutil.CommandContext(ctx, "uv", "run", "--system-certs", "--project", p.envPath, "python", "-c", "from pyannote.audio import Pipeline")
-	if err := testCmd.Run(); err != nil {
+	if err := processutil.Run(ctx, testCmd); err != nil {
 		return fmt.Errorf("PyAnnote import check failed after setup: %w", err)
 	}
 
@@ -254,7 +254,7 @@ func (p *PyAnnoteAdapter) setupPyAnnoteEnvironment(ctx context.Context) error {
 	logger.Info("Installing PyAnnote dependencies")
 	cmd := processutil.CommandContext(ctx, "uv", "sync", "--system-certs")
 	cmd.Dir = p.envPath
-	out, err := cmd.CombinedOutput()
+	out, err := processutil.CombinedOutput(ctx, cmd)
 	if err != nil {
 		return fmt.Errorf("uv sync failed: %w: %s", err, strings.TrimSpace(string(out)))
 	}
@@ -340,7 +340,7 @@ func (p *PyAnnoteAdapter) Diarize(ctx context.Context, input interfaces.AudioInp
 
 	logger.Info("Executing PyAnnote command", "arg_count", len(args))
 
-	if err := cmd.Run(); err != nil {
+	if err := processutil.Run(ctx, cmd); err != nil {
 		if ctx.Err() == context.Canceled {
 			return nil, fmt.Errorf("diarization was cancelled")
 		}

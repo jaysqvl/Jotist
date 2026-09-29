@@ -6,9 +6,71 @@ The [2026-09-11 source snapshot](model-benchmarks-2026-09-11.json) records the e
 
 Results apply to exact checkpoints. The shared leaderboard's Whisper statistics apply only to `large-v3`; the other Whisper sizes have their own publisher and community evaluations. Granite 4.1 Plus does not inherit the base model's WER, and quantized/streaming VibeVoice variants do not inherit the full model's WER. AutoArk-AI/ARK-ASR-3B is a verified repository redirect to the pinned Edge0 checkpoint. A missing result means **no comparable result for the selected test**, not that a model has never been evaluated.
 
-The picker defaults to **Recommended for meetings**, an editorial starting order based on published meeting/conversational results and meeting features. Cohere, Granite 4.1 and Qwen3 1.7B are the first candidates. Each recommendation has a short reason; placements across different evaluation setups are provisional. This is not a measured ranking on your recordings. Alternative sorts use lowest published **AMI meeting WER**, conversational WER, estimated CPU RAM or estimated GPU VRAM, with missing results last. Cloud APIs are listed after local models and do not inherit downloadable Whisper's scores or memory estimates.
+The picker defaults to an **English meeting shortlist**, sorted by **Recommended for English meetings**. Its eight exact checkpoints cover different needs: Cohere Transcribe, Qwen3-ASR 1.7B and Granite 4.1 2B for accuracy; Canary-Qwen 2.5B as another English accuracy candidate; Parakeet TDT 0.6B v3 for GPU efficiency; Qwen3-ASR 0.6B and Apache-licensed Granite 5.0 470M TurboCTC as smaller CPU candidates; and Whisper large-v3 as an established baseline. This editorial order considers published English results, features and resource requirements. It does not qualify speed, memory fit or reliability on your recordings.
+
+**All models** retains the supported catalog, including translation, specialist, older Whisper and cloud options. The current saved selection stays visible even outside the shortlist. Non-English and translation configurations open the full list. Opening a profile preserves its language and all stored execution settings; an explicit model change from the English shortlist selects English. Exact-checkpoint shortlist membership and recommendation reasons come from shared server metadata. Older servers without this metadata continue to show the full catalog.
+
+Alternative sorts use lowest published **AMI meeting WER**, conversational WER, estimated CPU RAM or estimated GPU VRAM, with missing results last. Results from different evaluation setups are provisional comparisons. Cloud APIs are listed after local models and do not inherit downloadable Whisper's scores or memory estimates.
 
 The **Other published evaluations** section includes exact-checkpoint results from [OpenAI's Whisper paper, Table 9](https://cdn.openai.com/papers/whisper.pdf#page=22), [Superwhisper's app evaluations](https://superwhisper.com/benchmarks/whisper-small), [IBM's Granite Plus card](https://huggingface.co/ibm-granite/granite-speech-4.1-2b-plus#evaluations), [Microsoft's BitNet card](https://huggingface.co/microsoft/VibeVoice-ASR-BitNet#accuracy-wer), and the evaluator's own [transcribe.cpp](https://github.com/handy-computer/transcribe.cpp/blob/main/docs/models/granite-speech-4.1-2b-plus.md) and [DictatorFlow](https://dictatorflow.com/blog/vibevoice-bitnet-local-cpu-asr/) reports. Each score includes its dataset, publisher/community provenance, source and method caveats. The [31 supplemental records](../internal/transcription/additional_benchmarks.json) were retrieved on September 12, 2026. Different microphone setups, normalization and decoding can produce very different WER values for the same checkpoint, so these are not substituted into the common leaderboard sort.
+
+## Multilingual coverage and accuracy
+
+The **Compare models by language** table uses the [pinned HF multilingual CSVs](https://huggingface.co/datasets/hf-audio/multilingual_evals/tree/d2341ed252c0bc3f692b4dd02839f41d96673c3b) retrieved on **2026-09-28**. Its default common comparison uses German, French, Italian, Spanish, Portuguese and Dutch. The six-language macro WER is the mean of six per-language means; each language mean first averages its available datasets and rounds to two decimals, following the [evaluator](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard/blob/4295ce2e317d85022f232f5c12a1f10586b41ca7/app.py). A row missing any selected language receives no aggregate. The table can also compare one language or those six plus Hindi.
+
+| Exact checkpoint | Publisher ASR coverage | Jotist language choices | English AMI WER | Six European WER | Hindi Monsoon WER |
+| --- | --- | --- | ---: | ---: | ---: |
+| [Cohere Transcribe 2B](https://huggingface.co/CohereLabs/cohere-transcribe-03-2026) | 14 languages | 14 | 7.02% | 3.84% | — |
+| [Whisper large-v3](https://huggingface.co/openai/whisper-large-v3) | 100 languages | 99 + auto | 13.63% | 4.57% | 28.17% |
+| [Canary 1B v2](https://huggingface.co/nvidia/canary-1b-v2) | 25 European languages | 8 | 13.03% | 4.97% | — |
+| [Voxtral Mini 3B](https://huggingface.co/mistralai/Voxtral-Mini-3B-2507) | 8 languages | 8 | 13.57% | 5.20% | 22.90% |
+| [Parakeet TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) | 25 European languages | English | 9.42% | 5.25% | — |
+| [Qwen3-ASR 1.7B HF](https://huggingface.co/Qwen/Qwen3-ASR-1.7B-hf) | 30 languages + 22 Chinese dialects | 12 | 8.31% | 5.52% | 12.25% |
+| [Qwen3-ASR 0.6B HF](https://huggingface.co/Qwen/Qwen3-ASR-0.6B-hf) | 30 languages + 22 Chinese dialects | 12 | 9.33% | 9.01% | 18.13% |
+| [MOSS Transcribe Diarize 0.9B](https://huggingface.co/OpenMOSS-Team/MOSS-Transcribe-Diarize) | 50+ languages (publisher claim) | 15 | 8.33% | 9.08% | — |
+| [ARK ASR 3B](https://huggingface.co/Edge0/ARK-ASR-3B) | 19 languages | 19 | 7.89% | — | — |
+| [Canary-Qwen 2.5B](https://huggingface.co/nvidia/canary-qwen-2.5b) | English only | English | 7.91% | — | — |
+| [Granite 5.0 470M TurboCTC](https://huggingface.co/ibm-granite/granite-speech-5.0-470m-turboctc) | English only | English | 7.72% | — | — |
+| [Granite 5.0 470M TurboCTC NC](https://huggingface.co/ibm-granite/granite-speech-5.0-470m-turboctc-nc) | English only | English | 7.13% | — | — |
+| [Granite Speech 4.1 2B](https://huggingface.co/ibm-granite/granite-speech-4.1-2b) | 6 languages | 6 | 7.06% | — | — |
+| [Granite Speech 4.1 2B Plus](https://huggingface.co/ibm-granite/granite-speech-4.1-2b-plus) | 5 languages | 5 | — | — | — |
+| [MOSS Preview 2B](https://huggingface.co/OpenMOSS-Team/MOSS-Transcribe-preview-2B) | English only | English | 7.80% | — | — |
+| [VibeVoice ASR BitNet](https://huggingface.co/microsoft/VibeVoice-ASR-BitNet) | 7 named languages, plus others claimed | Not enumerated | — | — | — |
+
+English AMI is the separate **2026-09-11** English snapshot described above. It is not included in either multilingual aggregate. German uses FLEURS/MCV; French, Italian, Spanish and Dutch use FLEURS/MCV/MLS; Portuguese uses FLEURS/MLS. These European tests largely contain read speech. Hindi uses the different conversational Monsoon protocol, including orthographic-variant scoring. The seven-language view combines those different audio domains; it is not a score over every language a model supports.
+
+### Per-language results
+
+| Exact checkpoint | German | French | Italian | Spanish | Portuguese | Dutch | Hindi |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Cohere Transcribe 2B | 3.10% | 4.02% | 2.97% | 2.81% | 5.99% | 4.17% | — |
+| Whisper large-v3 | 4.00% | 6.24% | 4.45% | 3.35% | 4.94% | 4.42% | 28.17% |
+| Canary 1B v2 | 4.06% | 4.79% | 4.75% | 3.23% | 6.26% | 6.73% | — |
+| Voxtral Mini 3B | 4.46% | 5.96% | 5.12% | 4.16% | 5.08% | 6.39% | 22.90% |
+| Parakeet TDT 0.6B v3 | 4.12% | 5.38% | 4.66% | 3.71% | 6.08% | 7.53% | — |
+| Qwen3-ASR 1.7B HF | 3.97% | 5.68% | 5.44% | 3.80% | 6.31% | 7.95% | 12.25% |
+| Qwen3-ASR 0.6B HF | 6.69% | 8.76% | 9.09% | 5.82% | 10.12% | 13.57% | 18.13% |
+| MOSS Transcribe Diarize 0.9B | 8.02% | 10.66% | 8.47% | 5.50% | 7.28% | 14.53% | — |
+
+These are recognition WER values. They do not measure Jotist's CPU/GPU speed, complete-recording coverage, word alignment, diarization or mixed-language meetings.
+
+### What the comparison supports
+
+- **Cohere** leads this six-language comparison; **Whisper large-v3** is next and has much broader publisher coverage. Cohere expects one selected language and does not promise reliable code switching.
+- **Canary v2** scores better than **Parakeet v3** on this European comparison and adds speech translation. Parakeet remains a distinct efficiency candidate. Their published results do not establish speed or reliability on a shared media server.
+- **Qwen3-ASR 1.7B** leads the four checkpoints with all seven measured languages: 6.49%, versus Voxtral 3B 7.72%, Whisper large-v3 7.94%, and Qwen 0.6B 10.31%. Much of that ordering comes from Hindi; it does not rank Cohere, Canary or Parakeet, which lack Hindi rows here.
+- **Voxtral Mini 3B** remains supported: its multilingual behavior differs from the retired **Voxtral Mini 4B Realtime**. Realtime is removed from the supported catalog and execution branch; historical run labels, presentation support and dated validation snapshots remain readable. Saved Realtime selections are shown as unavailable and are not silently replaced with 3B.
+- **MOSS Transcribe Diarize** has weaker WER on these six languages but adds native speaker labels and timing. That feature cannot be judged from recognition WER alone.
+- **Granite 4.1 base/Plus, ARK and VibeVoice BitNet** have published multilingual coverage but no exact-checkpoint result in this common snapshot. The Granite NAR and full VibeVoice rows are different checkpoints and are not borrowed. BitNet has its own publisher evaluations in Other published evaluations.
+- **Canary-Qwen, Granite 5.0 TurboCTC and MOSS Preview** are English-only checkpoints. They contribute English options; their encoder or family name does not confer multilingual support.
+
+### Integration coverage still needs qualification
+
+Publisher language counts and Jotist language choices describe different things. Parakeet v3 is multilingual upstream, but the current Jotist runner advertises and labels output as English. Canary v2's older integration offered Hindi, Japanese, Korean and Chinese even though this exact checkpoint does not support them; those choices are now removed from the draft UI/schema/CLI. The eight previously offered supported languages remain, while expanding to all 25 awaits qualification.
+
+Qwen's publisher covers 30 languages plus Chinese dialects; Jotist currently offers 12. Its default forced aligner publishes only 11 languages (Chinese, English, Cantonese, French, German, Italian, Japanese, Korean, Portuguese, Russian and Spanish), so an Arabic or Hindi recognition result does not qualify the default complete pipeline. MOSS exposes 15 of its claimed 50+ languages. Whisper large-v3 has 100 published language tokens; Jotist currently lists 99 language codes plus auto detection. VibeVoice BitNet's unrestricted language field means no enumerated restriction, not tested support for every language.
+
+Asian-language publisher scores can use character error rate (CER), different datasets and different language sets. They are not merged into this WER ranking. The [shared comparison records](../internal/transcription/language_comparison.json) preserve exact checkpoints, publisher sources, raw per-dataset values, language means, the evaluator revision and retrieval date. The server supplies that same data to the picker; missing data stays unranked.
 
 ## Local and cloud processing
 
@@ -42,17 +104,25 @@ Loading can temporarily increase memory. Full-recording context, larger batches,
 
 **Auto · GPU, then CPU** uses an available GPU first and retries once on CPU after a confirmed GPU execution failure. CPU retry uses FP32 where the runtime supports floating precision. A CPU-only host goes directly to CPU. Explicit GPU selection remains explicit; missing model access, invalid input, cancellation and expired job deadlines are not converted into another attempt.
 
-The failed adapter process exits before CPU retry, and the job publishes a transcript only after processing succeeds. Run logs record the attempts; successful recovery is also shown under Runs → Devices used. If both attempts fail, the job reports that CPU fallback failed after the GPU failure. Each stage gets its own recovery: **Same as transcription** follows the actual ASR device after fallback, while an independently selected speaker **Auto** can try GPU and then CPU itself. Both attempts share the original job deadline.
+The failed adapter process exits before CPU retry, and the job publishes a transcript only after processing succeeds. Run logs record the attempts; successful recovery is also shown under Runs → Devices used. If both attempts fail, the job reports that CPU fallback failed after the GPU failure. Each stage gets its own recovery: **Same as transcription** follows the actual ASR device after fallback, while an independently selected speaker **Auto** can try GPU and then CPU itself. Both attempts share the saved attempt budget and any explicitly supplied execution deadline.
 
 ## Long CPU jobs
 
-`MEDIA_PROCESS_TIMEOUT_MINUTES` already controls the queued transcription deadline and media subprocess limits. It defaults to **120 minutes** and accepts **5–1440 minutes**; for example, `MEDIA_PROCESS_TIMEOUT_MINUTES=1440` allows up to 24 hours. Set the server environment before starting a long CPU run. The transcription deadline includes first-use installation and model loading, recognition, alignment and external diarization, so leave time for the complete pipeline. Increasing this setting also extends media subprocess limits.
+Queued and quick transcription have **no default wall-clock deadline**. A healthy CPU worker can continue beyond two hours. Active quick jobs retain their audio; their six-hour cleanup period starts when processing ends.
+
+All model workers use the same inactivity supervisor. `TRANSCRIPTION_STALL_MINUTES` defaults to **30 minutes** and accepts **0–1440**; `0` disables automatic inactivity termination. On Linux, advancing progress counters, descendant CPU or disk activity, runnable workers, blocked I/O and scheduler contention keep a worker alive. A sleeping GPU worker is stopped only when GPU idleness is confirmed. Missing activity or GPU readings defer termination. Repeated heartbeats alone do not count as progress.
+
+This conservative policy detects sustained observable inactivity, not every possible hang: a busy loop, ongoing background I/O or an unverified GPU can defer termination. Cancellation still stops the worker process group and retained checkpoints remain available. Explicit caller deadlines and deadlines saved by older executions remain enforced on those executions; a new ordinary run has no such deadline.
+
+`MEDIA_PROCESS_TIMEOUT_MINUTES` continues to control download/conversion subprocess limits (**120 minutes**, range **5–1440**), independently of inference. Model setup downloads and resource admission have their own bounded waits. GPU and stage capacity waits currently allow ten minutes; these are admission limits before inference, not transcription duration limits. See [shared lifecycle and release checks](recoverable-transcription.md#shared-worker-lifecycle-and-release-checks).
 
 ## Profile starters and Quick Add Presets
 
 **Create New Profile** opens an editable CPU starter using Qwen3-ASR 1.7B, FP32, batch size 1 and Community-1 diarization on CPU. It inherits the user's saved context, vocabulary and Hugging Face token. Opening the editor does not create a profile.
 
-**Quick Add Presets** offers nine reference configurations and three suggested alternatives. The reference hardware is a Ryzen 7 5700G, 64 GB installed RAM with 32 GB available for models, and RTX 3060 12 GB. The reference set reproduces 459 captured technical values from nine saved profiles, with private credentials, prompts and paths excluded. Each user's token and context are inherited. Legacy automatic speaker-device behavior and a GPU-named Parakeet profile actually saved with CPU transcription are flagged explicitly.
+**Quick Add Presets** offers nine reference configurations and five English starting points: Cohere and Qwen3-ASR 1.7B on CPU, Parakeet TDT 0.6B v3 on GPU with CPU speakers, and the smaller Qwen3-ASR 0.6B and Granite 5.0 470M TurboCTC on CPU. Each uses batch size 1, English and Community-1 speakers on CPU. New starters use the same model-selection defaults as the picker, including Parakeet's fixed FP32 weights. They still require full-recording runtime qualification.
+
+The reference hardware is a Ryzen 7 5700G, 64 GB installed RAM with 32 GB available for models, and RTX 3060 12 GB. The reference set reproduces 459 captured technical values from nine saved profiles, with private credentials, prompts and paths excluded. Each user's token and context are inherited. Legacy automatic speaker-device behavior and a GPU-named Parakeet profile actually saved with CPU transcription are flagged explicitly.
 
 Explicit model or device changes apply compatible execution defaults: batch size 1, CPU FP32 or GPU/Auto FP16 where supported (Auto CPU execution uses FP32), model-specific chunking/token limits, and native or external speaker settings. The chosen CPU/GPU device is retained when the new model supports it. Canary GPU selections use 40-second chunks and CPU external speaker processing for the 12 GB reference setup. Fixed CPU-only models return to CPU. Opening a saved/reference profile preserves its stored values; only explicit picker changes apply new defaults. Untouched new-draft names follow the model/device selection; manually entered and existing-profile names are preserved.
 

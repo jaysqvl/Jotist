@@ -60,7 +60,7 @@ func checkPythonEnvironmentReady(ctx context.Context, envPath, importStatement s
 	// A successful import must not leave obsolete packages outside the newly
 	// resolved graph installed. uv run otherwise performs an inexact sync.
 	cmd := processutil.CommandContext(ctx, "uv", "run", "--exact", "--system-certs", "--project", envPath, "python", "-c", importStatement)
-	if err := cmd.Run(); err != nil {
+	if err := processutil.Run(ctx, cmd); err != nil {
 		return false
 	}
 	envCacheMutex.Lock()

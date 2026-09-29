@@ -32,19 +32,19 @@ type CanaryAdapter struct {
 
 // NewCanaryAdapter creates a new Canary adapter
 func NewCanaryAdapter(envPath string) *CanaryAdapter {
+	// Retain the integration's existing languages that this exact checkpoint
+	// actually supports. Broader publisher coverage is documented separately.
+	languages := []string{"en", "de", "es", "fr", "it", "pl", "pt", "ru"}
 	capabilities := interfaces.ModelCapabilities{
-		ModelID:     "canary",
-		ModelFamily: "nvidia_canary",
-		DisplayName: "NVIDIA Canary 1B v2",
-		Description: "NVIDIA's multilingual Canary model with translation capabilities",
-		Version:     "1.2.0",
-		SupportedLanguages: []string{
-			"en", "de", "es", "fr", "hi", "it", "ja", "ko", "pl", "pt", "ru", "zh",
-			// Canary supports many more languages
-		},
-		SupportedFormats:  []string{"wav", "flac"},
-		RequiresGPU:       false, // Can run on CPU but GPU strongly recommended
-		MemoryRequirement: 8192,  // 8GB+ recommended for Canary
+		ModelID:            "canary",
+		ModelFamily:        "nvidia_canary",
+		DisplayName:        "NVIDIA Canary 1B v2",
+		Description:        "NVIDIA's multilingual Canary model with translation capabilities",
+		Version:            "1.2.0",
+		SupportedLanguages: languages,
+		SupportedFormats:   []string{"wav", "flac"},
+		RequiresGPU:        false, // Can run on CPU but GPU strongly recommended
+		MemoryRequirement:  8192,  // 8GB+ recommended for Canary
 		Features: map[string]bool{
 			"timestamps":     true,
 			"word_level":     true,
@@ -72,7 +72,7 @@ func NewCanaryAdapter(envPath string) *CanaryAdapter {
 			Type:        "string",
 			Required:    false,
 			Default:     "en",
-			Options:     []string{"en", "de", "es", "fr", "hi", "it", "ja", "ko", "pl", "pt", "ru", "zh"},
+			Options:     languages,
 			Description: "Source language of the audio",
 			Group:       "basic",
 		},
@@ -81,7 +81,7 @@ func NewCanaryAdapter(envPath string) *CanaryAdapter {
 			Type:        "string",
 			Required:    false,
 			Default:     "en",
-			Options:     []string{"en", "de", "es", "fr", "hi", "it", "ja", "ko", "pl", "pt", "ru", "zh"},
+			Options:     languages,
 			Description: "Target language for transcription/translation",
 			Group:       "basic",
 		},
@@ -285,7 +285,7 @@ func (c *CanaryAdapter) setupCanaryEnvironment(ctx context.Context) error {
 	logger.Info("Installing Canary dependencies")
 	cmd := processutil.CommandContext(ctx, "uv", "sync", "--system-certs")
 	cmd.Dir = c.envPath
-	out, err := cmd.CombinedOutput()
+	out, err := processutil.CombinedOutput(ctx, cmd)
 	if err != nil {
 		return fmt.Errorf("uv sync failed: %w: %s", err, strings.TrimSpace(string(out)))
 	}
@@ -415,7 +415,7 @@ func (c *CanaryAdapter) Transcribe(ctx context.Context, input interfaces.AudioIn
 
 	logger.Info("Executing Canary command", "arg_count", len(args))
 
-	if err := cmd.Run(); err != nil {
+	if err := processutil.Run(ctx, cmd); err != nil {
 		if ctx.Err() == context.Canceled {
 			return nil, fmt.Errorf("transcription was cancelled")
 		}

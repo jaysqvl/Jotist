@@ -15,6 +15,10 @@ from backends import CohereAutoTokenLimitError, GenerationTokenLimitError, Recog
 from diagnostics import safe_failure
 
 
+class TimestampBoundsError(RecognitionError):
+    """Invalid native timing; text is never clipped or accepted as partial."""
+
+
 # Load the bundled helper by path, including under Python isolated mode.
 import importlib.util as _runtime_import
 from pathlib import Path as _RuntimePath
@@ -116,7 +120,7 @@ def validate_times(items, duration):
         if not isinstance(start, (int, float)) or not isinstance(end, (int, float)):
             raise RecognitionError("Model output lacks numeric timestamps.")
         if not math.isfinite(start) or not math.isfinite(end) or start < 0 or end < start or start > duration or end > duration + 0.25:
-            raise RecognitionError("Model output has timestamps outside its audio window.")
+            raise TimestampBoundsError("Model output has timestamps outside its audio window.")
         item["end"] = min(float(end), duration)
 
 
@@ -137,6 +141,23 @@ def assign_native_speakers(words, segments):
             overlap, segment = max(overlaps, key=lambda pair: pair[0])
             if overlap > 0 and segment.get("speaker"):
                 word["speaker"] = segment["speaker"]
+
+
+def pending_native_audio(chunk, segment, audio, sample_rate):
+    """Validate an untimed terminal turn before loading an alignment model.
+
+    Recovery has the aligner's existing five-minute audio bound. Arbitrary
+    malformed output and earlier missing timestamps still fail explicitly.
+    """
+    start = segment.get("start")
+    duration = (chunk["end_sample"] - chunk["start_sample"]) / sample_rate
+    if not isinstance(start, (int, float)) or not math.isfinite(start) or not 0 <= start < duration:
+        raise RecognitionError("Untimed native output has an invalid audio start.")
+    begin = int(start * sample_rate)
+    end = chunk["end_sample"] - chunk["start_sample"]
+    if end - begin > 300 * sample_rate:
+        raise RecognitionError("Untimed native output exceeds the bounded alignment recovery window.")
+    return audio[chunk["start_sample"] + begin:chunk["end_sample"]], begin / sample_rate
 
 
 def execute(config):
@@ -178,6 +199,7 @@ def execute(config):
     chunks = []
     config["_diagnostic_phase"] = "recognition"
     auto_token_splits = 0
+    native_timing_retries = 0
     index = 0
     while index < len(bounds):
         start, end, split_from_cutoff = bounds[index]
@@ -186,6 +208,8 @@ def execute(config):
         # real voices using an arbitrary amplitude/noise threshold.
         try:
             result = model_call(config, device, backend.transcribe, sample, sr) if np.any(sample) else {"text":"", "language":config.get("language", "en")}
+            validate_times(result.get("segments", []), len(sample) / sr)
+            validate_times(result.get("word_segments", []), len(sample) / sr)
         except (CohereAutoTokenLimitError, GenerationTokenLimitError) as exc:
             boundary = None
             if not int(config.get("max_new_tokens", 0)) and not split_from_cutoff:
@@ -200,12 +224,21 @@ def execute(config):
             exc.window_index, exc.window_count = index + 1, len(bounds)
             raise
         except RecognitionError as exc:
+            # Shared output recovery for window-local native timing. Keep the
+            # exact model/device/budget and sample coverage; native recording-
+            # scoped speakers cannot be stitched safely by this retry.
+            boundary = None
+            if isinstance(exc, TimestampBoundsError) and not config.get("native_speakers") and not split_from_cutoff:
+                boundary = auto_token_split_point(audio, sr, start, end)
+            if boundary is not None:
+                bounds[index:index + 1] = [(start, boundary, True), (boundary, end, True)]
+                native_timing_retries += 1
+                print(f"Native timing window {index + 1} failed validation; retrying two shorter windows", flush=True)
+                continue
             exc.window_index, exc.window_count = index + 1, len(bounds)
             raise
         # Reject invalid native times before they can be used to crop audio for
         # forced alignment, including segments starting beyond the recording.
-        validate_times(result.get("segments", []), len(sample) / sr)
-        validate_times(result.get("word_segments", []), len(sample) / sr)
         result["start_sample"], result["end_sample"] = start, end
         if config.get("native_speakers") and len(bounds)>1:
             for segment in result.get("segments", []):
@@ -222,17 +255,42 @@ def execute(config):
     if device == "cuda":
         model_call(config, device, torch.cuda.empty_cache)
     aligner = None
+    output_repairs = 0
+    full_word_alignment = config.get("align_words", not config.get("native_timestamps"))
     config["_diagnostic_phase"] = "alignment"
     try:
         from qwen_backend import create_aligner, has_alignable_text, validate_alignment_language
-        if config.get("align_words", not config.get("native_timestamps")):
+        for chunk in chunks:
+            pending = chunk.get("untimed_native_segments", [])
+            if len(pending) > 1:
+                raise RecognitionError("Native output contains multiple untimed turns.")
+            for segment in pending:
+                pending_native_audio(chunk, segment, audio, sr)
+                if not has_alignable_text(segment.get("text")):
+                    raise RecognitionError("Untimed native output has no alignable text.")
+                validate_alignment_language(chunk.get("language") or config.get("language", "en"))
+        if full_word_alignment:
             for chunk in chunks:
                 if chunk.get("text", "").strip() and not chunk.get("word_segments") and has_alignable_text(chunk.get("text")):
                     validate_alignment_language(chunk.get("language") or config.get("language", "en"))
-            if any(c.get("text", "").strip() and not c.get("word_segments") and has_alignable_text(c.get("text")) for c in chunks):
-                aligner = model_call(config, device, create_aligner, device, dtype, config)
+        if any(c.get("untimed_native_segments") for c in chunks) or (full_word_alignment and any(c.get("text", "").strip() and not c.get("word_segments") and has_alignable_text(c.get("text")) for c in chunks)):
+            aligner = model_call(config, device, create_aligner, device, dtype, config)
         for index, chunk in enumerate(chunks):
             config["_window_index"], config["_window_count"] = index + 1, len(chunks)
+            for segment in chunk.pop("untimed_native_segments", []):
+                sample, offset = pending_native_audio(chunk, segment, audio, sr)
+                aligned = model_call(config, device, aligner.align, sample, segment["text"], chunk.get("language", config.get("language", "en")), sr)
+                validate_times(aligned, len(sample) / sr)
+                if not aligned:
+                    raise RecognitionError("Native timing recovery returned no aligned words.")
+                # The shared aligner verifies the complete recognized surface.
+                # Preserve the native recording-scoped speaker and every turn.
+                recovered = {**segment, "start": offset + aligned[0]["start"], "end": offset + aligned[-1]["end"]}
+                chunk.setdefault("segments", []).append(recovered)
+                chunk["timestamp_source"] = chunk.get("timestamp_source", "native") + ",qwen3_forced_alignment_terminal"
+                output_repairs += 1
+            if not full_word_alignment:
+                continue
             chunk_text = chunk.get("text", "").strip()
             if chunk_text and not chunk.get("word_segments") and not has_alignable_text(chunk_text):
                 # Some recognizers emit punctuation-only windows. Qwen creates
@@ -305,6 +363,10 @@ def execute(config):
         metadata["auto_token_split_windows"] = str(auto_token_splits)
         if config.get("engine") == "cohere":
             metadata["cohere_auto_split_windows"] = str(auto_token_splits)
+    if native_timing_retries:
+        metadata["native_timing_retry_windows"] = str(native_timing_retries)
+    if output_repairs:
+        metadata["output_repair_count"] = str(output_repairs)
     keep_native_speakers = config.get("diarize") is True and config.get("diarize_model") == "native"
     if not keep_native_speakers:
         for item in segments + words:
@@ -327,6 +389,7 @@ def model_call(config, device, function, *args, **kwargs):
     config["_gpu_execution"] = True
     value = function(*args, **kwargs)
     config["_gpu_execution"] = False
+    _runtime_helper.progress()
     return value
 
 

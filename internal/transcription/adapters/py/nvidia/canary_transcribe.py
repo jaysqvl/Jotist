@@ -419,13 +419,13 @@ def main():
     parser.add_argument(
         "--source-lang",
         default="en",
-        choices=["en", "de", "es", "fr", "hi", "it", "ja", "ko", "pl", "pt", "ru", "zh"],
+        choices=["en", "de", "es", "fr", "it", "pl", "pt", "ru"],
         help="Source language (default: en)",
     )
     parser.add_argument(
         "--target-lang",
         default="en",
-        choices=["en", "de", "es", "fr", "hi", "it", "ja", "ko", "pl", "pt", "ru", "zh"],
+        choices=["en", "de", "es", "fr", "it", "pl", "pt", "ru"],
         help="Target language (default: en)",
     )
     parser.add_argument(

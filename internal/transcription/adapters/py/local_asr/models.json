@@ -242,31 +242,5 @@
       "nl",
       "it"
     ]
-  },
-  {
-    "id": "mistralai/Voxtral-Mini-4B-Realtime-2602",
-    "family": "mistral_voxtral",
-    "family_name": "Mistral Voxtral",
-    "name": "Voxtral Mini 4B Realtime",
-    "engine": "voxtral_realtime",
-    "context_mode": "none",
-    "memory_mb": 28672,
-    "max_chunk_seconds": 30,
-    "default_chunk_seconds": 30,
-    "languages": [
-      "en",
-      "fr",
-      "de",
-      "es",
-      "it",
-      "pt",
-      "nl",
-      "ru",
-      "ar",
-      "hi",
-      "zh",
-      "ja",
-      "ko"
-    ]
   }
 ]

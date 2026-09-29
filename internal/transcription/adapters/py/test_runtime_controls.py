@@ -37,6 +37,23 @@ def load_function(relative, name, globals_):
 
 
 class RuntimeControls(unittest.TestCase):
+    def test_wrapped_gpu_oom_keeps_resource_evidence_without_exposing_exception_text(self):
+        helper = load_module("runtime_failure.py")
+        inner = RuntimeError("CUDA out of memory; private runtime details")
+        outer = MemoryError("batch_size (32) probably too large")
+        outer.__cause__ = inner
+        self.assertEqual(helper.gpu_failure_kind(outer, "cuda"), "cuda_out_of_memory")
+        with contextlib.redirect_stdout(io.StringIO()) as output, self.assertRaises(MemoryError):
+            with helper.gpu_execution("cuda"):
+                raise outer
+        self.assertEqual(json.loads(output.getvalue().split('=', 1)[1]), {"device":"cuda", "kind":"cuda_out_of_memory"})
+        self.assertNotIn('private', output.getvalue())
+        self.assertIsNone(helper.gpu_failure_kind(MemoryError("batch too large"), "cuda"))
+        outer.__cause__ = RuntimeError("403 Client Error: Forbidden; CUDA out of memory")
+        self.assertIsNone(helper.gpu_failure_kind(outer, "cuda"))
+        outer.__cause__ = outer
+        self.assertEqual(len(list(helper.exception_chain(outer))), 1)
+
     def test_gpu_execution_failures_require_actual_gpu_scope(self):
         helper = load_module("runtime_failure.py")
         for device, error, expected in (

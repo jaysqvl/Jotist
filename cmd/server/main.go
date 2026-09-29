@@ -147,7 +147,6 @@ func main() {
 	logger.Startup("queue", "Starting background processing")
 	taskQueue := queue.NewTaskQueue(2, unifiedProcessor, jobRepo) // 2 workers
 	taskQueue.SetTranscriptionQueueRepository(transcriptionQueueRepo)
-	taskQueue.SetJobTimeout(time.Duration(cfg.MediaTimeoutMinutes) * time.Minute)
 	if err := taskQueue.Start(); err != nil {
 		logger.Error("Cannot start task queue", "error", err)
 		logger.Warn("Transcription dispatch is blocked; the interface remains available for recovery inspection")

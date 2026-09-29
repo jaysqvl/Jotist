@@ -20,7 +20,7 @@ SOURCE = Path(__file__).parents[1] / "canary_stages.py"
 def artifact_functions():
     tree = ast.parse(SOURCE.read_text())
     module = ast.Module(body=[node for node in tree.body if isinstance(node, ast.FunctionDef)
-                             and node.name in ("sha256_file", "extract_assets", "ctc_window_layout", "restore_audio_cut")], type_ignores=[])
+                             and node.name in ("sha256_file", "extract_assets", "ctc_window_layout", "restore_audio_cut", "normalized_result")], type_ignores=[])
     namespace = dict(hashlib=hashlib, Path=Path, json=json, tempfile=tempfile,
                      tarfile=tarfile, shutil=shutil, errno=errno, math=math)
     exec(compile(module, str(SOURCE), "exec"), namespace)
@@ -28,6 +28,26 @@ def artifact_functions():
 
 
 class CanaryArtifactTests(unittest.TestCase):
+    def test_alignment_blank_rows_are_not_persisted_as_words(self):
+        functions = artifact_functions()
+        functions['baseline'] = SimpleNamespace(collect_result=lambda *args: (
+            'Synthetic words.',
+            [{'word':'', 'start':0., 'end':0.1}, {'word':'  \t', 'start':0.1, 'end':0.2},
+             {'word':'Synthetic', 'start':0.2, 'end':0.8}, {'word':'words.', 'start':0.8, 'end':1.1}],
+            [{'segment':' ', 'start':0., 'end':0.1}, {'segment':'Synthetic words.', 'start':0.2, 'end':1.1}], []))
+        args = SimpleNamespace(timestamps=True, include_confidence=False, task='transcribe', source_lang='en')
+        result = functions['normalized_result']([object()], [0.], args)
+        self.assertEqual(result['text'], 'Synthetic words.')
+        self.assertEqual([word['word'] for word in result['word_segments']], ['Synthetic', 'words.'])
+        self.assertEqual(result['word_segments'][0]['start'], 0.2)
+        self.assertEqual(result['segments'], [{'text':'Synthetic words.', 'start':0.2, 'end':1.1}])
+        functions['baseline'].collect_result = lambda *args: ('text', [{'word':None}], [], [])
+        with self.assertRaisesRegex(ValueError, 'word must be text'):
+            functions['normalized_result']([object()], [0.], args)
+        functions['baseline'].collect_result = lambda *args: ('text', [{'word':'text'}], [], [])
+        with self.assertRaises(KeyError):
+            functions['normalized_result']([object()], [0.], args)
+
     def test_subsecond_native_center_padding_must_match_captured_sample_hash(self):
         class Samples(list):
             ndim = 1

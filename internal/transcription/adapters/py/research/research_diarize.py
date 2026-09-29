@@ -57,6 +57,15 @@ def serialize_output(output, model, device, audio_duration=None):
     return {"segments": segments, "speakers": speakers, "speaker_count": len(speakers), "model": model, "resolved_device": device}
 
 
+def configure_diarizen_batch(pipeline, batch_size):
+    if not isinstance(batch_size, int) or not 1 <= batch_size <= 64:
+        raise ValueError("batch size must be between 1 and 64")
+    # These public pipeline properties feed its segmentation Inference and
+    # speaker embedding loops. Do not patch the vendored model configuration.
+    pipeline.segmentation_batch_size = batch_size
+    pipeline.embedding_batch_size = batch_size
+
+
 def run(args):
     if args.model not in MODELS[args.engine]:
         raise ValueError("unsupported model for selected diarization engine")
@@ -74,6 +83,7 @@ def run(args):
         with gpu_execution(device):
             pipeline = DiariZenPipeline.from_pretrained(args.model)
             pipeline.to(torch.device(device))
+        configure_diarizen_batch(pipeline, args.batch_size)
         if args.min_speakers is not None:
             pipeline.min_speakers = args.min_speakers
         if args.max_speakers is not None:
@@ -109,7 +119,10 @@ def main():
     parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="cpu")
     parser.add_argument("--min-speakers", type=int)
     parser.add_argument("--max-speakers", type=int)
+    parser.add_argument("--batch-size", type=int, default=1)
     args = parser.parse_args()
+    if not 1 <= args.batch_size <= 64:
+        parser.error("batch size must be between 1 and 64")
     for value in (args.min_speakers, args.max_speakers):
         if value is not None and not 1 <= value <= 20:
             parser.error("speaker constraints must be between 1 and 20")

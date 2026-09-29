@@ -393,6 +393,17 @@ func (r *ModelRegistry) scoreModel(capabilities interfaces.ModelCapabilities, re
 	return score, reasons
 }
 
+// IsInitialized observes completed startup without waiting behind an in-flight
+// initialization. A busy registry returns false so the caller's cancellable
+// initialization admission path remains responsible for waiting.
+func (r *ModelRegistry) IsInitialized() bool {
+	if !r.mu.TryRLock() {
+		return false
+	}
+	defer r.mu.RUnlock()
+	return r.initialized
+}
+
 // InitializeModels ensures all registered models are ready to use (parallel)
 func (r *ModelRegistry) InitializeModels(ctx context.Context) error {
 	r.mu.Lock()

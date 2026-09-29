@@ -33,6 +33,19 @@ def test_generation_cutoff_is_not_success():
         ensure_generation_complete([1,2,3], 3, [99])
 
 
+def test_untimed_terminal_turn_is_retained_only_for_explicit_alignment_recovery():
+    text = "[0.1][S01]Earlier[0.4][0.5][S02]hello"
+    with pytest.raises(RecognitionError):
+        parse_moss(text)
+    pending = []
+    complete = parse_moss(text, pending)
+    assert complete == [{"start": 0.1, "end": 0.4, "speaker": "S01", "text": "Earlier"}]
+    assert pending == [{"start": 0.5, "speaker": "S02", "text": "hello"}]
+    for invalid in ("unfinished", "[0.5][S02]", "[0.5][S02]hello[broken]", "[0.5][S02]hello[1.0] extra"):
+        with pytest.raises(RecognitionError):
+            parse_moss(invalid, [])
+
+
 def test_overlapping_native_speakers_keep_segment_attribution():
     words = [{"word": "yes", "start": 1.2, "end": 1.8, "speaker": "S02"},
              {"word": "hello", "start": 0.1, "end": 0.5}]
@@ -224,6 +237,26 @@ def test_native_speakers_are_omitted_unless_requested(monkeypatch,tmp_path):
     assert "speaker" not in result["segments"][0]
 
 
+def test_native_terminal_recovery_aligns_after_unloading_asr_and_preserves_all_text_and_speakers(monkeypatch, tmp_path):
+    response = {"text": "Earlier hello", "language": "en",
+                "segments": [{"text": "Earlier", "start": 0.1, "end": 0.4, "speaker": "S01"}],
+                "untimed_native_segments": [{"text": "hello", "start": 0.5, "speaker": "S02"}],
+                "timestamp_source": "native"}
+    result = setup_pipeline(monkeypatch, tmp_path, response, False, native=True)
+    assert result["text"] == "Earlier hello"
+    assert result["segments"] == [response["segments"][0], {"text": "hello", "start": 0.75, "end": 1.0, "speaker": "S02"}]
+    assert result["word_segments"] == []
+    assert result["metadata"]["output_repair_count"] == "1"
+    assert result["metadata"]["timestamp_source"] == "native,qwen3_forced_alignment_terminal"
+
+
+def test_untimed_native_output_with_invalid_bounds_fails_before_loading_aligner(monkeypatch, tmp_path):
+    response = {"text": "hello", "language": "en",
+                "untimed_native_segments": [{"text": "hello", "start": 20, "speaker": "S02"}]}
+    with pytest.raises(RecognitionError, match="invalid audio start"):
+        setup_pipeline(monkeypatch, tmp_path, response, False, native=True)
+
+
 def test_out_of_window_native_timestamps_fail(monkeypatch,tmp_path):
     response={"text":"hello", "language":"en", "segments":[{"text":"hello", "start":0.5, "end":20, "speaker":"S02"}]}
     with pytest.raises(RecognitionError):
@@ -291,6 +324,40 @@ def test_every_generated_backend_can_split_an_auto_cutoff(monkeypatch, tmp_path)
     assert result["text"] == "part 2 part 3"
     assert result["metadata"]["auto_token_split_windows"] == "1"
     assert "cohere_auto_split_windows" not in result["metadata"]
+
+
+def test_native_timing_retry_preserves_every_sample_and_replaces_invalid_output(monkeypatch, tmp_path):
+    def response(length, call):
+        duration = length / 16000
+        return {"text": f"part {call}", "language": "en", "word_segments": [
+            {"word": f"part-{call}", "start": 0, "end": duration + 1 if call == 1 else duration}]}
+
+    config, calls = cohere_cutoff_pipeline(monkeypatch, tmp_path, response)
+    config["engine"] = "granite_plus"
+    result = transcribe.execute(config)
+    assert len(calls) == 3 and calls[0] == sum(calls[1:]) == 30 * 16000
+    assert result["text"] == "part 2 part 3"
+    assert result["metadata"]["native_timing_retry_windows"] == "1"
+    assert "auto_token_split_windows" not in result["metadata"]
+    assert result["word_segments"][0]["start"] == 0
+    assert result["word_segments"][0]["end"] == result["word_segments"][1]["start"]
+    assert result["word_segments"][1]["end"] == 30
+
+
+def test_native_timing_retry_is_bounded_and_cannot_relabel_recording_speakers(monkeypatch, tmp_path):
+    def invalid(length, call):
+        return {"text": "invalid", "segments": [{"text": "invalid", "start": 0, "end": length / 16000 + 1}]}
+
+    config, calls = cohere_cutoff_pipeline(monkeypatch, tmp_path, invalid)
+    with pytest.raises(transcribe.TimestampBoundsError) as failure:
+        transcribe.execute(config)
+    assert len(calls) == 2
+    assert (failure.value.window_index, failure.value.window_count) == (1, 2)
+    calls.clear()
+    config["native_speakers"] = True
+    with pytest.raises(transcribe.TimestampBoundsError):
+        transcribe.execute(config)
+    assert calls == [30 * 16000]
 
 
 def test_cohere_auto_split_is_bounded_and_explicit_budget_stays_fixed(monkeypatch, tmp_path):

@@ -14,6 +14,7 @@ import (
 	"sync"
 
 	"scriberr/internal/models"
+	"scriberr/internal/processutil"
 	"scriberr/internal/transcription/interfaces"
 )
 
@@ -163,6 +164,8 @@ func safeStageError(kind, code string) error {
 		return context.Canceled
 	case "deadline_exceeded":
 		return context.DeadlineExceeded
+	case "worker_stalled":
+		return fmt.Errorf("%s: %w", kind, processutil.ErrWorkerStalled)
 	default:
 		return fmt.Errorf("%s failed; check this attempt's model runtime, input and access", kind)
 	}

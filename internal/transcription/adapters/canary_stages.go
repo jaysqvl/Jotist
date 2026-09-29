@@ -97,7 +97,7 @@ func (c *CanaryAdapter) ResolveStageParameters(stage interfaces.StageDescriptor,
 		resolved[key] = value
 	}
 	if stage.Kind == "recognition" {
-		return resolved, nil
+		return recognitionOnlyParameters(params), nil
 	}
 	if stage.Kind != "alignment" {
 		return nil, fmt.Errorf("unsupported Canary stage %q", stage.Kind)
@@ -190,11 +190,11 @@ func (c *CanaryAdapter) RunStage(ctx context.Context, stage interfaces.StageDesc
 	cmd.Env = withRequestedDevice(append(os.Environ(), "PYTHONUNBUFFERED=1", "PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True", "TMPDIR="+temp), device)
 	cmd.Stdout, cmd.Stderr = log, log
 	started := time.Now()
-	if err := cmd.Run(); err != nil {
+	if err := processutil.Run(ctx, cmd); err != nil {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-		return nil, fmt.Errorf("Canary %s process failed; inspect the current attempt log", stage.Kind)
+		return nil, fmt.Errorf("Canary %s process failed; inspect the current attempt log: %w", stage.Kind, err)
 	}
 	data, err := os.ReadFile(filepath.Join(temp, "result.json"))
 	if err != nil {

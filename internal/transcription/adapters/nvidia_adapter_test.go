@@ -5,8 +5,22 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"scriberr/internal/transcription/interfaces"
 )
+
+func TestCanaryLanguageChoicesAreSupportedByExactV2Checkpoint(t *testing.T) {
+	adapter := NewCanaryAdapter(t.TempDir())
+	languages := adapter.GetCapabilities().SupportedLanguages
+	require.Equal(t, []string{"en", "de", "es", "fr", "it", "pl", "pt", "ru"}, languages)
+	for _, language := range languages {
+		require.NoError(t, adapter.ValidateParameters(map[string]interface{}{"source_lang": language, "target_lang": language}))
+	}
+	for _, language := range []string{"hi", "ja", "ko", "zh"} {
+		require.Error(t, adapter.ValidateParameters(map[string]interface{}{"source_lang": language}))
+		require.Error(t, adapter.ValidateParameters(map[string]interface{}{"target_lang": language}))
+	}
+}
 
 func TestCanaryArgsPassBatchSizeAndTimestampDisable(t *testing.T) {
 	adapter := NewCanaryAdapter("/tmp/canary")

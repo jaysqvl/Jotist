@@ -15,7 +15,6 @@ var publishedModelWER = map[string][2]string{
 	"Qwen/Qwen3-ASR-0.6B-hf":                          {"9.33", "12.74"},
 	"ibm-granite/granite-speech-5.0-470m-turboctc-nc": {"7.13", "13.42"},
 	"mistralai/Voxtral-Mini-3B-2507":                  {"13.57", "16.00"},
-	"mistralai/Voxtral-Mini-4B-Realtime-2602":         {"13.34", "17.45"},
 	"microsoft/VibeVoice-ASR-HF":                      {"12.02", "14.62"},
 	"Qwen/Qwen3-ASR-1.7B-hf":                          {"8.31", "12.14"},
 	"ibm-granite/granite-speech-4.1-2b":               {"7.06", "14.19"},
@@ -38,8 +37,8 @@ var planningParametersBillions = map[string]float64{
 	"ibm-granite/granite-speech-5.0-470m-turboctc": 0.47, "ibm-granite/granite-speech-5.0-470m-turboctc-nc": 0.47,
 	"CohereLabs/cohere-transcribe-03-2026": 2, "Edge0/ARK-ASR-3B": 3.75,
 	"OpenMOSS-Team/MOSS-Transcribe-Diarize": 0.91, "OpenMOSS-Team/MOSS-Transcribe-preview-2B": 2.42,
-	"mistralai/Voxtral-Mini-3B-2507": 5, "mistralai/Voxtral-Mini-4B-Realtime-2602": 4,
-	"nvidia/canary-1b-v2": 1, "nvidia/canary-qwen-2.5b": 2.5, "nvidia/parakeet-tdt-0.6b-v3": 0.6,
+	"mistralai/Voxtral-Mini-3B-2507": 5,
+	"nvidia/canary-1b-v2":            1, "nvidia/canary-qwen-2.5b": 2.5, "nvidia/parakeet-tdt-0.6b-v3": 0.6,
 	"large-v3": 1.55,
 }
 
@@ -133,6 +132,7 @@ func withModelComparisonMetadata(catalog map[string]interfaces.ModelCapabilities
 		}
 		addRuntimeMemoryMetadata(metadata, id)
 		metadata["additional_benchmarks"] = additionalEvaluations(id, model)
+		addLanguageComparisonMetadata(metadata, id, model)
 		addMeetingRecommendation(metadata, id, model)
 		capability.Metadata = metadata
 		catalog[id] = capability

@@ -131,7 +131,7 @@ func (v *VibeVoiceBitNetAdapter) PrepareEnvironment(ctx context.Context) error {
 			{"git", "-C", sourceDir, "submodule", "update", "--init", "--recursive", "--depth", "1"},
 		}
 		for _, args := range commands {
-			if output, err := processutil.CommandContext(ctx, args[0], args[1:]...).CombinedOutput(); err != nil {
+			if output, err := processutil.CombinedOutput(ctx, processutil.CommandContext(ctx, args[0], args[1:]...)); err != nil {
 				return fmt.Errorf("VibeVoice BitNet source setup failed: %w: %s", err, output)
 			}
 		}
@@ -152,7 +152,7 @@ func (v *VibeVoiceBitNetAdapter) PrepareEnvironment(ctx context.Context) error {
 			{"cmake", "--build", filepath.Join(sourceDir, "build"), "--target", "asr_infer", "--parallel", "2"},
 		}
 		for _, args := range commands {
-			if output, err := processutil.CommandContext(ctx, args[0], args[1:]...).CombinedOutput(); err != nil {
+			if output, err := processutil.CombinedOutput(ctx, processutil.CommandContext(ctx, args[0], args[1:]...)); err != nil {
 				return fmt.Errorf("VibeVoice BitNet CPU build failed: %w: %s", err, output)
 			}
 		}
@@ -235,11 +235,11 @@ func (v *VibeVoiceBitNetAdapter) Transcribe(ctx context.Context, input interface
 	audioPath := filepath.Join(directory, "audio.wav")
 	convert := processutil.CommandContext(ctx, "ffmpeg", "-nostdin", "-v", "error", "-i", input.FilePath, "-ar", "24000", "-ac", "1", "-c:a", "pcm_s16le", audioPath)
 	convert.Stdout, convert.Stderr = log, log
-	if err := convert.Run(); err != nil {
+	if err := processutil.Run(ctx, convert); err != nil {
 		return nil, fmt.Errorf("BitNet audio conversion failed: %w", err)
 	}
 	probe := processutil.CommandContext(ctx, "ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", audioPath)
-	durationBytes, err := probe.Output()
+	durationBytes, err := processutil.Output(ctx, probe)
 	if err != nil {
 		return nil, fmt.Errorf("probe BitNet audio duration: %w", err)
 	}
@@ -257,14 +257,14 @@ func (v *VibeVoiceBitNetAdapter) Transcribe(ctx context.Context, input interface
 		chunkPath := filepath.Join(directory, fmt.Sprintf("chunk-%05d.wav", index))
 		chunk := processutil.CommandContext(ctx, "ffmpeg", "-nostdin", "-v", "error", "-ss", strconv.FormatFloat(offset, 'f', 3, 64), "-i", audioPath, "-t", strconv.FormatFloat(length, 'f', 3, 64), "-c:a", "pcm_s16le", chunkPath)
 		chunk.Stdout, chunk.Stderr = log, log
-		if err := chunk.Run(); err != nil {
+		if err := processutil.Run(ctx, chunk); err != nil {
 			return nil, fmt.Errorf("BitNet audio chunk failed: %w", err)
 		}
 		outputPath := filepath.Join(directory, fmt.Sprintf("result-%05d.txt", index))
 		cmd := processutil.CommandContext(ctx, v.binaryPath(), v.buildArgs(chunkPath, params)...)
 		cmd.Env = withEnvironmentValue(os.Environ(), "SCRIBERR_RESULT_PATH", outputPath)
 		cmd.Stdout, cmd.Stderr = log, log
-		if err := cmd.Run(); err != nil {
+		if err := processutil.Run(ctx, cmd); err != nil {
 			return nil, fmt.Errorf("VibeVoice BitNet inference failed: %w; check transcription log and context/token budgets", err)
 		}
 		data, err := os.ReadFile(outputPath)

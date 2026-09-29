@@ -2,7 +2,7 @@
 from types import SimpleNamespace
 import unittest
 
-from research_diarize import serialize_output
+from research_diarize import serialize_output, configure_diarizen_batch
 
 
 def annotation(turns):
@@ -12,6 +12,18 @@ def annotation(turns):
 
 
 class OutputBoundsTests(unittest.TestCase):
+    def test_both_diarizen_inference_batches_follow_the_attempt(self):
+        pipeline = SimpleNamespace(segmentation_batch_size=32, embedding_batch_size=32)
+        configure_diarizen_batch(pipeline, 1)
+        self.assertEqual(pipeline.segmentation_batch_size, 1)
+        self.assertEqual(pipeline.embedding_batch_size, 1)
+        configure_diarizen_batch(pipeline, 8)
+        self.assertEqual(pipeline.segmentation_batch_size, 8)
+        self.assertEqual(pipeline.embedding_batch_size, 8)
+        for value in (0, -1, 65, '2'):
+            with self.assertRaises(ValueError):
+                configure_diarizen_batch(pipeline, value)
+
     def test_padding_is_clipped_without_losing_overlap(self):
         output = serialize_output(annotation([(-0.1, 3, "A"), (2, 15.9125, "B"),
                                                (15.2, 16, "padding")]), "model", "cpu", 15.0)

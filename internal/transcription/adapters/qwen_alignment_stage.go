@@ -60,7 +60,7 @@ func runQwenAlignmentWorker(ctx context.Context, environment string, input inter
 		defer log.Close()
 		cmd.Stdout, cmd.Stderr = log, log
 	}
-	if err := cmd.Run(); err != nil {
+	if err := processutil.Run(ctx, cmd); err != nil {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}

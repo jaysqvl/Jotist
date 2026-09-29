@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"scriberr/internal/processutil"
 	"scriberr/internal/transcription/interfaces"
 )
 
@@ -128,6 +129,9 @@ func stageFailureCode(ctx context.Context, err error, procCtx interfaces.Process
 	}
 	if errors.Is(ctx.Err(), context.Canceled) || errors.Is(err, context.Canceled) {
 		return "cancelled"
+	}
+	if errors.Is(err, processutil.ErrWorkerStalled) {
+		return "worker_stalled"
 	}
 	if diagnostic, ok := interfaces.RuntimeDiagnostic(err); ok && diagnostic.Code() == "runtime_alignment_error" {
 		return diagnostic.Code()

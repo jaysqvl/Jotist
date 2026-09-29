@@ -4,8 +4,8 @@ import { TRANSCRIPTION_PRESETS, RECOMMENDED_PRESETS, createPresetDraft, presetAl
 import { REFERENCE_PROFILE_VALUES } from "./referenceProfilePresets.ts";
 
 test("preset catalog preserves all nine captured configurations, including the GPU-named CPU preset", () => {
-    assert.equal(TRANSCRIPTION_PRESETS.length, 12);
-    assert.equal(new Set(TRANSCRIPTION_PRESETS.map((preset) => preset.id)).size, 12);
+    assert.equal(TRANSCRIPTION_PRESETS.length, 14);
+    assert.equal(new Set(TRANSCRIPTION_PRESETS.map((preset) => preset.id)).size, 14);
     assert.equal(REFERENCE_PROFILE_VALUES.length, 9);
     for (const { name, ...parameters } of REFERENCE_PROFILE_VALUES) {
         const preset = TRANSCRIPTION_PRESETS.find((preset) => preset.name === name)!;
@@ -28,22 +28,32 @@ test("preset catalog preserves all nine captured configurations, including the G
 });
 
 test("recommended presets use explicit CPU/GPU devices and batch size 1 independently of captured profiles", () => {
-    const hybrid = TRANSCRIPTION_PRESETS.find((preset) => preset.id === "hybrid-canary-pyannote")!;
+    const hybrid = TRANSCRIPTION_PRESETS.find((preset) => preset.id === "hybrid-parakeet-pyannote")!;
     assert.equal(hybrid.parameters.device, "cuda");
     assert.equal(hybrid.parameters.diarization_device, "cpu");
     assert.equal(hybrid.parameters.diarize, true);
+    assert.equal(hybrid.parameters.compute_type, "float32", "Parakeet's runtime keeps FP32 weights on GPU");
+    assert.equal(hybrid.parameters.fp16, false);
     for (const preset of RECOMMENDED_PRESETS) {
         const params = preset.parameters;
         assert.equal(params.batch_size, 1);
-        assert.equal(params.compute_type, params.device === "cpu" ? "float32" : "float16");
+        assert.equal(params.compute_type, params.device === "cpu" || params.model_family === "nvidia_parakeet" ? "float32" : "float16");
         assert.equal(params.nvidia_precision, params.compute_type);
-        assert.equal(params.fp16, params.device === "cuda");
+        assert.equal(params.fp16, params.compute_type === "float16");
+        assert.equal(params.language, "en");
         assert.ok(["cpu", "cuda"].includes(params.diarization_device));
     }
     const initial = RECOMMENDED_PRESETS.find((preset) => preset.id === "cpu-qwen-pyannote")!;
     assert.equal(initial.parameters.model, "Qwen/Qwen3-ASR-1.7B-hf");
     assert.equal(initial.parameters.device, "cpu");
     assert.equal(initial.parameters.diarization_device, "cpu");
+    assert.equal(RECOMMENDED_PRESETS.some((preset) => preset.parameters.model_family === "nvidia_canary"), false);
+    for (const id of ["cpu-qwen-small-pyannote", "cpu-granite-compact-pyannote"]) {
+        const compact = RECOMMENDED_PRESETS.find((preset) => preset.id === id)!;
+        assert.equal(compact.parameters.device, "cpu");
+        assert.equal(compact.parameters.diarization_device, "cpu");
+        assert.equal(compact.parameters.diarization_checkpoint, "pyannote/speaker-diarization-community-1");
+    }
 });
 
 test("every preset inherits credentials and context without embedded secrets or private fields", () => {

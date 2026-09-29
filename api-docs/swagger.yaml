@@ -3397,6 +3397,43 @@ paths:
       summary: Get execution recovery details
       tags:
       - transcription
+  /api/v1/transcription/{id}/runs/{run_id}/resources:
+    get:
+      description: Return invocation measurements and stage attempt timing, settings
+        and resource usage
+      parameters:
+      - description: Recording ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Execution ID
+        in: path
+        name: run_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Get run resource measurements
+      tags:
+      - transcription
   /api/v1/transcription/{id}/runs/{run_id}/resume:
     post:
       description: Resume the same execution within its original deadline and attempt

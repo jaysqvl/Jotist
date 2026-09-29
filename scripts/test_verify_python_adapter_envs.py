@@ -5,6 +5,8 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
+from types import SimpleNamespace
 from dataclasses import replace
 
 spec = importlib.util.spec_from_file_location(
@@ -117,6 +119,33 @@ class NativeWheelPolicyTests(unittest.TestCase):
                     (target / "pyproject.toml").read_text(),
                 )
                 self.assertFalse(list((target / "vendor").rglob("*.pyc")))
+
+    def test_inference_gate_rejects_changed_fixture_before_running_a_model(self):
+        from io import BytesIO
+        with tempfile.TemporaryDirectory() as directory:
+            args = SimpleNamespace(inference_smoke_binary=Path(directory) / "runtime.test", timeout=30, verbose=False)
+            with patch.object(verifier.urllib.request, "urlopen", return_value=BytesIO(b"changed public input")), patch.object(verifier, "run") as run:
+                with self.assertRaisesRegex(verifier.CheckError, "checksum differs"):
+                    verifier.run_inference_smoke(Path(directory), args)
+                run.assert_not_called()
+
+    def test_inference_gate_uses_real_compiled_test_and_installed_cpu_environment(self):
+        from io import BytesIO
+        import hashlib
+        with tempfile.TemporaryDirectory() as directory:
+            workdir = Path(directory)
+            args = SimpleNamespace(inference_smoke_binary=workdir / "runtime.test", timeout=30, verbose=False)
+            data = b"synthetic gate plumbing"
+            with patch.object(verifier.urllib.request, "urlopen", return_value=BytesIO(data)), patch.object(verifier, "SPEECH_FIXTURE_SHA256", hashlib.sha256(data).hexdigest()), patch.object(verifier, "run", return_value=SimpleNamespace(stdout="numeric qualification")) as run, patch.dict(verifier.os.environ, {"HF_TOKEN":"private", "JOTIST_RUNTIME_CONTEXT_FILE":"private"}):
+                verifier.run_inference_smoke(workdir, args)
+                command = run.call_args.args[0]
+                environment = run.call_args.kwargs["env"]
+                self.assertEqual(command[0], str(args.inference_smoke_binary.resolve()))
+                self.assertIn("-test.run=^TestRuntimeQualification$", command)
+                self.assertEqual(environment["JOTIST_RUNTIME_ENV"], str(workdir))
+                self.assertEqual(environment["JOTIST_RUNTIME_DEVICE"], "cpu")
+                self.assertNotIn("HF_TOKEN", environment)
+                self.assertNotIn("JOTIST_RUNTIME_CONTEXT_FILE", environment)
 
 
 if __name__ == "__main__":

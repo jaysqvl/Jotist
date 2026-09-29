@@ -4,7 +4,7 @@ from pathlib import Path
 
 _MESSAGES = json.loads(Path(__file__).with_name("diagnostics.json").read_text(encoding="utf-8"))
 _APPLICATION_CODES = {message: code for code, message in _MESSAGES.items() if code.startswith("application_")}
-_CLASSES = {"RecognitionError", "RuntimeError", "ValueError", "TypeError", "AttributeError", "KeyError", "IndexError", "ImportError", "ModuleNotFoundError", "OSError", "FileNotFoundError", "PermissionError", "MemoryError", "GatedRepoError", "RepositoryNotFoundError", "HfHubHTTPError"}
+_CLASSES = {"RecognitionError", "TimestampBoundsError", "RuntimeError", "ValueError", "TypeError", "AttributeError", "KeyError", "IndexError", "ImportError", "ModuleNotFoundError", "OSError", "FileNotFoundError", "PermissionError", "MemoryError", "GatedRepoError", "RepositoryNotFoundError", "HfHubHTTPError"}
 _PHASES = {"configuration", "runtime_initialization", "audio_decode", "model_loading", "recognition", "alignment", "output_validation"}
 
 
@@ -49,4 +49,8 @@ def safe_failure(exc, phase, window_index=None, window_count=None):
         limit = getattr(exc, "token_limit", None)
         if code in {"application_a033c6a30bfc", "application_8923ea1c9bdf"} and type(limit) is int and 1 <= limit <= 65536:
             result["token_limit"] = limit
+        for name in ("parsed_segment_count", "trailing_character_count", "trailing_timestamp_count", "trailing_speaker_count"):
+            value = getattr(exc, name, None)
+            if type(value) is int and 0 <= value <= 1000000:
+                result[name] = value
     return result

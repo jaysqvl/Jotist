@@ -18,8 +18,13 @@ func (a *LocalASRAdapter) Stages() []interfaces.StageDescriptor {
 	if a.spec.Revision != "" {
 		recognitionArtifacts[a.spec.ID] = a.spec.Revision
 	}
+	if a.spec.NativeSpeakers {
+		// Terminal native timing recovery uses the same pinned aligner contract
+		// after unloading ASR, while retaining native speaker identities.
+		recognitionArtifacts["Qwen/Qwen3-ForcedAligner-0.6B-hf"] = localASRAlignerRevision
+	}
 	stages := []interfaces.StageDescriptor{{
-		Kind: "recognition", SchemaVersion: "transcript-result-v1", ImplementationVersion: "local-asr-recognition-v1",
+		Kind: "recognition", SchemaVersion: "transcript-result-v1", ImplementationVersion: "local-asr-recognition-v2",
 		Recoverable: true, Cancellable: true, ModelArtifacts: recognitionArtifacts,
 		DevicePrecisions:   map[string][]string{"cpu": {"float32"}, "cuda": {"float16", "bfloat16", "float32"}},
 		PrecisionParameter: "precision", MeasurementSupport: []string{"process_peak_rss", "structured_cuda_failure"},
@@ -73,8 +78,7 @@ func (a *LocalASRAdapter) ResolveStageParameters(stage interfaces.StageDescripto
 	if stage.Kind == "recognition" {
 		// Alignment is a later durable stage. External diarization still sees the
 		// aligned final result, while recognition itself emits coarse bounds.
-		resolved["align_words"] = false
-		resolved["external_diarization_requested"] = false
+		resolved = recognitionOnlyParameters(params)
 	}
 	return resolved, nil
 }

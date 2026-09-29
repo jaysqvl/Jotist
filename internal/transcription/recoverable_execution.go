@@ -169,15 +169,15 @@ func (u *UnifiedTranscriptionService) processRecoverableJob(ctx context.Context,
 			return err
 		}
 	} else {
-		deadline := time.Now().Add(24 * time.Hour)
+		var deadline *time.Time
 		if value, ok := ctx.Deadline(); ok {
-			deadline = value
+			deadline = &value
 		}
 		plan := recoveryPlan{Version: 1, Mode: job.Parameters.RecoveryMode, RequestedSettingsHash: recoveryRequestHash(job.Parameters), GPU: visibleGPU(ctx, job.Parameters.DeviceIndex), MaxStageAttempts: 7, BoundaryVersion: "adapter-boundary-v1", RecordingLayoutHash: recordingLayoutHash(job)}
 		encoded, _ := json.Marshal(plan)
 		id := uuid.NewString()
 		logPath := filepath.Join(u.outputDirectory, jobID, "runs", id, "transcription.log")
-		current = &models.TranscriptionJobExecution{ID: id, TranscriptionJobID: jobID, StartedAt: time.Now(), ActualParameters: job.Parameters.WithoutSecrets(), RecoveryVersion: 1, PlanJSON: string(encoded), DeadlineAt: &deadline, LogPath: &logPath}
+		current = &models.TranscriptionJobExecution{ID: id, TranscriptionJobID: jobID, StartedAt: time.Now(), ActualParameters: job.Parameters.WithoutSecrets(), RecoveryVersion: 1, PlanJSON: string(encoded), DeadlineAt: deadline, LogPath: &logPath}
 		if bound && binding.QueueItemID != "" {
 			current.QueueItemID = &binding.QueueItemID
 		}
@@ -196,6 +196,11 @@ func (u *UnifiedTranscriptionService) processRecoverableJob(ctx context.Context,
 		ctx, cancel = context.WithDeadline(ctx, *current.DeadlineAt)
 		defer cancel()
 	}
+	var savedPlan recoveryPlan
+	_ = json.Unmarshal([]byte(current.PlanJSON), &savedPlan)
+	finishMeasurements := startStageMeasurements(ctx, executionMeasurementDevice(job.Parameters), savedPlan.GPU, filepath.Join(u.outputDirectory, jobID, "runs", current.ID))
+	defer finishMeasurements()
+	invocationID := uuid.NewString()
 	u.broadcastRecovery(jobID)
 	if job.IsMultiTrack && job.Parameters.IsMultiTrackEnabled {
 		err = u.processMultiTrackJob(ctx, job, current)
@@ -207,6 +212,11 @@ func (u *UnifiedTranscriptionService) processRecoverableJob(ctx context.Context,
 	}
 	cleanup, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	measurements := finishMeasurements()
+	measurements.InvocationID = invocationID
+	if metricErr := u.recovery.AppendExecutionMeasurements(cleanup, current.ID, current.OwnerGeneration, measurements); metricErr != nil {
+		logger.Warn("Could not retain execution resource measurements", "execution_id", current.ID, "error", metricErr)
+	}
 	if err != nil {
 		// Adapter calls have returned and their supervised process groups have
 		// stopped. Clear abandoned active attempts even when cancellation or a

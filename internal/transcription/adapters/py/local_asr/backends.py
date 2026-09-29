@@ -93,7 +93,7 @@ def prepare_moss_preview_inputs(self, input_ids, next_sequence_length=None, past
     return inputs
 
 
-def parse_moss(text):
+def parse_moss(text, pending_terminal=None):
     pattern = re.compile(r"\[(\d+(?:\.\d+)?)\]\[(S\d+)\](.*?)\[(\d+(?:\.\d+)?)\]", re.S)
     segments, cursor = [], 0
     for match in pattern.finditer(text):
@@ -107,7 +107,20 @@ def parse_moss(text):
             segments.append({"start": start, "end": end, "text": content.strip(), "speaker": speaker})
         cursor = match.end()
     if text[cursor:].strip():
-        raise RecognitionError("MOSS returned an incomplete or unrecognised timestamped transcript.")
+        tail = text[cursor:].strip()
+        # A naturally ended generation can omit the final closing timestamp.
+        # Retain that exact text/speaker as an untimed turn for the shared
+        # forced-alignment recovery. No invented end or partial success here.
+        terminal = re.fullmatch(r"\[(\d+(?:\.\d+)?)\]\[(S\d+)\]([^\[\]]+)", tail, re.S)
+        if pending_terminal is not None and terminal and terminal.group(3).strip():
+            pending_terminal.append({"start": float(terminal.group(1)), "speaker": terminal.group(2), "text": terminal.group(3).strip()})
+            return segments
+        failure = RecognitionError("MOSS returned an incomplete or unrecognised timestamped transcript.")
+        failure.parsed_segment_count = len(segments)
+        failure.trailing_character_count = len(tail)
+        failure.trailing_timestamp_count = len(re.findall(r"\[\d+(?:\.\d+)?\]", tail))
+        failure.trailing_speaker_count = len(re.findall(r"\[S\d+\]", tail))
+        raise failure
     return segments
 
 
@@ -298,8 +311,10 @@ class TransformersBackend:
         ensure_generation_complete(new_ids, limit, eos)
         text = self.tokenizer.decode(new_ids, skip_special_tokens=True).strip()
         if self.engine == "moss":
-            segments = parse_moss(text)
-            return {"text":" ".join(segment["text"] for segment in segments), "segments":segments, "language":language, "timestamp_source":"native", "speaker_scope":"recording"}
+            eos_ids = {eos} if isinstance(eos, int) else set(eos or [])
+            pending = [] if len(new_ids) and int(new_ids[-1]) in eos_ids else None
+            segments = parse_moss(text, pending)
+            return {"text":" ".join(segment["text"] for segment in segments + (pending or [])), "segments":segments, "untimed_native_segments":pending or [], "language":language, "timestamp_source":"native", "speaker_scope":"recording"}
         if self.engine == "granite_plus":
             words = parse_granite_timestamps(text)
             return {"text":" ".join(word["word"] for word in words), "word_segments":words, "language":language, "timestamp_source":"native_word_ends_previous_end_starts"}
@@ -310,7 +325,7 @@ def create_backend(model_id, device, dtype, config):
     if config["engine"] == "qwen":
         from qwen_backend import create_backend as create_qwen
         return create_qwen(model_id, device, dtype, config)
-    if config["engine"] in {"voxtral", "voxtral_realtime"}:
+    if config["engine"] == "voxtral":
         from voxtral_backend import create_backend as create_voxtral
         return create_voxtral(model_id, device, dtype, config)
     return TransformersBackend(model_id, device, dtype, config)

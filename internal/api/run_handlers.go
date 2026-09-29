@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
+	"strconv"
 
 	"scriberr/internal/models"
 	"scriberr/internal/transcription/interfaces"
@@ -127,10 +128,34 @@ func (h *Handler) ListJobRuns(c *gin.Context) {
 		return
 	}
 
+	// The queue retains the submitted profile name even after that profile is
+	// renamed or removed. Do not relabel historical runs from today's profile.
+	profiles := map[string]string{}
+	if h.taskQueue != nil {
+		if items, err := h.taskQueue.ListSequentialRuns(c.Request.Context(), jobID, true); err == nil {
+			for _, item := range items {
+				if item.ProfileName != nil {
+					profiles[item.ID] = *item.ProfileName
+				}
+			}
+		}
+	}
+	recoverySummaries, err := h.runRecoverySummaries(c.Request.Context(), executions)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read run attempt summaries"})
+		return
+	}
 	runs := make([]gin.H, 0, len(executions))
 	for index := len(executions) - 1; index >= 0; index-- {
 		execution := executions[index]
-		runs = append(runs, h.executionRunResponse(execution, index+1))
+		row := h.executionRunResponse(execution, index+1)
+		row["recovery_summary"] = recoverySummaries[execution.ID]
+		if execution.QueueItemID != nil {
+			if name := profiles[*execution.QueueItemID]; name != "" {
+				row["profile_name"] = name
+			}
+		}
+		runs = append(runs, row)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -369,7 +394,38 @@ func (h *Handler) executionRunResponse(execution models.TranscriptionJobExecutio
 		"updated_at":           execution.UpdatedAt,
 		"has_transcript":       execution.Transcript != nil,
 		"has_logs":             execution.LogPath != nil,
+		"runtime_metadata":     runRuntimeMetadata(execution.Transcript),
 	}
+}
+
+// Run pickers need runtime evidence without fetching every transcript. Only
+// these display fields leave this projection; arbitrary metadata is private.
+func runRuntimeMetadata(transcript *string) map[string]string {
+	result := map[string]string{}
+	if transcript == nil {
+		return result
+	}
+	var payload struct {
+		Metadata map[string]json.RawMessage `json:"metadata"`
+	}
+	if json.Unmarshal([]byte(*transcript), &payload) != nil {
+		return result
+	}
+	for _, key := range []string{"resolved_device", "precision", "diarization_resolved_device", "diarization_device", "diarization_precision", "diarization_model", "diarization_model_id", "asr_device_fallback", "diarization_device_fallback"} {
+		var value string
+		if json.Unmarshal(payload.Metadata[key], &value) == nil && value != "" {
+			result[key] = value
+		}
+	}
+	for _, key := range []string{"auto_token_split_windows", "native_timing_retry_windows", "output_repair_count", "token_retries"} {
+		var value string
+		if json.Unmarshal(payload.Metadata[key], &value) == nil {
+			if count, err := strconv.Atoi(value); err == nil && count >= 0 && count <= 100000 {
+				result[key] = strconv.Itoa(count)
+			}
+		}
+	}
+	return result
 }
 
 func parseTranscriptPayload(raw string) (interface{}, error) {

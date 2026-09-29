@@ -8,14 +8,13 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-    CheckCircle2,
+    Cpu,
     FileText,
     Info,
     Loader2,
     ScrollText,
     SlidersHorizontal,
     UsersRound,
-    XCircle,
 } from "lucide-react";
 import {
     useExecutionRuns,
@@ -28,8 +27,13 @@ import {
 import type { WhisperXParams } from "@/features/transcription/types";
 import { cn } from "@/lib/utils";
 import { transcriptionModelLabel as modelLabel } from "@/features/transcription/hooks/modelCapabilities";
-import { diarizationModelLabel, executionEvidenceRows, requestedExecutionPrecision } from "@/features/transcription/hooks/executionPresentation";
+import { executionEvidenceRows } from "@/features/transcription/hooks/executionPresentation";
 import { RunModelSummary } from "./RunModelSummary";
+import { RunPicker, RunStatusBadge } from "./RunPicker";
+import { RunResourcesPanel } from "./RunResourcesPanel";
+import { useRunResources } from "../../hooks/useRunResources";
+import type { RunResources } from "../../hooks/runResources";
+import { runChoicePresentation } from "../../hooks/runChoices";
 
 interface ExecutionInfoDialogProps {
     audioId: string;
@@ -53,10 +57,11 @@ export function ExecutionInfoDialog({ audioId, isOpen, onClose, initialRunId }: 
     );
     const { data: transcript, isLoading: transcriptLoading } = useRunTranscript(audioId, selectedRun?.id, isOpen);
     const { data: logs, isLoading: logsLoading } = useRunLogs(audioId, selectedRun?.id, isOpen);
+    const resources = useRunResources(audioId, selectedRun?.id, isOpen, selectedRun?.status === "processing" || selectedRun?.status === "pending");
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-6xl w-[95vw] bg-[var(--bg-card)] border-[var(--border-subtle)] shadow-[var(--shadow-float)] max-h-[92vh] overflow-hidden p-0 gap-0">
+            <DialogContent className="sm:max-w-6xl w-[95vw] grid-rows-[auto_minmax(0,1fr)] h-[min(860px,92vh)] bg-[var(--bg-card)] border-[var(--border-subtle)] shadow-[var(--shadow-float)] max-h-[92vh] overflow-hidden p-0 gap-0">
                 <DialogHeader className="border-b border-[var(--border-subtle)] px-5 sm:px-6 py-5">
                     <DialogTitle className="text-[var(--text-primary)] flex items-center gap-2 text-xl font-bold tracking-tight">
                         <Info className="h-5 w-5 text-[var(--brand-solid)]" />
@@ -77,15 +82,19 @@ export function ExecutionInfoDialog({ audioId, isOpen, onClose, initialRunId }: 
                         No runs have been recorded for this file yet.
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] min-h-[620px] max-h-[calc(92vh-104px)]">
+                    <div className="grid min-h-0 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] lg:grid-cols-[320px_1fr] lg:grid-rows-1">
                         <aside className="border-b lg:border-b-0 lg:border-r border-[var(--border-subtle)] bg-[var(--bg-main)]/60 overflow-y-auto p-3">
-                            <div className="space-y-2">
+                            <div className="lg:hidden">
+                                <RunPicker runs={runs} activeRunId={runsData?.active_run_id} pinnedRunId={runsData?.pinned_run_id} value={selectedRun?.id} onValueChange={setSelectedRunId} label="Details run" compact />
+                            </div>
+                            <div className="hidden lg:block space-y-2">
                                 {runs.map((run) => (
                                     <RunCard
                                         key={run.id}
                                         run={run}
                                         selected={run.id === selectedRun?.id}
                                         active={run.id === runsData?.active_run_id}
+                                        pinned={run.id === runsData?.pinned_run_id}
                                         onClick={() => setSelectedRunId(run.id)}
                                     />
                                 ))}
@@ -101,6 +110,9 @@ export function ExecutionInfoDialog({ audioId, isOpen, onClose, initialRunId }: 
                                     logs={logs?.content || ""}
                                     logsAvailable={logs?.available ?? false}
                                     logsLoading={logsLoading}
+                                    resources={resources.data}
+                                    resourcesLoading={resources.isLoading}
+                                    resourcesError={resources.error?.message}
                                 />
                             )}
                         </section>
@@ -115,14 +127,16 @@ function RunCard({
     run,
     selected,
     active,
+    pinned,
     onClick,
 }: {
     run: ExecutionRun;
     selected: boolean;
     active: boolean;
+    pinned: boolean;
     onClick: () => void;
 }) {
-    const params = (run.actual_parameters || {}) as Partial<WhisperXParams>;
+    const presentation = runChoicePresentation(run);
     const chips = runChips(run);
 
     return (
@@ -138,20 +152,21 @@ function RunCard({
         >
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                         <span className="font-semibold text-[var(--text-primary)]">Run {run.run_number}</span>
-                        {active && (
+                        {(active || pinned) && (
                             <span className="rounded-full bg-[var(--brand-light)] px-2 py-0.5 text-[10px] font-semibold uppercase text-[var(--brand-solid)]">
-                                Active
+                                {pinned ? "Pinned" : "Current transcript"}
                             </span>
                         )}
                     </div>
                     <p className="mt-1 truncate text-xs text-[var(--text-secondary)]">
-                        {modelLabel(params.model_family, params.model)}
+                        {presentation.model}
                     </p>
-                    <p className="mt-1 text-xs text-[var(--text-secondary)]">{params.diarize ? `Speakers requested: ${params.diarize_model === "native" ? "Native" : diarizationModelLabel(params.diarization_checkpoint || params.diarize_model)}` : "Speakers disabled"}</p>
+                    {run.profile_name && <p className="mt-1 break-words text-xs font-medium text-[var(--text-primary)]">{run.profile_name}</p>}
+                    <p className="mt-1 text-xs text-[var(--text-secondary)]">{presentation.speakers}{presentation.speakerRuntime && ` · ${presentation.speakerRuntime}`}</p>
                 </div>
-                <StatusPill status={run.status || "unknown"} />
+                <RunStatusBadge run={run} />
             </div>
 
             <div className="mt-3 flex flex-wrap gap-1.5">
@@ -177,6 +192,9 @@ function RunDetails({
     logs,
     logsAvailable,
     logsLoading,
+    resources,
+    resourcesLoading,
+    resourcesError,
 }: {
     run: ExecutionRun;
     transcript?: Transcript | null;
@@ -184,6 +202,9 @@ function RunDetails({
     logs: string;
     logsAvailable: boolean;
     logsLoading: boolean;
+    resources?: RunResources;
+    resourcesLoading: boolean;
+    resourcesError?: string;
 }) {
     const params = (run.actual_parameters || {}) as Partial<WhisperXParams>;
 
@@ -193,7 +214,7 @@ function RunDetails({
                 <div>
                     <div className="flex flex-wrap items-center gap-2">
                         <h3 className="text-lg font-bold text-[var(--text-primary)]">Run {run.run_number}</h3>
-                        <StatusPill status={run.status || "unknown"} />
+                        <RunStatusBadge run={run} />
                     </div>
                     <p className="mt-1 text-sm text-[var(--text-secondary)]">
                         {modelLabel(params.model_family, params.model)}
@@ -213,7 +234,7 @@ function RunDetails({
                 />
                 <MetricCard
                     label="Completed"
-                    value={run.completed_at ? new Date(run.completed_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "In Progress"}
+                    value={run.completed_at ? new Date(run.completed_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ["processing", "pending", "running"].includes(run.status || "") ? "In Progress" : "Not recorded"}
                     subtext={run.completed_at ? new Date(run.completed_at).toLocaleDateString() : ""}
                 />
                 <MetricCard label="Duration" value={formatDuration(run.processing_duration)} highlight />
@@ -227,17 +248,21 @@ function RunDetails({
             )}
 
             <Tabs defaultValue="settings" className="space-y-4">
-                <TabsList className="w-full sm:w-fit bg-[var(--bg-main)] border border-[var(--border-subtle)]">
-                    <TabsTrigger value="settings" className="gap-2">
-                        <SlidersHorizontal className="h-4 w-4" />
+                <TabsList className="grid h-auto grid-cols-4 w-full sm:w-fit bg-[var(--bg-main)] border border-[var(--border-subtle)]">
+                    <TabsTrigger value="settings" className="gap-2 px-2 text-xs sm:text-sm">
+                        <SlidersHorizontal className="hidden sm:block h-4 w-4" />
                         Settings
                     </TabsTrigger>
-                    <TabsTrigger value="transcript" className="gap-2">
-                        <ScrollText className="h-4 w-4" />
+                    <TabsTrigger value="transcript" className="gap-2 px-2 text-xs sm:text-sm">
+                        <ScrollText className="hidden sm:block h-4 w-4" />
                         Transcript
                     </TabsTrigger>
-                    <TabsTrigger value="logs" className="gap-2">
-                        <FileText className="h-4 w-4" />
+                    <TabsTrigger value="resources" className="gap-2 px-2 text-xs sm:text-sm">
+                        <Cpu className="hidden sm:block h-4 w-4" />
+                        Resources
+                    </TabsTrigger>
+                    <TabsTrigger value="logs" className="gap-2 px-2 text-xs sm:text-sm">
+                        <FileText className="hidden sm:block h-4 w-4" />
                         Logs
                     </TabsTrigger>
                 </TabsList>
@@ -245,8 +270,8 @@ function RunDetails({
                 <TabsContent value="settings">
                     <Panel title="Models and execution">
                         <RunModelSummary parameters={params} transcript={transcript} detailed />
-                        {transcript?.metadata?.asr_device_fallback === "cuda_to_cpu" && <p className="mt-3 text-sm text-[var(--text-secondary)]">Auto recovered from a GPU processing failure and completed transcription on CPU.</p>}
-                        {transcript?.metadata?.diarization_device_fallback === "cuda_to_cpu" && <p className="mt-3 text-sm text-[var(--text-secondary)]">Auto recovered from a GPU processing failure and completed speaker identification on CPU.</p>}
+                        {transcript?.metadata?.asr_device_fallback === "cuda_to_cpu" && <p className="mt-3 text-sm text-[var(--text-secondary)]">Recovered from a GPU processing failure and completed transcription on CPU.</p>}
+                        {transcript?.metadata?.diarization_device_fallback === "cuda_to_cpu" && <p className="mt-3 text-sm text-[var(--text-secondary)]">Recovered from a GPU processing failure and completed speaker identification on CPU.</p>}
                     </Panel>
                     <Panel title="Execution policy and timing">
                         <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
@@ -290,6 +315,9 @@ function RunDetails({
                         )}
                     </Panel>
                 </TabsContent>
+                <TabsContent value="resources">
+                    <RunResourcesPanel resources={resources} loading={resourcesLoading} error={resourcesError} running={run.status === "processing"} />
+                </TabsContent>
             </Tabs>
         </div>
     );
@@ -316,24 +344,6 @@ function MetricCard({ label, value, subtext, highlight = false }: { label: strin
             </span>
             {subtext && <span className="block text-[10px] text-[var(--text-secondary)] mt-0.5">{subtext}</span>}
         </div>
-    );
-}
-
-function StatusPill({ status }: { status: string }) {
-    const normalized = status.toLowerCase();
-    const Icon = normalized === "completed" ? CheckCircle2 : normalized === "failed" ? XCircle : Loader2;
-    return (
-        <span
-            className={cn(
-                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
-                normalized === "completed" && "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300",
-                normalized === "failed" && "bg-red-500/10 text-red-600 dark:text-red-300",
-                normalized !== "completed" && normalized !== "failed" && "bg-amber-500/10 text-amber-600 dark:text-amber-300"
-            )}
-        >
-            <Icon className={cn("h-3 w-3", normalized === "processing" && "animate-spin")} />
-            {status}
-        </span>
     );
 }
 
@@ -475,11 +485,11 @@ function CuratedParamsDisplay({ params }: { params: any }) {
 function runChips(run: ExecutionRun): string[] {
     const params = (run.actual_parameters || {}) as Partial<WhisperXParams>;
     const modelFamily = params.model_family || "";
-    const precision = requestedExecutionPrecision(params);
+    const presentation = runChoicePresentation(run);
     const chips = [
-        params.device || "auto",
-        precision,
-        `batch ${params.batch_size ?? 1}`,
+        presentation.device,
+        presentation.precision,
+        ...(params.batch_size != null ? [`requested batch ${params.batch_size}`] : []),
     ].filter(Boolean).map(String);
 
     if (modelFamily === "nvidia_canary") {

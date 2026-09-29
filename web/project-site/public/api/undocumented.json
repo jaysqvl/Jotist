@@ -541,6 +541,13 @@
     },
     {
       "method": "GET",
+      "path": "/api/v1/transcription/{id}/runs/{run_id}/resources",
+      "summary": "Get run resource measurements",
+      "description": "Return invocation measurements and stage attempt timing, settings and resource usage",
+      "tag": "transcription"
+    },
+    {
+      "method": "GET",
       "path": "/api/v1/transcription/{id}/speakers",
       "summary": "Get speaker mappings for a transcription",
       "description": "Retrieves all custom speaker names for a transcription job",

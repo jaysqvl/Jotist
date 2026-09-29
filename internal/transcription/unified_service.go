@@ -92,11 +92,10 @@ func (u *UnifiedTranscriptionService) SetBroadcaster(b *sse.Broadcaster) {
 
 // Initialize prepares all registered models for use
 func (u *UnifiedTranscriptionService) Initialize(ctx context.Context) error {
+	ctx = processutil.WithSupervision(ctx, processutil.DefaultSupervisionPolicy())
 	if u.recoveryInitError != nil {
 		return u.recoveryInitError
 	}
-	logger.Info("Initializing unified transcription service")
-
 	// Create necessary directories
 	if err := os.MkdirAll(u.tempDirectory, 0755); err != nil {
 		return fmt.Errorf("failed to create temp directory: %w", err)
@@ -104,6 +103,13 @@ func (u *UnifiedTranscriptionService) Initialize(ctx context.Context) error {
 	if err := os.MkdirAll(u.outputDirectory, 0755); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
+	// Already prepared CPU work must not wait behind an unrelated GPU stage
+	// just to repeat the registry's no-op startup check. Each service still
+	// prepares its own directories even when it shares an initialized registry.
+	if u.registry.IsInitialized() {
+		return ctx.Err()
+	}
+	logger.Info("Initializing unified transcription service")
 
 	// Initialize all registered models
 	release, err := acquireGPUStage(ctx, map[string]interface{}{"device": "auto"})
@@ -123,6 +129,13 @@ func (u *UnifiedTranscriptionService) Initialize(ctx context.Context) error {
 //
 //nolint:gocyclo // Complex orchestration required
 func (u *UnifiedTranscriptionService) ProcessJob(ctx context.Context, jobID string) error {
+	policy := processutil.DefaultSupervisionPolicy()
+	policy.Observe = func(event processutil.SupervisionEvent) {
+		if event.State != "active_or_unverified" {
+			logger.Warn("Worker inactivity observation", "job_id", jobID, "state", event.State, "idle_seconds", event.IdleSeconds)
+		}
+	}
+	ctx = processutil.WithSupervision(ctx, policy)
 	if u.recoveryInitError != nil {
 		return u.recoveryInitError
 	}
@@ -164,7 +177,11 @@ func (u *UnifiedTranscriptionService) ProcessJob(ctx context.Context, jobID stri
 	}
 
 	// Helper function to update execution status
+	finishMeasurements := startStageMeasurements(ctx, executionMeasurementDevice(job.Parameters), visibleGPU(ctx, job.Parameters.DeviceIndex), filepath.Dir(logPath))
+	defer finishMeasurements()
 	updateExecutionStatus := func(status models.JobStatus, errorMsg string) {
+		measurements := finishMeasurements()
+		execution.ResourceMeasurements = []models.StageMeasurements{measurements}
 		completedAt := time.Now()
 		execution.CompletedAt = &completedAt
 		execution.Status = status
@@ -680,7 +697,7 @@ func (u *UnifiedTranscriptionService) createAudioInput(ctx context.Context, audi
 		"-show_streams",
 		audioPath)
 
-	output, err := cmd.Output()
+	output, err := processutil.Output(ctx, cmd)
 	if err != nil {
 		logger.Warn("Failed to run ffprobe, using defaults", "error", err, "file", audioPath)
 		// Fallback to defaults

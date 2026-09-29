@@ -70,3 +70,29 @@ func TestModelComparisonDistinguishesLocalWhisperFromOpenAIAPI(t *testing.T) {
 	require.Empty(t, catalog[ModelOpenAI].Metadata["benchmark_ami_wer"], "Hosted Whisper must not inherit local large-v3 scores")
 	require.Empty(t, catalog["unknown-provider"].Metadata["execution_location"])
 }
+
+func TestEnglishShortlistMetadataPreservesSpecialistAdaptersAndWhisperVariants(t *testing.T) {
+	originalMetadata := map[string]string{"custom": "preserved"}
+	catalog := map[string]interfaces.ModelCapabilities{
+		ModelWhisperX: {ModelID: ModelWhisperX},
+		ModelParakeet: {ModelID: ModelParakeet, Metadata: originalMetadata},
+		ModelCanary:   {ModelID: ModelCanary},
+		ModelOpenAI:   {ModelID: ModelOpenAI},
+	}
+	result := withModelComparisonMetadata(catalog)
+	require.Len(t, result, len(catalog), "The shortlist must not unregister specialist adapters")
+	require.Equal(t, "core", result[ModelParakeet].Metadata["meeting_recommendation_category"])
+	require.Equal(t, "specialist", result[ModelCanary].Metadata["meeting_recommendation_category"])
+	require.Equal(t, "en", result[ModelParakeet].Metadata["meeting_recommendation_language"])
+	require.Empty(t, result[ModelOpenAI].Metadata["meeting_recommendation_category"])
+	require.Equal(t, map[string]string{"custom": "preserved"}, originalMetadata, "Enrichment must not mutate the registered adapter metadata")
+	var variants []meetingRecommendation
+	require.NoError(t, json.Unmarshal([]byte(result[ModelWhisperX].Metadata["meeting_recommendations"]), &variants))
+	core := make([]string, 0)
+	for _, variant := range variants {
+		if variant.Category == "core" {
+			core = append(core, variant.Model)
+		}
+	}
+	require.Equal(t, []string{"large-v3"}, core, "A Whisper family recommendation must not promote every checkpoint")
+}

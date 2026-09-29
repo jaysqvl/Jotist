@@ -112,7 +112,7 @@ func (a *AudioFormatPreprocessor) Process(ctx context.Context, input interfaces.
 
 	// Execute FFmpeg
 	cmd := processutil.CommandContext(ctx, "ffmpeg", args...)
-	output, err := cmd.CombinedOutput()
+	output, err := processutil.CombinedOutput(ctx, cmd)
 	if err != nil {
 		logger.Error("FFmpeg conversion failed", "output", string(output), "error", err)
 		return input, fmt.Errorf("audio conversion failed: %w", err)

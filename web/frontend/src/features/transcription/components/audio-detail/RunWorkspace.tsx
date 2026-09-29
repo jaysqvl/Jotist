@@ -8,22 +8,14 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import type { WhisperXParams } from "@/features/transcription/types";
 import type { ExecutionRun, Transcript } from "@/features/transcription/hooks/useAudioDetail";
-import { transcriptionModelLabel as modelLabel } from "@/features/transcription/hooks/modelCapabilities";
 import type { ExecutionRecovery } from "@/features/transcription/hooks/recoveryPolicy";
 import { RunRecoveryPanel } from "./RunRecoveryPanel";
 import { RunModelSummary } from "./RunModelSummary";
-import { diarizationModelLabel } from "@/features/transcription/hooks/executionPresentation";
+import { RunPicker, RunStatusBadge } from "./RunPicker";
 import { transcriptDisplaySegments, transcriptSpeakerLabel } from "@/features/transcription/hooks/transcriptPresentation";
 
 type RunWorkspaceMode = "transcript" | "compare";
@@ -163,9 +155,10 @@ export function RunWorkspace({
                     </div>
 
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                        <RunSelect
+                        <RunPicker
                             runs={runs}
                             activeRunId={activeRunId}
+                            pinnedRunId={pinnedRunId}
                             value={selectedRun?.id}
                             onValueChange={onSelectedRunChange}
                             label="Primary run"
@@ -204,6 +197,7 @@ export function RunWorkspace({
                         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                             <ComparePanel
                                 title="Primary"
+                                pinnedRunId={pinnedRunId}
                                 runs={runs}
                                 activeRunId={activeRunId}
                                 run={selectedRun}
@@ -219,6 +213,7 @@ export function RunWorkspace({
                             />
                             <ComparePanel
                                 title="Compare"
+                                pinnedRunId={pinnedRunId}
                                 runs={runs.filter((run) => run.id !== selectedRun?.id)}
                                 activeRunId={activeRunId}
                                 run={compareRun}
@@ -347,7 +342,7 @@ function SelectedRunPanel({
                             <h3 className="text-base font-bold text-[var(--text-primary)]">Run {run.run_number}</h3>
                             {active && <ActiveBadge />}
                             {pinned && <PinnedBadge />}
-                            <StatusPill status={run.status || "unknown"} />
+                            <RunStatusBadge run={run} />
                         </div>
                         <p className="mt-1 text-xs text-[var(--text-secondary)]">{run.started_at ? formatDateTime(run.started_at) : "Start not recorded"} · {formatDuration(run.processing_duration)}</p>
                     </div>
@@ -452,6 +447,7 @@ function ComparePanel({
     title,
     runs,
     activeRunId,
+    pinnedRunId,
     run,
     transcript,
     loading,
@@ -466,6 +462,7 @@ function ComparePanel({
     title: string;
     runs: ExecutionRun[];
     activeRunId?: string;
+    pinnedRunId?: string;
     run?: ExecutionRun;
     transcript?: Transcript | null;
     loading: boolean;
@@ -492,16 +489,17 @@ function ComparePanel({
             <div className="mb-3 flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                     <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">{title}</span>
-                    <RunSelect
+                    <RunPicker
                         runs={runs}
                         activeRunId={activeRunId}
+                        pinnedRunId={pinnedRunId}
                         value={selectedRunId}
                         onValueChange={onRunChange}
                         label={`${title} run`}
                         compact
                     />
                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <StatusPill status={run.status || "unknown"} />
+                        <RunStatusBadge run={run} />
                     </div>
                 </div>
                 <RunActions
@@ -667,64 +665,6 @@ function RunActions({
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
-    );
-}
-
-function RunSelect({
-    runs,
-    activeRunId,
-    value,
-    onValueChange,
-    label,
-    compact = false,
-}: {
-    runs: ExecutionRun[];
-    activeRunId?: string;
-    value?: string;
-    onValueChange: (runId: string) => void;
-    label: string;
-    compact?: boolean;
-}) {
-    return (
-        <Select value={value} onValueChange={onValueChange}>
-            <SelectTrigger
-                aria-label={label}
-                className={cn(
-                    "border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-primary)]",
-                    compact ? "mt-1 w-full" : "w-full sm:w-[300px]"
-                )}
-            >
-                <SelectValue placeholder="Select run" />
-            </SelectTrigger>
-            <SelectContent className="glass-card border-[var(--border-subtle)]">
-                {runs.map((run) => {
-                    const params = (run.actual_parameters || {}) as Partial<WhisperXParams>;
-                    return (
-                        <SelectItem key={run.id} value={run.id}>
-                            Run {run.run_number} · {modelLabel(params.model_family, params.model)}
-                            {params.diarize ? ` + ${params.diarize_model === "native" ? "Native speakers" : diarizationModelLabel(params.diarization_checkpoint || params.diarize_model)}` : " · No speakers"}
-                            {run.id === activeRunId ? " · Active" : ""}
-                        </SelectItem>
-                    );
-                })}
-            </SelectContent>
-        </Select>
-    );
-}
-
-function StatusPill({ status }: { status: string }) {
-    const normalized = status.toLowerCase();
-    return (
-        <span
-            className={cn(
-                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
-                normalized === "completed" && "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300",
-                normalized === "failed" && "bg-red-500/10 text-red-600 dark:text-red-300",
-                normalized !== "completed" && normalized !== "failed" && "bg-amber-500/10 text-amber-600 dark:text-amber-300"
-            )}
-        >
-            {status}
-        </span>
     );
 }
 

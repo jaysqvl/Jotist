@@ -61,6 +61,8 @@ def libraries(monkeypatch):
             return "rendered-prompt" if kwargs.get("tokenize") is False else {"input_ids":np.array([[1,2]])}
         def decode(self,*args,**kwargs): return decoded[0]
         def batch_decode(self,*args,**kwargs): return [decoded[0]]
+        def apply_transcription_request(self, **kwargs):
+            calls.append(("transcription_request", kwargs));return {"input_ids":np.array([[1,2]])}
         def load_template(self,path): calls.append(("load_template",path))
     processor=Processor()
     class Model:
@@ -84,7 +86,7 @@ def libraries(monkeypatch):
         @staticmethod
         def from_pretrained(model_id,**kwargs):
             calls.append(("processor_load",model_id,kwargs));return processor
-    transformers=types.SimpleNamespace(AutoModelForCausalLM=Loader,AutoModelForCTC=Loader,AutoModelForSpeechSeq2Seq=Loader,CohereAsrForConditionalGeneration=Loader,AutoProcessor=ProcessorLoader,AutoTokenizer=types.SimpleNamespace(from_pretrained=lambda *args,**kwargs:tokenizer))
+    transformers=types.SimpleNamespace(AutoModelForCausalLM=Loader,AutoModelForCTC=Loader,AutoModelForSpeechSeq2Seq=Loader,CohereAsrForConditionalGeneration=Loader,VoxtralForConditionalGeneration=Loader,AutoProcessor=ProcessorLoader,AutoTokenizer=types.SimpleNamespace(from_pretrained=lambda *args,**kwargs:tokenizer))
     monkeypatch.setitem(sys.modules,"transformers",transformers)
     torch=types.SimpleNamespace(inference_mode=contextlib.nullcontext,is_tensor=lambda value:False)
     monkeypatch.setitem(sys.modules,"torch",torch)
@@ -96,6 +98,29 @@ def libraries(monkeypatch):
     monkeypatch.setitem(sys.modules,"transformers.dynamic_module_utils",types.SimpleNamespace(get_class_from_dynamic_module=dynamic_class))
     monkeypatch.setitem(sys.modules,"huggingface_hub",types.SimpleNamespace(hf_hub_download=lambda *args,**kwargs:"/cached/template.py"))
     return calls,decoded
+
+
+def test_retained_voxtral_3b_uses_transcription_contract_without_realtime(libraries):
+    from voxtral_backend import create_backend
+    calls, _ = libraries
+    backend = create_backend("mistralai/Voxtral-Mini-3B-2507", "cpu", "float32", {"language": "auto", "max_new_tokens": 3})
+    assert backend.transcribe(np.ones(16000, dtype=np.float32))["text"] == "hello"
+    request = next(call for call in calls if call[0] == "transcription_request")[1]
+    assert request["language"] is None
+    assert request["model_id"] == "mistralai/Voxtral-Mini-3B-2507"
+    generate = next(call for call in calls if call[0] == "generate")[1]
+    assert generate["max_new_tokens"] == 3 and generate["do_sample"] is False
+
+
+def test_voxtral_3b_still_rejects_incomplete_generation(libraries):
+    from voxtral_backend import create_backend
+    calls, _ = libraries
+    backend = create_backend("mistralai/Voxtral-Mini-3B-2507", "cpu", "float32", {"max_new_tokens": 3})
+    # The fixture model is shared with the loader; replace its completion output.
+    import transformers
+    transformers.VoxtralForConditionalGeneration.from_pretrained("fixture").generate = lambda **kwargs: np.array([[1, 2, 10, 11, 12]])
+    with pytest.raises(RecognitionError, match="token limit"):
+        backend.transcribe(np.ones(16000, dtype=np.float32))
 
 
 def test_moss_preview_audio_is_prefill_only_with_modern_cache_api(monkeypatch):

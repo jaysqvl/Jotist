@@ -145,6 +145,10 @@ func supplementStageMeasurements(measurements models.StageMeasurements, log stri
 		if json.Unmarshal([]byte(strings.TrimPrefix(line, "SCRIBERR_STAGE_METRICS=")), &report) != nil || report.Scope != "stage_worker_self" {
 			continue
 		}
+		if report.RSS > 0 && (measurements.ProcessPeakRSSBytes == nil || report.RSS > *measurements.ProcessPeakRSSBytes) {
+			value := report.RSS
+			measurements.ProcessPeakRSSBytes = &value
+		}
 		if report.Device == "cpu" && report.RSS > 0 && (measurements.ProcessPeakBytes == nil || report.RSS > *measurements.ProcessPeakBytes) {
 			value := report.RSS
 			measurements.ProcessPeakBytes = &value

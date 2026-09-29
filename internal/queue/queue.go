@@ -108,7 +108,6 @@ func NewTaskQueue(defaultWorkers int, processor JobProcessor, jobRepo repository
 		protectedJobs:  make(map[string]struct{}),
 		scheduledTasks: make(map[queuedTask]struct{}),
 		jobRepo:        jobRepo,
-		jobTimeout:     2 * time.Hour,
 		reconcileEvery: 5 * time.Second,
 	}
 }
@@ -120,9 +119,10 @@ func (tq *TaskQueue) SetTranscriptionQueueRepository(repo repository.Transcripti
 	tq.runQueueRepo = repo
 }
 
-// SetJobTimeout bounds each queued transcription and its child processes.
+// SetJobTimeout is an explicit embedder override. Production transcriptions
+// have no wall-clock cap; shared subprocess supervision watches inactivity.
 func (tq *TaskQueue) SetJobTimeout(timeout time.Duration) {
-	if timeout > 0 {
+	if timeout >= 0 {
 		tq.jobTimeout = timeout
 	}
 }
@@ -504,7 +504,11 @@ func (tq *TaskQueue) worker(id int) {
 			// Publish cancellation state atomically with the database claim. KillJob
 			// takes the same lock, so it can never misclassify the narrow
 			// claim-to-running-map window as a zombie and promote overlapping work.
-			jobCtx, jobCancel := context.WithTimeout(tq.ctx, tq.jobTimeout)
+			jobCtx, jobCancel := context.WithCancel(tq.ctx)
+			if tq.jobTimeout > 0 {
+				jobCancel()
+				jobCtx, jobCancel = context.WithTimeout(tq.ctx, tq.jobTimeout)
+			}
 			if task.ExecutionID != "" {
 				if saved, findErr := tq.jobRepo.FindExecution(tq.ctx, jobID, task.ExecutionID); findErr == nil && saved.DeadlineAt != nil {
 					jobCancel()
