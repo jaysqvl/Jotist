@@ -78,7 +78,7 @@ func TestRuntimeQualification(t *testing.T) {
 	}
 	ctx := processutil.WithSupervision(context.Background(), processutil.DefaultSupervisionPolicy())
 	probe := processutil.CommandContext(ctx, "ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", audio)
-	data, err := probe.Output()
+	data, err := processutil.Output(ctx, probe)
 	if err != nil {
 		t.Fatal("cannot probe qualification audio")
 	}

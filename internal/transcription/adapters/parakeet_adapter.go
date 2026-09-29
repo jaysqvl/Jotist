@@ -383,7 +383,7 @@ func (p *ParakeetAdapter) detectAudioDuration(ctx context.Context, audioPath str
 		"-of", "default=noprint_wrappers=1:nokey=1",
 		audioPath)
 
-	output, err := cmd.Output()
+	output, err := processutil.Output(ctx, cmd)
 	if err != nil {
 		return 0, fmt.Errorf("ffprobe failed: %w", err)
 	}

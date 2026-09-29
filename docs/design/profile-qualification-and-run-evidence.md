@@ -37,6 +37,7 @@ Native timing recovery uses the same bounded window machinery for recognizers wi
 - Affected Go API, queue, database, repository, transcription, adapter and process packages pass; go vet passes. Ownership, cancellation, explicit deadlines, deletion and checkpoint regression coverage remains intact.
 - Shared Python contracts pass **114 tests and 28 subtests**. Script tests validate the pinned fixture and actual-inference gate invocation.
 - Actual Linux process tests on the target exercise idle descendant termination, CPU activity, monotonic progress and cancellation. Recovery fixtures allow resuming an execution started more than two hours earlier without a default deadline and protect active quick audio from expiry.
+- Production model subprocesses and audio metadata probes use the shared supervised launcher. Direct process constructors in transcription/queue code are bounded GPU telemetry queries.
 - The CI installed-import workflow now also requires real staged Whisper CPU recognition/alignment on a revision- and hash-pinned public speech fixture. Imports, audits and actual inference are separate checks.
 - BitNet CPU recognition plus Qwen alignment completed the **16.02-second public fixture in 31.10 seconds**, producing 37 words with valid timing.
 - A full MOSS GPU replay reproduced the native terminal omission after 538 complete turns. The terminal repair has fixture coverage; its repaired target replay is pending. Granite PLUS CPU is receiving a full-recording replay.

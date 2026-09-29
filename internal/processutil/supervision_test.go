@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"os/exec"
+	"strconv"
 	"testing"
 	"time"
 
@@ -61,6 +62,12 @@ func TestSharedOutputKeepsSingleCopierAndCancellation(t *testing.T) {
 	output, err := CombinedOutput(ctx, cmd)
 	require.NoError(t, err)
 	require.Equal(t, "outputdiagnostic", string(output))
+	cmd = CommandContext(ctx, "sh", "-c", "printf 16.02; printf diagnostic >&2")
+	output, err = Output(ctx, cmd)
+	require.NoError(t, err)
+	value, err := strconv.ParseFloat(string(output), 64)
+	require.NoError(t, err)
+	require.Equal(t, 16.02, value, "stderr must not corrupt metadata")
 	cancelCtx, cancel := context.WithCancel(ctx)
 	cmd = CommandContext(cancelCtx, "sh", "-c", "sleep 60 & wait")
 	time.AfterFunc(100*time.Millisecond, cancel)

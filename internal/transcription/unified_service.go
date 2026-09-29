@@ -697,7 +697,7 @@ func (u *UnifiedTranscriptionService) createAudioInput(ctx context.Context, audi
 		"-show_streams",
 		audioPath)
 
-	output, err := cmd.Output()
+	output, err := processutil.Output(ctx, cmd)
 	if err != nil {
 		logger.Warn("Failed to run ffprobe, using defaults", "error", err, "file", audioPath)
 		// Fallback to defaults

@@ -179,6 +179,18 @@ func Run(ctx context.Context, cmd *exec.Cmd) error {
 	return err
 }
 
+// Output supervises metadata commands while keeping diagnostics out of their
+// stdout payload. Both streams still supply bounded progress evidence.
+func Output(ctx context.Context, cmd *exec.Cmd) ([]byte, error) {
+	if cmd.Stdout != nil {
+		return nil, errors.New("exec: Stdout already set")
+	}
+	var output bytes.Buffer
+	cmd.Stdout = &output
+	err := Run(ctx, cmd)
+	return output.Bytes(), err
+}
+
 func CombinedOutput(ctx context.Context, cmd *exec.Cmd) ([]byte, error) {
 	if cmd.Stdout != nil || cmd.Stderr != nil {
 		return nil, errors.New("exec: output already set")
