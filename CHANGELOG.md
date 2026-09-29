@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.0](https://github.com/jaysqvl/Jotist/compare/v1.7.6...v1.8.0) (2026-09-29)
+
+
+### Features
+
+* supervise active transcriptions and clarify run evidence ([d833578](https://github.com/jaysqvl/Jotist/commit/d8335780e0a0d8913f1e6bd442ba57c0ed5350fc))
+
 ## [1.7.6](https://github.com/jaysqvl/Jotist/compare/v1.7.5...v1.7.6) (2026-09-27)
 
 - Prevent shared Qwen word alignment from failing a recording when a predicted
