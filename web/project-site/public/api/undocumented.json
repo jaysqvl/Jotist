@@ -541,9 +541,23 @@
     },
     {
       "method": "GET",
+      "path": "/api/v1/transcription/statistics/runs",
+      "summary": "List run diagnostics history",
+      "description": "",
+      "tag": "transcription"
+    },
+    {
+      "method": "GET",
       "path": "/api/v1/transcription/{id}/runs/{run_id}/resources",
       "summary": "Get run resource measurements",
       "description": "Return invocation measurements and stage attempt timing, settings and resource usage",
+      "tag": "transcription"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transcription/statistics",
+      "summary": "Get global run statistics",
+      "description": "",
       "tag": "transcription"
     },
     {

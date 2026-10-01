@@ -2461,6 +2461,69 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/transcription/statistics": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "transcription"
+                ],
+                "summary": "Get global run statistics",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 30,
+                        "description": "Window: 0 (all), 7, 30 or 90 days",
+                        "name": "days",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.RunStatistics"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/transcription/statistics/runs": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "transcription"
+                ],
+                "summary": "List run diagnostics history",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.RunHistory"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/transcription/submit": {
             "post": {
                 "security": [
@@ -5301,6 +5364,13 @@ const docTemplate = `{
                     "description": "Options: 'pyannote', 'nvidia_sortformer'",
                     "type": "string"
                 },
+                "execution_policy": {
+                    "$ref": "#/definitions/models.ExecutionPolicy"
+                },
+                "execution_policy_source": {
+                    "description": "Empty retains pre-existing profile/API behavior. New UI configurations use\nglobal defaults; override opts into an explicit per-profile policy.",
+                    "type": "string"
+                },
                 "fp16": {
                     "type": "boolean"
                 },
@@ -5825,6 +5895,9 @@ const docTemplate = `{
                 "auto_transcription_enabled": {
                     "type": "boolean"
                 },
+                "execution_policy": {
+                    "$ref": "#/definitions/models.ExecutionPolicy"
+                },
                 "hf_token": {
                     "description": "Write-only: omitted/null preserves the saved token; an empty string clears it.",
                     "type": "string"
@@ -5845,6 +5918,9 @@ const docTemplate = `{
                 },
                 "default_profile_id": {
                     "type": "string"
+                },
+                "execution_policy": {
+                    "$ref": "#/definitions/models.ExecutionPolicy"
                 },
                 "has_hf_token": {
                     "type": "boolean"
@@ -6267,6 +6343,29 @@ const docTemplate = `{
                 }
             }
         },
+        "models.ExecutionPolicy": {
+            "type": "object",
+            "properties": {
+                "automatic_recovery": {
+                    "type": "boolean"
+                },
+                "backoff_seconds": {
+                    "type": "integer"
+                },
+                "max_backoff_seconds": {
+                    "type": "integer"
+                },
+                "max_retries": {
+                    "type": "integer"
+                },
+                "reduce_batch_size": {
+                    "type": "boolean"
+                },
+                "reuse_checkpoints": {
+                    "type": "boolean"
+                }
+            }
+        },
         "models.JobStatus": {
             "type": "string",
             "enum": [
@@ -6381,6 +6480,305 @@ const docTemplate = `{
                 },
                 "updated_at": {
                     "type": "string"
+                }
+            }
+        },
+        "models.RunActivity": {
+            "type": "object",
+            "properties": {
+                "completed": {
+                    "type": "integer"
+                },
+                "date": {
+                    "type": "string"
+                },
+                "failed": {
+                    "type": "integer"
+                },
+                "other": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.RunFailureStatistics": {
+            "type": "object",
+            "properties": {
+                "attempts": {
+                    "type": "integer"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "stage": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.RunHistory": {
+            "type": "object",
+            "properties": {
+                "pagination": {
+                    "type": "object",
+                    "properties": {
+                        "limit": {
+                            "type": "integer"
+                        },
+                        "page": {
+                            "type": "integer"
+                        },
+                        "pages": {
+                            "type": "integer"
+                        },
+                        "total": {
+                            "type": "integer"
+                        }
+                    }
+                },
+                "runs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.RunHistoryEntry"
+                    }
+                }
+            }
+        },
+        "models.RunHistoryEntry": {
+            "type": "object",
+            "properties": {
+                "completed_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "model_family": {
+                    "type": "string"
+                },
+                "processing_duration": {
+                    "type": "integer"
+                },
+                "profile_name": {
+                    "type": "string"
+                },
+                "recording_title": {
+                    "type": "string"
+                },
+                "run_number": {
+                    "type": "integer"
+                },
+                "started_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "transcription_job_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.RunMemoryStatistics": {
+            "type": "object",
+            "properties": {
+                "average_gpu_bytes": {
+                    "type": "number"
+                },
+                "average_ram_bytes": {
+                    "type": "number"
+                },
+                "contention_runs": {
+                    "type": "integer"
+                },
+                "gpu_sampled_seconds": {
+                    "type": "number"
+                },
+                "peak_gpu_bytes": {
+                    "type": "integer"
+                },
+                "peak_ram_bytes": {
+                    "type": "integer"
+                },
+                "peak_worker_gpu_bytes": {
+                    "type": "integer"
+                },
+                "ram_sampled_seconds": {
+                    "type": "number"
+                },
+                "unknown_ownership_runs": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.RunModelStatistics": {
+            "type": "object",
+            "properties": {
+                "completed": {
+                    "type": "integer"
+                },
+                "cpu_fallback": {
+                    "type": "integer"
+                },
+                "diarizer": {
+                    "type": "string"
+                },
+                "failed": {
+                    "type": "integer"
+                },
+                "median_hour_seconds": {
+                    "type": "number"
+                },
+                "memory": {
+                    "$ref": "#/definitions/models.RunMemoryStatistics"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "model_family": {
+                    "type": "string"
+                },
+                "precision": {
+                    "type": "string"
+                },
+                "recognition_device": {
+                    "type": "string"
+                },
+                "recovered": {
+                    "type": "integer"
+                },
+                "reused": {
+                    "type": "integer"
+                },
+                "runs": {
+                    "type": "integer"
+                },
+                "speaker_device": {
+                    "type": "string"
+                },
+                "timing_measured_runs": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.RunStageStatistics": {
+            "type": "object",
+            "properties": {
+                "attempts": {
+                    "type": "integer"
+                },
+                "failed": {
+                    "type": "integer"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "median_seconds": {
+                    "type": "number"
+                },
+                "retries": {
+                    "type": "integer"
+                },
+                "succeeded": {
+                    "type": "integer"
+                },
+                "timing_samples": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.RunStatistics": {
+            "type": "object",
+            "properties": {
+                "activity": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.RunActivity"
+                    }
+                },
+                "failures": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.RunFailureStatistics"
+                    }
+                },
+                "generated_at": {
+                    "type": "string"
+                },
+                "library_recordings": {
+                    "type": "integer"
+                },
+                "models": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.RunModelStatistics"
+                    }
+                },
+                "stages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.RunStageStatistics"
+                    }
+                },
+                "summary": {
+                    "$ref": "#/definitions/models.RunStatisticsSummary"
+                },
+                "window_days": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.RunStatisticsSummary": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "integer"
+                },
+                "audio_measured_runs": {
+                    "type": "integer"
+                },
+                "audio_seconds": {
+                    "type": "number"
+                },
+                "completed": {
+                    "type": "integer"
+                },
+                "completion_rate": {
+                    "type": "number"
+                },
+                "cpu_fallback": {
+                    "type": "integer"
+                },
+                "failed": {
+                    "type": "integer"
+                },
+                "median_hour_seconds": {
+                    "type": "number"
+                },
+                "memory": {
+                    "$ref": "#/definitions/models.RunMemoryStatistics"
+                },
+                "other": {
+                    "type": "integer"
+                },
+                "recovered": {
+                    "type": "integer"
+                },
+                "resource_measured_runs": {
+                    "type": "integer"
+                },
+                "resumed": {
+                    "type": "integer"
+                },
+                "reused": {
+                    "type": "integer"
+                },
+                "runs": {
+                    "type": "integer"
+                },
+                "timing_measured_runs": {
+                    "type": "integer"
                 }
             }
         },
@@ -6692,6 +7090,13 @@ const docTemplate = `{
                 },
                 "diarize_model": {
                     "description": "Options: 'pyannote', 'nvidia_sortformer'",
+                    "type": "string"
+                },
+                "execution_policy": {
+                    "$ref": "#/definitions/models.ExecutionPolicy"
+                },
+                "execution_policy_source": {
+                    "description": "Empty retains pre-existing profile/API behavior. New UI configurations use\nglobal defaults; override opts into an explicit per-profile policy.",
                     "type": "string"
                 },
                 "fp16": {
