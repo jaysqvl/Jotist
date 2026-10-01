@@ -15,7 +15,7 @@ import {
     AccordionItem,
     AccordionTrigger,
 } from "@/components/ui/accordion";
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Info } from "lucide-react";
 
 // ============================================================================
@@ -59,8 +59,8 @@ interface FormFieldProps {
  */
 export function FormField({ label, htmlFor, description, optional, children }: FormFieldProps) {
     return (
-        <div className="space-y-2">
-            <div className="flex items-center gap-2">
+        <div className="min-w-0 space-y-2">
+            <div className="flex min-w-0 items-center gap-2">
                 <Label
                     htmlFor={htmlFor}
                     className="text-sm font-medium text-[var(--text-primary)]"
@@ -71,17 +71,17 @@ export function FormField({ label, htmlFor, description, optional, children }: F
                     )}
                 </Label>
                 {description && (
-                    <HoverCard>
-                        <HoverCardTrigger asChild>
-                            <Info className="h-4 w-4 text-[var(--text-tertiary)] cursor-help hover:text-[var(--text-secondary)] transition-colors" />
-                        </HoverCardTrigger>
-                        <HoverCardContent
-                            className="w-80 bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-4"
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <button type="button" aria-label={`About ${label}`} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[var(--text-tertiary)] hover:bg-[var(--bg-main)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand-solid)]"><Info className="h-4 w-4" /></button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                            className="w-80 max-w-[calc(100vw-2rem)] bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-4"
                             style={{ boxShadow: 'var(--shadow-float)' }}
                         >
                             <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{description}</p>
-                        </HoverCardContent>
-                    </HoverCard>
+                        </PopoverContent>
+                    </Popover>
                 )}
             </div>
             {children}
@@ -101,7 +101,7 @@ interface SectionProps {
  */
 export function Section({ title, description, children, className = "" }: SectionProps) {
     return (
-        <div className={`space-y-4 ${className}`}>
+        <div className={`min-w-0 space-y-4 ${className}`}>
             <div>
                 <h3 className="text-base font-semibold text-[var(--text-primary)]">{title}</h3>
                 {description && (
@@ -185,7 +185,7 @@ export function SelectField({ label, description, optional, value, onValueChange
                 <SelectTrigger id={id} className={`${selectTriggerClassName} w-full min-w-0 [&_[data-slot=select-value]]:truncate`}>
                     <SelectValue>{detailed && selected && typeof selected !== "string" ? selected.label : undefined}</SelectValue>
                 </SelectTrigger>
-                <SelectContent className={`${selectContentClassName} ${detailed ? "w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]" : ""}`}>
+                <SelectContent className={`${selectContentClassName} max-w-[calc(100vw-2rem)] ${detailed ? "w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]" : ""}`}>
                     {options.map((opt) => {
                         const v = typeof opt === 'string' ? opt : opt.value;
                         const l = typeof opt === 'string' ? opt : opt.label;
@@ -213,24 +213,24 @@ export function SwitchField({ id, label, description, checked, onCheckedChange }
     onCheckedChange: (checked: boolean) => void;
 }) {
     return (
-        <div className="flex items-center gap-3">
-            <Switch id={id} checked={checked} onCheckedChange={onCheckedChange} />
-            <div className="flex items-center gap-2">
+        <div className="flex min-h-11 min-w-0 items-center gap-3">
+            <Switch className="shrink-0" id={id} checked={checked} onCheckedChange={onCheckedChange} />
+            <div className="flex min-w-0 items-center gap-2">
                 <label htmlFor={id} className="text-sm text-[var(--text-primary)] cursor-pointer">
                     {label}
                 </label>
                 {description && (
-                    <HoverCard>
-                        <HoverCardTrigger asChild>
-                            <Info className="h-4 w-4 text-[var(--text-tertiary)] cursor-help hover:text-[var(--text-secondary)] transition-colors" />
-                        </HoverCardTrigger>
-                        <HoverCardContent
-                            className="w-80 bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-4"
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <button type="button" aria-label={`About ${label}`} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[var(--text-tertiary)] hover:bg-[var(--bg-main)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand-solid)]"><Info className="h-4 w-4" /></button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                            className="w-80 max-w-[calc(100vw-2rem)] bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-4"
                             style={{ boxShadow: 'var(--shadow-float)' }}
                         >
                             <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{description}</p>
-                        </HoverCardContent>
-                    </HoverCard>
+                        </PopoverContent>
+                    </Popover>
                 )}
             </div>
         </div>

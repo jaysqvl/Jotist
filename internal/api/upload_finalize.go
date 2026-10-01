@@ -77,6 +77,9 @@ func (h *Handler) finalizeAssembledUpload(c *gin.Context, session *models.Upload
 		if err != nil {
 			return nil, err
 		}
+		if err := h.resolveExecutionPolicy(c, &params); err != nil {
+			return nil, err
+		}
 		if err := h.resolveTranscriptionContext(c, &params); err != nil {
 			return nil, err
 		}
@@ -95,6 +98,9 @@ func (h *Handler) finalizeAssembledUpload(c *gin.Context, session *models.Upload
 		}
 		params, err := submitParamsFromJSON(session.ParametersJSON)
 		if err != nil {
+			return nil, invalidUploadParametersError{err}
+		}
+		if err := h.resolveExecutionPolicy(c, &params); err != nil {
 			return nil, invalidUploadParametersError{err}
 		}
 		if err := validateModelRunOptions(params); err != nil {
@@ -247,6 +253,9 @@ func submitParamsFromJSON(parametersJSON *string) (models.WhisperXParams, error)
 
 func (h *Handler) createSubmittedJobWithParams(c *gin.Context, filePath, title string, params models.WhisperXParams, sessionID string) (*models.TranscriptionJob, error) {
 	clearClientLearningSnapshot(&params)
+	if err := h.resolveExecutionPolicy(c, &params); err != nil {
+		return nil, err
+	}
 	if err := validateModelRunOptions(params); err != nil {
 		return nil, err
 	}

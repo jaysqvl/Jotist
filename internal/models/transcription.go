@@ -83,6 +83,11 @@ type WhisperXParams struct {
 	// Empty preserves the historical Auto GPU-to-CPU behavior. Explicit fixed
 	// and stage_management modes never change device, precision, or context.
 	RecoveryMode string `json:"recovery_mode,omitempty" gorm:"type:varchar(32)"`
+	// Empty retains pre-existing profile/API behavior. New UI configurations use
+	// global defaults; override opts into an explicit per-profile policy.
+	ExecutionPolicySource   string           `json:"execution_policy_source,omitempty" gorm:"type:varchar(20)"`
+	ExecutionPolicy         *ExecutionPolicy `json:"execution_policy,omitempty" gorm:"serializer:json;type:text"`
+	ExecutionPolicyResolved bool             `json:"-" gorm:"-"`
 	// Nil means exact-compatible checkpoint reuse is enabled. False requests
 	// new artifacts; it never disables durable persistence.
 	ReuseCheckpoints *bool                    `json:"reuse_checkpoints,omitempty" gorm:"type:boolean"`
@@ -226,17 +231,18 @@ func (tj *TranscriptionJob) BeforeCreate(tx *gorm.DB) error {
 
 // User represents a user for authentication
 type User struct {
-	ID                        uint      `json:"id" gorm:"primaryKey"`
-	Username                  string    `json:"username" gorm:"uniqueIndex;not null;type:varchar(50)"`
-	Password                  string    `json:"-" gorm:"not null;type:varchar(255)"`
-	TokenVersion              uint64    `json:"-" gorm:"not null;default:0"`
-	DefaultProfileID          *string   `json:"default_profile_id,omitempty" gorm:"type:varchar(36)"`
-	AutoTranscriptionEnabled  bool      `json:"auto_transcription_enabled" gorm:"not null;default:false"`
-	TranscriptionContext      string    `json:"transcription_context" gorm:"type:text"`
-	TranscriptionContextTerms string    `json:"transcription_context_terms" gorm:"type:text"`
-	HFToken                   string    `json:"-" gorm:"type:text"`
-	CreatedAt                 time.Time `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt                 time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+	ID                        uint             `json:"id" gorm:"primaryKey"`
+	Username                  string           `json:"username" gorm:"uniqueIndex;not null;type:varchar(50)"`
+	Password                  string           `json:"-" gorm:"not null;type:varchar(255)"`
+	TokenVersion              uint64           `json:"-" gorm:"not null;default:0"`
+	DefaultProfileID          *string          `json:"default_profile_id,omitempty" gorm:"type:varchar(36)"`
+	AutoTranscriptionEnabled  bool             `json:"auto_transcription_enabled" gorm:"not null;default:false"`
+	TranscriptionContext      string           `json:"transcription_context" gorm:"type:text"`
+	TranscriptionContextTerms string           `json:"transcription_context_terms" gorm:"type:text"`
+	HFToken                   string           `json:"-" gorm:"type:text"`
+	ExecutionPolicy           *ExecutionPolicy `json:"execution_policy,omitempty" gorm:"serializer:json;type:text"`
+	CreatedAt                 time.Time        `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt                 time.Time        `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
 // APIKey represents an API key for external authentication

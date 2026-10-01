@@ -56,6 +56,7 @@ type RecoveryAttempt struct {
 	ProvenanceJSON   string             `json:"-" gorm:"type:text"`
 	Measurements     *StageMeasurements `json:"measurements,omitempty" gorm:"serializer:json;type:text"`
 	Reason           string             `json:"reason,omitempty"`
+	RetryAt          *time.Time         `json:"retry_at,omitempty"`
 	ErrorCode        string             `json:"error_code,omitempty"`
 	CheckpointID     *string            `json:"checkpoint_id,omitempty"`
 	StartedAt        time.Time          `json:"started_at"`

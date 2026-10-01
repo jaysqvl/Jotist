@@ -43,14 +43,13 @@ const checkpoints: Record<PresetModel, { family: string; model: string; label: s
     granite_compact: { family: "ibm_granite_speech", model: "ibm-granite/granite-speech-5.0-470m-turboctc", label: "Granite Speech 5.0 470M" },
 };
 
-function preset(id: string, model: PresetModel, device: "cpu" | "cuda", diarizer: PresetDiarizer, notes: string, speakerDevice = device): TranscriptionPreset {
+function preset(id: string, model: PresetModel, device: "cpu" | "cuda", diarizer: PresetDiarizer, notes: string, speakerDevice: "cpu" | "cuda" | "same" = device): TranscriptionPreset {
     const selected = checkpoints[model];
-    const group = device !== speakerDevice ? "Hybrid" : device === "cpu" ? "CPU" : "GPU";
+    const group = speakerDevice !== "same" && device !== speakerDevice ? "Hybrid" : device === "cpu" ? "CPU" : "GPU";
     const speakers = diarizer === "none" ? "without speakers" : diarizer === "pyannote" ? "Pyannote" : "Sortformer";
     const parameters = {
         model_family: selected.family,
-        recovery_mode: "fixed",
-        reuse_checkpoints: true,
+        execution_policy_source: "global",
         // Trigger the shared explicit-selection defaults for this new draft.
         model: "",
         device,
@@ -75,13 +74,14 @@ function preset(id: string, model: PresetModel, device: "cpu" | "cuda", diarizer
         name: `${group} ${selected.label} ${diarizer === "none" ? speakers : `+ ${speakers}`}`,
         group,
         origin: "recommended",
-        description: `${selected.label} on ${device === "cpu" ? "CPU" : "GPU"}${diarizer === "none" ? ", with speaker labels disabled." : `, with ${speakers} on ${speakerDevice === "cpu" ? "CPU" : "GPU"}.`}`,
+        description: `${selected.label} on ${device === "cpu" ? "CPU" : "GPU"}${diarizer === "none" ? ", with speaker labels disabled." : `, with ${speakers} on ${speakerDevice === "same" ? "the transcription device" : speakerDevice === "cpu" ? "CPU" : "GPU"}.`}`,
         notes,
         parameters: applyModelSelectionDefaults(parameters, { family: selected.family, model: selected.model }, []),
     };
 }
 
 export const RECOMMENDED_PRESETS: readonly TranscriptionPreset[] = [
+    preset("gpu-qwen-pyannote", "qwen", "cuda", "pyannote", "GPU transcription and Community-1 speakers, with context and vocabulary hints. Uses shared recovery defaults; speakers follow the selected transcription device.", "same"),
     preset("cpu-cohere-pyannote", "cohere", "cpu", "pyannote", "A strong candidate in the published meeting benchmark. Cohere and Pyannote require model access; allow room for word alignment."),
     preset("cpu-qwen-pyannote", "qwen", "cpu", "pyannote", "A strong candidate in the published conversational benchmark, with context and vocabulary hints. Pyannote requires model access."),
     preset("hybrid-parakeet-pyannote", "parakeet", "cuda", "pyannote", "English GPU efficiency candidate: Parakeet TDT 0.6B v3 on GPU, with Community-1 speakers on CPU. Parakeet keeps FP32 weights. Full-recording runtime and memory still require qualification.", "cpu"),

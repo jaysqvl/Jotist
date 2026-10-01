@@ -1,5 +1,8 @@
 import { useMemo } from "react";
-import { Activity, AlertCircle, Download, FileText, GitCompareArrows, Info, Loader2, MoreVertical, Pin, PinOff, RefreshCw, ScrollText, StopCircle } from "lucide-react";
+import { Activity, AlertCircle, BarChart3, Download, FileText, GitCompareArrows, Info, Loader2, MoreVertical, Pin, PinOff, RefreshCw, ScrollText, SlidersHorizontal, StopCircle } from "lucide-react";
+import { Link } from "react-router-dom";
+import { runDiagnosticsHref } from "@/features/settings/hooks/runDiagnostics";
+import { runChoicePresentation } from "@/features/transcription/hooks/runChoices";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -143,7 +146,7 @@ export function RunWorkspace({
     return (
         <section aria-label="Run summary" className="glass-card rounded-[var(--radius-card)] border border-[var(--border-subtle)] shadow-[var(--shadow-card)] p-3 sm:p-4">
             <div className="flex flex-col gap-3">
-                <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="min-w-0">
                         <h2 className="flex items-center gap-2 text-base font-bold text-[var(--text-primary)]">
                             <Activity className="h-4 w-4 text-[var(--brand-solid)]" />
@@ -153,8 +156,9 @@ export function RunWorkspace({
                             </span>
                         </h2>
                     </div>
-
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    {showRunControl && <RunControl onRunAgain={onRunAgain} runAgainLabel={runAgainLabel} onStopRun={onStopRun} runAgainDisabled={runAgainDisabled} canStopRun={canStopRun} stoppingRun={stoppingRun} />}
+                </div>
+                    <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                         <RunPicker
                             runs={runs}
                             activeRunId={activeRunId}
@@ -164,29 +168,18 @@ export function RunWorkspace({
                             label="Primary run"
                         />
                         <Tabs value={mode} onValueChange={(value) => onModeChange(value as RunWorkspaceMode)}>
-                            <TabsList className="h-9 bg-[var(--bg-main)] border border-[var(--border-subtle)]">
-                                <TabsTrigger value="transcript" className="gap-2">
+                            <TabsList className="h-11 w-full sm:w-auto bg-[var(--bg-main)] border border-[var(--border-subtle)]">
+                                <TabsTrigger value="transcript" className="flex-1 gap-2 sm:flex-none">
                                     <ScrollText className="h-4 w-4" />
                                     Transcript
                                 </TabsTrigger>
-                                <TabsTrigger value="compare" className="gap-2" disabled={runs.length < 2}>
+                                <TabsTrigger value="compare" className="flex-1 gap-2 sm:flex-none" disabled={runs.length < 2}>
                                     <GitCompareArrows className="h-4 w-4" />
                                     Compare
                                 </TabsTrigger>
                             </TabsList>
                         </Tabs>
-                        {showRunControl && (
-                            <RunControl
-                                onRunAgain={onRunAgain}
-                                runAgainLabel={runAgainLabel}
-                                onStopRun={onStopRun}
-                                runAgainDisabled={runAgainDisabled}
-                                canStopRun={canStopRun}
-                                stoppingRun={stoppingRun}
-                            />
-                        )}
                     </div>
-                </div>
 
                 {mode === "compare" && compareRun ? (
                     <>
@@ -246,6 +239,7 @@ export function RunWorkspace({
                     />
                 )}
                 {selectedRun && onResumeExecution && <RunRecoveryPanel key={selectedRun.id} executionID={selectedRun.id}
+                    compact diagnosticsHref={runDiagnosticsHref(selectedRun.transcription_job_id, selectedRun.id)}
                     parameters={selectedRun.actual_parameters} transcript={selectedTranscript}
                     recovery={recovery} loading={recoveryLoading} error={recoveryError} resuming={resuming}
                     otherRunActive={recoveryOtherRunActive} onResume={onResumeExecution}
@@ -278,7 +272,7 @@ function RunControl({
                 size="sm"
                 onClick={onStopRun}
                 disabled={stoppingRun}
-                className="gap-2 rounded-full border-red-500/30 bg-red-500/10 text-red-600 hover:bg-red-500/15 hover:text-red-700 dark:text-red-300 dark:hover:text-red-200"
+                className="h-11 gap-2 rounded-full border-red-500/30 bg-red-500/10 text-red-600 hover:bg-red-500/15 hover:text-red-700 dark:text-red-300 dark:hover:text-red-200 sm:h-8"
             >
                 {stoppingRun ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -296,7 +290,7 @@ function RunControl({
             size="sm"
             onClick={onRunAgain}
             disabled={runAgainDisabled}
-            className="gap-2 rounded-full border-[var(--border-subtle)] bg-[var(--bg-card)]"
+            className="h-11 gap-2 rounded-full border-[var(--border-subtle)] bg-[var(--bg-card)] sm:h-8"
         >
             <RefreshCw className="h-4 w-4" />
             {runAgainLabel}
@@ -332,22 +326,20 @@ function SelectedRunPanel({
     activeRunUpdating: boolean;
 }) {
     if (!run) return null;
-    const params = (run.actual_parameters || {}) as Partial<WhisperXParams>;
+    const presentation = runChoicePresentation(run);
 
     return (
         <div className="space-y-3">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                         <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-base font-bold text-[var(--text-primary)]">Run {run.run_number}</h3>
                             {active && <ActiveBadge />}
                             {pinned && <PinnedBadge />}
-                            <RunStatusBadge run={run} />
                         </div>
-                        <p className="mt-1 text-xs text-[var(--text-secondary)]">{run.started_at ? formatDateTime(run.started_at) : "Start not recorded"} · {formatDuration(run.processing_duration)}</p>
+                        <p className="mt-1 text-xs text-[var(--text-secondary)]">{presentation.speakers}{presentation.speakerRuntime && ` · ${presentation.speakerRuntime}`}</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                        <Button variant="ghost" size="sm" onClick={() => onOpenRunDetails(run.id)} className="gap-1.5"><Info className="h-3.5 w-3.5" />Details</Button>
+                        <Button variant="ghost" size="sm" onClick={() => onOpenRunDetails(run.id)} className="h-11 gap-1.5 sm:h-8"><SlidersHorizontal className="h-3.5 w-3.5" />Settings</Button>
                         <ActiveRunButton
                             run={run}
                             active={active}
@@ -358,6 +350,7 @@ function SelectedRunPanel({
                             onClearActiveRun={onClearActiveRun}
                         />
                         <RunActions
+                            compact
                             run={run}
                             transcript={transcript}
                             transcriptLoading={transcriptLoading}
@@ -375,7 +368,6 @@ function SelectedRunPanel({
                     </div>
                 )}
 
-            <RunModelSummary parameters={params} transcript={transcript} />
         </div>
     );
 }
@@ -406,7 +398,7 @@ function ActiveRunButton({
                 size="sm"
                 onClick={onClearActiveRun}
                 disabled={updating}
-                className="gap-2 rounded-full border-[var(--border-subtle)] bg-[var(--bg-card)]"
+                className="h-11 gap-2 rounded-full border-[var(--border-subtle)] bg-[var(--bg-card)] sm:h-8"
             >
                 {updating ? <Loader2 className="h-4 w-4 animate-spin" /> : <PinOff className="h-4 w-4" />}
                 Use Latest
@@ -421,7 +413,7 @@ function ActiveRunButton({
                 size="sm"
                 onClick={() => onSetActiveRun(run.id)}
                 disabled={updating || !canPin}
-                className="gap-2 rounded-full border-[var(--border-subtle)] bg-[var(--bg-card)]"
+                className="h-11 gap-2 rounded-full border-[var(--border-subtle)] bg-[var(--bg-card)] sm:h-8"
             >
                 {updating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pin className="h-4 w-4" />}
                 Pin Active
@@ -435,7 +427,7 @@ function ActiveRunButton({
             size="sm"
             onClick={() => onSetActiveRun(run.id)}
             disabled={updating || !canPin}
-            className="gap-2 rounded-full border-[var(--border-subtle)] bg-[var(--bg-card)]"
+            className="h-11 gap-2 rounded-full border-[var(--border-subtle)] bg-[var(--bg-card)] sm:h-8"
         >
             {updating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pin className="h-4 w-4" />}
             Make Active
@@ -632,9 +624,10 @@ function RunActions({
                 <Button
                     variant="outline"
                     size={compact ? "icon" : "sm"}
+                    aria-label={compact ? `Actions for run ${run.run_number}` : undefined}
                     className={cn(
                         "border-[var(--border-subtle)] bg-[var(--bg-card)]",
-                        compact ? "h-8 w-8 rounded-full" : "gap-2 rounded-full"
+                        compact ? "h-11 w-11 rounded-full sm:h-8 sm:w-8" : "h-11 gap-2 rounded-full sm:h-8"
                     )}
                 >
                     <MoreVertical className="h-4 w-4" />
@@ -644,8 +637,9 @@ function RunActions({
             <DropdownMenuContent align="end" className="w-52 glass-card rounded-[var(--radius-card)] border-[var(--border-subtle)] p-1.5 shadow-[var(--shadow-float)]">
                 <DropdownMenuItem onClick={() => onOpenRunDetails(run.id)} className="rounded-[8px] cursor-pointer">
                     <Info className="mr-2 h-4 w-4 opacity-70" />
-                    Execution Info
+                    Run settings
                 </DropdownMenuItem>
+                <DropdownMenuItem asChild className="rounded-[8px] cursor-pointer"><Link to={runDiagnosticsHref(run.transcription_job_id, run.id)}><BarChart3 className="mr-2 h-4 w-4 opacity-70" />Diagnostics in Statistics</Link></DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onOpenRunLogs(run.id)} disabled={!run.has_logs} className="rounded-[8px] cursor-pointer">
                     <FileText className="mr-2 h-4 w-4 opacity-70" />
                     Logs
@@ -819,7 +813,7 @@ function formatTimestamp(seconds: number) {
 function ActiveBadge() {
     return (
         <span className="rounded-full bg-[var(--brand-light)] px-2 py-0.5 text-[10px] font-semibold uppercase text-[var(--brand-solid)]">
-            Active
+            Current transcript
         </span>
     );
 }
@@ -830,21 +824,4 @@ function PinnedBadge() {
             Pinned
         </span>
     );
-}
-
-function formatDuration(value?: number | null) {
-    if (!value || value <= 0) return "...";
-    const seconds = Math.round(value / 1000);
-    if (seconds < 60) return `${seconds}s`;
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    if (minutes < 60) return `${minutes}m ${remainingSeconds}s`;
-    const hours = Math.floor(minutes / 60);
-    const remainingMinutes = minutes % 60;
-    return `${hours}h ${remainingMinutes}m`;
-}
-
-function formatDateTime(value: string) {
-    const date = new Date(value);
-    return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
 }

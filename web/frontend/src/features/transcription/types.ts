@@ -1,11 +1,14 @@
 import type { AdaptiveExecutionPolicy } from './hooks/adaptivePolicy';
 import type { RecoveryMode } from './hooks/recoveryPolicy';
+import type { ExecutionPolicy } from './hooks/executionPolicy';
 
 // The API retains WhisperX parameter names for compatibility across model
 // families. Keep this shared contract independent of any configuration UI.
 export interface WhisperXParams {
     model_family: string;
     recovery_mode?: RecoveryMode;
+    execution_policy_source?: "global" | "override";
+    execution_policy?: ExecutionPolicy;
     reuse_checkpoints?: boolean | null;
     adaptive_policy?: AdaptiveExecutionPolicy | null;
     model: string;

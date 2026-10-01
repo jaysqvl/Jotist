@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { MoreVertical, Edit2, Activity, Bot, Check, Loader2, List, AlignLeft, ArrowDownCircle, StickyNote, MessageCircle, Clock, AlertCircle, Users } from "lucide-react";
 import { Header } from "@/components/Header";
@@ -70,6 +70,8 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
     const { audioId: paramAudioId } = useParams<{ audioId: string }>();
     const audioId = propAudioId || paramAudioId;
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const requestedRunId = searchParams.get("run") || undefined;
     const queryClient = useQueryClient();
     const { getAuthHeaders } = useAuth();
     const { toast } = useToast();
@@ -108,7 +110,7 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
     const [stopRunDialogOpen, setStopRunDialogOpen] = useState(false);
     const [stopRunTarget, setStopRunTarget] = useState<StopRunTargetSnapshot | null>(null);
     const [stopRunLoading, setStopRunLoading] = useState(false);
-    const [selectedRunId, setSelectedRunId] = useState<string | undefined>();
+    const [selectedRunId, setSelectedRunId] = useState<string | undefined>(requestedRunId);
     const [compareRunId, setCompareRunId] = useState<string | undefined>();
     const [runViewMode, setRunViewMode] = useState<"transcript" | "compare">("transcript");
 
@@ -206,6 +208,9 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
 
 
 
+    // Keep the selected run when returning from its Statistics diagnostics.
+    useEffect(() => { setSelectedRunId(requestedRunId); }, [requestedRunId, audioId]);
+
     // Effects
     useEffect(() => {
         if (audioFile) {
@@ -214,6 +219,7 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
     }, [audioFile]);
 
     useEffect(() => {
+        if (!runsData) return;
         if (runs.length === 0) {
             setSelectedRunId(undefined);
             setCompareRunId(undefined);
@@ -224,7 +230,7 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
         if (!selectedStillExists) {
             setSelectedRunId(runsData?.active_run_id || runs[0].id);
         }
-    }, [runs, runsData?.active_run_id, selectedRunId]);
+    }, [runs, runsData, selectedRunId]);
 
     useEffect(() => {
         if (runViewMode !== "compare" || runs.length < 2 || !selectedRunId) return;
@@ -646,7 +652,7 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
     }).toUpperCase();
     const runCount = runsData?.runs.length || 0;
     return (
-        <div className="h-screen flex flex-col bg-[var(--bg-main)] relative selection:bg-[var(--brand-light)] overflow-hidden">
+        <div className="h-dvh flex flex-col bg-[var(--bg-main)] relative selection:bg-[var(--brand-light)] overflow-hidden">
             {/* Split Container */}
             <div ref={splitContainerRef} className="flex-1 flex overflow-hidden relative">
                 {/* LEFT PANE (Main) */}
@@ -664,8 +670,8 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                                 <div data-testid="audio-detail-media-header">
                                     {/* Title & Metadata */}
                                     <div className="space-y-4 glass-card rounded-[var(--radius-card)] border-[var(--border-subtle)] shadow-[var(--shadow-card)] p-4 md:p-6 mb-4">
-                                    <div className="flex items-start justify-between gap-4">
-                                        <div className="space-y-3 flex-1 min-w-0">
+                                    <div className="flex flex-col items-start gap-4 sm:flex-row sm:justify-between">
+                                        <div className="w-full min-w-0 space-y-3 sm:flex-1">
                                             {/* Title Edit Logic */}
                                             {isEditingTitle ? (
                                                 <Input
@@ -681,15 +687,15 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                                                     className="group flex items-center gap-3 cursor-text"
                                                     onClick={() => setIsEditingTitle(true)}
                                                 >
-                                                    <h1 className="text-3xl font-bold tracking-tight text-[var(--text-primary)] truncate font-display">
+                                                    <h1 className="min-w-0 break-words text-2xl font-bold tracking-tight text-[var(--text-primary)] font-display sm:text-3xl">
                                                         {audioFile.title || "Untitled Recording"}
                                                     </h1>
-                                                    <Edit2 className="h-4 w-4 text-[var(--text-tertiary)] opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                    <Edit2 className="h-4 w-4 shrink-0 text-[var(--text-tertiary)] opacity-60 transition-opacity sm:opacity-0 sm:group-hover:opacity-100" />
                                                 </div>
                                             )}
 
                                             {/* Badges */}
-                                            <div className="flex items-center gap-3 text-xs font-medium uppercase tracking-wider text-[var(--text-tertiary)]">
+                                            <div className="flex flex-wrap items-center gap-3 text-xs font-medium uppercase tracking-wider text-[var(--text-tertiary)]">
                                                 <span>{formattedDate}</span>
                                                 <span className="w-1 h-1 rounded-full bg-[var(--text-tertiary)] opacity-50"></span>
 
@@ -747,22 +753,23 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                                                 variant="outline"
                                                 size="sm"
                                                 onClick={() => setChatOpen(!chatOpen)}
+                                                aria-pressed={chatOpen}
                                                 className={cn(
-                                                    "rounded-full border-[var(--border-subtle)] shadow-sm bg-[var(--bg-card)] hover:bg-[var(--bg-main)] transition-all gap-2 px-3",
+                                                    "h-11 gap-2 rounded-full border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 shadow-sm transition-all hover:bg-[var(--bg-main)] sm:h-8",
                                                     chatOpen && "border-[var(--brand-solid)] text-[var(--brand-solid)]"
                                                 )}
                                             >
                                                 <MessageCircle className="h-4 w-4" />
-                                                <span className="hidden sm:inline">Chat</span>
+                                                <span>Chat</span>
                                             </Button>
                                             <Button
                                                 variant="outline"
                                                 size="sm"
                                                 onClick={() => handleOpenRunDetails(selectedRunId)}
-                                                className="rounded-full border-[var(--border-subtle)] shadow-sm bg-[var(--bg-card)] hover:bg-[var(--bg-main)] transition-all gap-2 px-3"
+                                                className="h-11 gap-2 rounded-full border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 shadow-sm transition-all hover:bg-[var(--bg-main)] sm:h-8"
                                             >
                                                 <Activity className="h-4 w-4" />
-                                                <span className="hidden sm:inline">Runs</span>
+                                                <span>Runs</span>
                                                 {runCount > 0 && (
                                                     <span className="rounded-full bg-[var(--brand-light)] px-1.5 py-0.5 text-[10px] font-semibold leading-none text-[var(--brand-solid)]">
                                                         {runCount}
@@ -774,7 +781,8 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                                                     <Button
                                                         variant="outline"
                                                         size="icon"
-                                                        className="rounded-full border-[var(--border-subtle)] shadow-sm bg-[var(--bg-card)] hover:bg-[var(--bg-main)] transition-all"
+                                                        aria-label="Recording actions"
+                                                        className="h-11 w-11 rounded-full border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-sm transition-all hover:bg-[var(--bg-main)] sm:h-9 sm:w-9"
                                                     >
                                                         <MoreVertical className="h-4 w-4 text-[var(--text-secondary)]" />
                                                     </Button>

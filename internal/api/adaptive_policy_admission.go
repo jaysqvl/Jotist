@@ -27,6 +27,9 @@ func clearClientLearningSnapshot(params *models.WhisperXParams) {
 // plan IDs. Later validation must preserve this already admitted snapshot.
 func (h *Handler) admitSavedProfile(c *gin.Context, profile *models.TranscriptionProfile) (models.WhisperXParams, error) {
 	params := profile.Parameters
+	if err := h.resolveExecutionPolicy(c, &params); err != nil {
+		return params, err
+	}
 	if err := h.resolveTranscriptionContext(c, &params); err != nil {
 		return params, err
 	}

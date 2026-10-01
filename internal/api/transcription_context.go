@@ -150,6 +150,10 @@ func validateHFTokenOptions(params models.WhisperXParams) error {
 }
 
 func (h *Handler) validateContextForRun(c *gin.Context, params *models.WhisperXParams) error {
+	if err := h.resolveExecutionPolicy(c, params); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return err
+	}
 	if err := h.resolveTranscriptionContext(c, params); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return err
@@ -163,6 +167,9 @@ func (h *Handler) validateContextForRun(c *gin.Context, params *models.WhisperXP
 
 // Profile validation preserves nil inheritance fields; only job admission resolves them.
 func validateModelRunOptions(params models.WhisperXParams) error {
+	if err := transcription.ValidateExecutionPolicyOptions(params); err != nil {
+		return err
+	}
 	if err := transcription.ValidateAdaptivePolicy(params); err != nil {
 		return err
 	}

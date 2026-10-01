@@ -15,8 +15,8 @@ test("legacy Auto includes independently automatic speaker devices without relab
     assert.match(devicePolicyDescription(""), /Legacy Auto.*retry/);
 });
 
-test("new recommended profiles use fixed execution while captured references retain legacy semantics", () => {
-    assert.ok(RECOMMENDED_PRESETS.every((preset) => preset.parameters.recovery_mode === "fixed" && preset.parameters.reuse_checkpoints === true));
+test("new recommended profiles inherit shared execution defaults while captured references retain legacy semantics", () => {
+    assert.ok(RECOMMENDED_PRESETS.every((preset) => preset.parameters.execution_policy_source === "global" && preset.parameters.recovery_mode === undefined && preset.parameters.reuse_checkpoints === undefined));
     assert.ok(TRANSCRIPTION_PRESETS.filter((preset) => preset.origin === "existing").every((preset) => preset.parameters.recovery_mode === undefined));
 });
 

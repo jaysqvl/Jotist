@@ -27,6 +27,7 @@ type UserRepository interface {
 	CountWithAutoTranscription(ctx context.Context) (int64, error)
 	CreateInitialAdmin(ctx context.Context, user *models.User) error
 	UpdatePasswordAndRevokeSessions(ctx context.Context, userID uint, hashedPassword string) error
+	UpdateSettings(ctx context.Context, user *models.User, fields []string) error
 }
 
 type userRepository struct {
@@ -46,6 +47,15 @@ func (r *userRepository) FindByUsername(ctx context.Context, username string) (*
 		return nil, err
 	}
 	return &user, nil
+}
+
+// Independent settings panels may save concurrently. Update only submitted
+// fields so one panel cannot restore a stale value belonging to another.
+func (r *userRepository) UpdateSettings(ctx context.Context, user *models.User, fields []string) error {
+	if len(fields) == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).Model(user).Select(fields).Updates(user).Error
 }
 
 func (r *userRepository) Count(ctx context.Context) (int64, error) {
