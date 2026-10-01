@@ -30,6 +30,414 @@ This is Jay Esquivel's independently maintained continuation of [Scriberr](https
 
 Local transcription processes audio on your server. Optional cloud transcription sends audio to the selected provider; optional summaries and chat send content to the configured LLM provider. Model files and runtime dependencies may require downloads. Model support and hardware requirements vary: see the in-app catalog and [model comparison notes](docs/model-comparison.md).
 
+## GPU runtime and memory: one hour of audio
+
+We ran a single **59m 48.82s English recording** through 17 recognition configurations and six external diarizers, plus native MOSS. This is an anecdotal measurement on one recording, using [Jotist v1.8.0](https://github.com/jaysqvl/Jotist/commit/3e71872ab6e5c19ccd3a0dd7115fdf615d1d7cdd) on September 29–30, 2026.
+
+**Hardware:** NVIDIA RTX 3060 with 12 GiB VRAM · AMD Ryzen 7 5700G, 8 cores / 16 threads · 64 GiB installed RAM.
+
+**Time** is minutes:seconds per audio hour. **Peak** and **Avg** are whole-card VRAM in GiB; Avg is weighted by sampled CUDA-stage time. Scroll horizontally to compare diarizers. **†** marks completed runs whose timed end coverage was unconfirmed.
+
+<table>
+<thead>
+<tr>
+<th rowspan="2">Recognition configuration</th>
+<th colspan="3">DiariZen</th>
+<th colspan="3">Pyannote&nbsp;3.1</th>
+<th colspan="3">Pyannote&nbsp;Community&#8209;1</th>
+<th colspan="3">Sortformer&nbsp;v2.1</th>
+<th colspan="3">SUPlime</th>
+<th colspan="3">SUPlime-L</th>
+</tr>
+<tr>
+<th>Time</th>
+<th>Peak</th>
+<th>Avg</th>
+<th>Time</th>
+<th>Peak</th>
+<th>Avg</th>
+<th>Time</th>
+<th>Peak</th>
+<th>Avg</th>
+<th>Time</th>
+<th>Peak</th>
+<th>Avg</th>
+<th>Time</th>
+<th>Peak</th>
+<th>Avg</th>
+<th>Time</th>
+<th>Peak</th>
+<th>Avg</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th scope="row">Parakeet&nbsp;TDT&nbsp;0.6B&nbsp;v3</th>
+<td align="right"><strong>6:27</strong></td>
+<td align="right">6.29</td>
+<td align="right">1.23</td>
+<td align="right"><strong>4:11</strong></td>
+<td align="right">11.43</td>
+<td align="right">2.33</td>
+<td align="right"><strong>3:53</strong></td>
+<td align="right">11.43</td>
+<td align="right">2.43</td>
+<td align="right"><strong>2:49</strong></td>
+<td align="right">6.29</td>
+<td align="right">1.86</td>
+<td align="right"><strong>9:53</strong></td>
+<td align="right">7.12</td>
+<td align="right">6.46</td>
+<td align="right"><strong>11:33</strong></td>
+<td align="right">10.44</td>
+<td align="right">9.47</td>
+</tr>
+<tr>
+<th scope="row">Whisper&nbsp;large&#8209;v3&nbsp;·&nbsp;default</th>
+<td align="right"><strong>8:05</strong></td>
+<td align="right">8.71</td>
+<td align="right">2.09</td>
+<td align="right"><strong>4:52</strong></td>
+<td align="right">11.43</td>
+<td align="right">3.70</td>
+<td align="right"><strong>4:33</strong></td>
+<td align="right">11.43</td>
+<td align="right">3.82</td>
+<td align="right"><strong>3:17</strong></td>
+<td align="right">8.62</td>
+<td align="right">3.98</td>
+<td align="right"><strong>11:03</strong></td>
+<td align="right">8.83</td>
+<td align="right">6.59</td>
+<td align="right"><strong>12:42</strong></td>
+<td align="right">10.44</td>
+<td align="right">9.29</td>
+</tr>
+<tr>
+<th scope="row">Whisper&nbsp;large&#8209;v3&nbsp;·&nbsp;custom&nbsp;prompt</th>
+<td align="right"><strong>8:56†</strong></td>
+<td align="right">4.83</td>
+<td align="right">2.08</td>
+<td align="right"><strong>5:42†</strong></td>
+<td align="right">11.43</td>
+<td align="right">3.38</td>
+<td align="right"><strong>6:29†</strong></td>
+<td align="right">11.43</td>
+<td align="right">3.23</td>
+<td align="right"><strong>4:22†</strong></td>
+<td align="right">4.80</td>
+<td align="right">3.48</td>
+<td align="right"><strong>12:14†</strong></td>
+<td align="right">7.12</td>
+<td align="right">6.12</td>
+<td align="right"><strong>13:54†</strong></td>
+<td align="right">10.44</td>
+<td align="right">8.63</td>
+</tr>
+<tr>
+<th scope="row">Canary&nbsp;1B&nbsp;v2&nbsp;·&nbsp;FP16/40s</th>
+<td align="right"><strong>8:16</strong></td>
+<td align="right">2.93</td>
+<td align="right">1.09</td>
+<td align="right"><strong>5:22</strong></td>
+<td align="right">11.43</td>
+<td align="right">1.83</td>
+<td align="right"><strong>9:03</strong></td>
+<td align="right">11.43</td>
+<td align="right">1.47</td>
+<td align="right"><strong>9:00</strong></td>
+<td align="right">4.01</td>
+<td align="right">0.66</td>
+<td align="right"><strong>11:36</strong></td>
+<td align="right">7.12</td>
+<td align="right">5.51</td>
+<td align="right"><strong>13:30</strong></td>
+<td align="right">10.44</td>
+<td align="right">8.06</td>
+</tr>
+<tr>
+<th scope="row">Canary&nbsp;1B&nbsp;v2&nbsp;·&nbsp;BF16/full</th>
+<td align="right"><strong>7:09†</strong></td>
+<td align="right">8.38</td>
+<td align="right">1.19</td>
+<td align="right"><strong>5:04†</strong></td>
+<td align="right">11.43</td>
+<td align="right">1.90</td>
+<td align="right"><strong>3:43†</strong></td>
+<td align="right">11.43</td>
+<td align="right">2.63</td>
+<td align="right"><strong>1:42†</strong></td>
+<td align="right">8.38</td>
+<td align="right">2.67</td>
+<td align="right"><strong>9:40†</strong></td>
+<td align="right">8.38</td>
+<td align="right">6.57</td>
+<td align="right"><strong>11:24†</strong></td>
+<td align="right">10.44</td>
+<td align="right">9.52</td>
+</tr>
+<tr>
+<th scope="row">Canary&nbsp;Qwen&nbsp;2.5B</th>
+<td align="right"><strong>11:20</strong></td>
+<td align="right">5.10</td>
+<td align="right">2.54</td>
+<td align="right"><strong>9:02</strong></td>
+<td align="right">11.43</td>
+<td align="right">3.29</td>
+<td align="right"><strong>9:13</strong></td>
+<td align="right">11.43</td>
+<td align="right">3.47</td>
+<td align="right"><strong>6:54</strong></td>
+<td align="right">5.10</td>
+<td align="right">3.77</td>
+<td align="right"><strong>14:20</strong></td>
+<td align="right">7.12</td>
+<td align="right">5.83</td>
+<td align="right"><strong>15:49</strong></td>
+<td align="right">10.44</td>
+<td align="right">8.11</td>
+</tr>
+<tr>
+<th scope="row">Cohere&nbsp;Transcribe</th>
+<td align="right"><strong>7:26</strong></td>
+<td align="right">4.46</td>
+<td align="right">1.44</td>
+<td align="right"><strong>4:52</strong></td>
+<td align="right">11.43</td>
+<td align="right">2.53</td>
+<td align="right"><strong>4:21</strong></td>
+<td align="right">11.43</td>
+<td align="right">2.68</td>
+<td align="right"><strong>2:42</strong></td>
+<td align="right">4.46</td>
+<td align="right">2.68</td>
+<td align="right"><strong>10:24</strong></td>
+<td align="right">7.12</td>
+<td align="right">6.35</td>
+<td align="right"><strong>12:03</strong></td>
+<td align="right">10.44</td>
+<td align="right">9.18</td>
+</tr>
+<tr>
+<th scope="row">Granite&nbsp;5.0&nbsp;470M</th>
+<td align="right"><strong>5:57</strong></td>
+<td align="right">2.32</td>
+<td align="right">0.83</td>
+<td align="right"><strong>4:02</strong></td>
+<td align="right">11.43</td>
+<td align="right">1.59</td>
+<td align="right"><strong>3:48</strong></td>
+<td align="right">11.43</td>
+<td align="right">1.93</td>
+<td align="right"><strong>1:29</strong></td>
+<td align="right">4.01</td>
+<td align="right">0.73</td>
+<td align="right"><strong>9:18</strong></td>
+<td align="right">7.12</td>
+<td align="right">6.56</td>
+<td align="right"><strong>11:00</strong></td>
+<td align="right">10.44</td>
+<td align="right">9.63</td>
+</tr>
+<tr>
+<th scope="row">Granite&nbsp;5.0&nbsp;470M&nbsp;NC</th>
+<td align="right"><strong>5:51</strong></td>
+<td align="right">2.32</td>
+<td align="right">0.83</td>
+<td align="right"><strong>3:23</strong></td>
+<td align="right">11.43</td>
+<td align="right">1.94</td>
+<td align="right"><strong>3:48</strong></td>
+<td align="right">11.43</td>
+<td align="right">1.68</td>
+<td align="right"><strong>1:30</strong></td>
+<td align="right">3.85</td>
+<td align="right">0.76</td>
+<td align="right"><strong>9:31</strong></td>
+<td align="right">7.12</td>
+<td align="right">6.47</td>
+<td align="right"><strong>11:10</strong></td>
+<td align="right">10.44</td>
+<td align="right">9.54</td>
+</tr>
+<tr>
+<th scope="row">Granite&nbsp;4.1&nbsp;2B</th>
+<td align="right"><strong>10:31</strong></td>
+<td align="right">4.65</td>
+<td align="right">2.30</td>
+<td align="right"><strong>8:18</strong></td>
+<td align="right">11.43</td>
+<td align="right">3.01</td>
+<td align="right"><strong>7:03</strong></td>
+<td align="right">11.43</td>
+<td align="right">3.44</td>
+<td align="right"><strong>5:28</strong></td>
+<td align="right">4.65</td>
+<td align="right">3.72</td>
+<td align="right"><strong>13:16</strong></td>
+<td align="right">7.12</td>
+<td align="right">5.99</td>
+<td align="right"><strong>14:54</strong></td>
+<td align="right">10.44</td>
+<td align="right">8.32</td>
+</tr>
+<tr>
+<th scope="row">Granite&nbsp;4.1&nbsp;2B&nbsp;Plus</th>
+<td align="right"><strong>31:50</strong></td>
+<td align="right">4.41</td>
+<td align="right">3.68</td>
+<td align="right"><strong>28:04</strong></td>
+<td align="right">11.43</td>
+<td align="right">4.08</td>
+<td align="right"><strong>29:40</strong></td>
+<td align="right">11.43</td>
+<td align="right">4.09</td>
+<td align="right"><strong>27:17</strong></td>
+<td align="right">4.30</td>
+<td align="right">4.15</td>
+<td align="right"><strong>34:36</strong></td>
+<td align="right">7.12</td>
+<td align="right">4.91</td>
+<td align="right"><strong>36:33</strong></td>
+<td align="right">10.44</td>
+<td align="right">5.92</td>
+</tr>
+<tr>
+<th scope="row">Qwen3&nbsp;ASR&nbsp;0.6B</th>
+<td align="right"><strong>9:37</strong></td>
+<td align="right">2.32</td>
+<td align="right">1.30</td>
+<td align="right"><strong>7:50</strong></td>
+<td align="right">11.43</td>
+<td align="right">1.98</td>
+<td align="right"><strong>6:35</strong></td>
+<td align="right">11.43</td>
+<td align="right">2.01</td>
+<td align="right"><strong>6:24</strong></td>
+<td align="right">4.02</td>
+<td align="right">1.54</td>
+<td align="right"><strong>13:38</strong></td>
+<td align="right">7.12</td>
+<td align="right">5.08</td>
+<td align="right"><strong>14:40</strong></td>
+<td align="right">10.44</td>
+<td align="right">7.68</td>
+</tr>
+<tr>
+<th scope="row">Qwen3&nbsp;ASR&nbsp;1.7B</th>
+<td align="right"><strong>9:59</strong></td>
+<td align="right">4.42</td>
+<td align="right">2.28</td>
+<td align="right"><strong>7:20</strong></td>
+<td align="right">11.43</td>
+<td align="right">3.25</td>
+<td align="right"><strong>6:58</strong></td>
+<td align="right">11.43</td>
+<td align="right">3.31</td>
+<td align="right"><strong>5:35</strong></td>
+<td align="right">4.40</td>
+<td align="right">3.46</td>
+<td align="right"><strong>13:14</strong></td>
+<td align="right">7.12</td>
+<td align="right">5.88</td>
+<td align="right"><strong>14:52</strong></td>
+<td align="right">10.44</td>
+<td align="right">8.25</td>
+</tr>
+<tr>
+<th scope="row">Ark&nbsp;3B</th>
+<td align="right"><strong>10:34</strong></td>
+<td align="right">7.58</td>
+<td align="right">3.44</td>
+<td align="right"><strong>7:26</strong></td>
+<td align="right">11.43</td>
+<td align="right">4.96</td>
+<td align="right"><strong>7:22</strong></td>
+<td align="right">11.43</td>
+<td align="right">4.94</td>
+<td align="right"><strong>5:26</strong></td>
+<td align="right">7.58</td>
+<td align="right">5.83</td>
+<td align="right"><strong>13:13</strong></td>
+<td align="right">7.58</td>
+<td align="right">6.86</td>
+<td align="right"><strong>14:56</strong></td>
+<td align="right">10.44</td>
+<td align="right">9.04</td>
+</tr>
+<tr>
+<th scope="row">Voxtral&nbsp;Mini&nbsp;3B</th>
+<td align="right"><strong>10:42</strong></td>
+<td align="right">9.18</td>
+<td align="right">4.29</td>
+<td align="right"><strong>8:06</strong></td>
+<td align="right">11.43</td>
+<td align="right">5.87</td>
+<td align="right"><strong>7:58</strong></td>
+<td align="right">11.43</td>
+<td align="right">5.94</td>
+<td align="right"><strong>6:25</strong></td>
+<td align="right">9.18</td>
+<td align="right">6.61</td>
+<td align="right"><strong>13:39</strong></td>
+<td align="right">9.18</td>
+<td align="right">7.40</td>
+<td align="right"><strong>15:19</strong></td>
+<td align="right">10.44</td>
+<td align="right">9.51</td>
+</tr>
+<tr>
+<th scope="row">MOSS&nbsp;Preview&nbsp;2B</th>
+<td align="right"><strong>10:06</strong></td>
+<td align="right">5.26</td>
+<td align="right">2.64</td>
+<td align="right"><strong>8:18</strong></td>
+<td align="right">11.43</td>
+<td align="right">3.66</td>
+<td align="right"><strong>6:56</strong></td>
+<td align="right">11.43</td>
+<td align="right">3.77</td>
+<td align="right"><strong>6:17</strong></td>
+<td align="right">5.26</td>
+<td align="right">4.01</td>
+<td align="right"><strong>14:13</strong></td>
+<td align="right">7.12</td>
+<td align="right">5.96</td>
+<td align="right"><strong>15:49</strong></td>
+<td align="right">10.44</td>
+<td align="right">8.17</td>
+</tr>
+<tr>
+<th scope="row">MOSS&nbsp;0.9B</th>
+<td colspan="3" align="center">Failed</td>
+<td colspan="3" align="center">Failed</td>
+<td colspan="3" align="center">Failed</td>
+<td colspan="3" align="center">Failed</td>
+<td colspan="3" align="center">Failed</td>
+<td colspan="3" align="center">Failed</td>
+</tr>
+</tbody>
+</table>
+
+Parakeet + Sortformer completed in **2:49 per audio hour**, with **6.29 GiB peak / 1.86 GiB average VRAM**. Across the study, **96 of 103 cases completed on CUDA** without recorded retries or CPU fallback; **84 met the timed coverage check**. Pyannote variants reached **11.43 GiB** and SUPlime-L **10.44 GiB**, leaving tight memory margins on this card.
+
+[Full numerical results (CSV)](docs/benchmarks/rtx3060-2026-09-30.csv) include exact elapsed time/RTF, configuration and checkpoint details, actual stage devices, recovery/fallback, failures, GPU and host memory, timed coverage, output counts, and contention evidence.
+
+<details>
+<summary>Method, configuration differences, and limitations</summary>
+
+- **Timing:** processing start to terminal status, including worker/model startup and pipeline work, excluding queue wait. Per-hour time is `elapsed_seconds × 3600 / 3588.82`, rounded to the nearest second. Only time is normalized; memory is observed. Model/dependency caches were retained.
+- **Memory:** Peak is the maximum observed whole-card usage across stages. Avg weights each CUDA stage attempt's average by its sampled duration, excluding unsampled gaps and queue wait. Both include any other GPU users; they are not model-only allocations. Workers had 10 logical CPUs available; the OS reported 60.7 GiB of usable host RAM. The CSV also records peak worker RSS and minimum host available memory.
+- **Execution:** 81 fresh requests plus 22 matching earlier v1.8.0 outcomes. Requests ran sequentially on the recording, with checkpoint reuse and learning disabled. Recognition, alignment where needed, and external diarization were configured for CUDA; CPU fallback was forbidden. Smaller GPU batch recovery was allowed, but none was recorded in the completed cases. CPU-only BitNet was excluded.
+- **Coverage:** valid timed output required positive segment/word counts and a final timestamp reaching at least 99.7% of the recording. Canary BF16/full had timestamps off. Whisper custom-prompt runs ended at 99.36%, leaving coverage unconfirmed; this alone does not establish missing speech.
+- **Configurations:** Canary BF16/full and FP16/40s differ in precision, chunking, and timestamps. Whisper default used batch 8; custom prompt used batch 1. Timing differences cannot be attributed to the prompt alone. Exact checkpoints and settings are in the CSV; the recording, transcript, prompt, context, and vocabulary remain private.
+- **Failures:** all seven MOSS 0.9B cases, including native MOSS, failed in alignment with `RecognitionError` / `application_ae1b7676702d` (outer error: `adapter_failed`). External diarizers were not reached. Failure timings and resource measurements are retained in the CSV.
+- **Contention and headroom:** background work remained active. Per-stage GPU ownership was unresolved for every case; Granite 4.1 2B Plus / Community-1 recorded external contention. Of 96 completions, 48 had less than 15% VRAM headroom. None earns the strict comfortable label, which also requires full valid coverage, CUDA recognition and speakers, RTF ≤ 1, and no recovery/fallback/contention or unknown ownership.
+- **Quality:** this is a runtime/resource study on one English recording. There is no human reference for WER/DER or multilingual evaluation, and different diarizers do not produce interchangeable speaker labels.
+- **Separate stages:** supported pipelines run recognition, alignment, and external speaker assignment sequentially, releasing the preceding worker's model memory. Integrated timestamps or speakers can remain within recognition. The separate [Canary qualification](docs/canary-stage-qualification.md#measured-memory-and-failure-recovery) measured about 39% lower Torch allocator peak on a public 77.5-second fixture. This hour-long study has no matching before/after run to isolate staging's contribution.
+
+</details>
+
 ## Run with Docker
 
 **Jotist 1.7.3** provides CPU and CUDA 12.6 container variants. It recovers a Cohere Auto decoder cutoff by retrying only the affected audio window as two shorter parts. See the [release notes](https://github.com/jaysqvl/Jotist/releases/tag/v1.7.3) for details.
