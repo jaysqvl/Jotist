@@ -113,7 +113,7 @@ func recordStageObservation(ctx context.Context, learning *repository.AdaptiveLe
 	}
 	request := repository.AdaptivePromotionRequest{ProfileID: policy.ProfileID, ExpectedRevision: policy.ProfileRevision, ExpectedGeneration: policy.LearningGeneration, ScopeKey: observation.ScopeKey, CandidateHash: observation.CandidateHash}
 	if settings.WindowSeconds != scope.OriginalWindowSeconds {
-		candidates := permittedFullWindowCandidates(recovery.mode, stageRule(policy, stage.Kind), descriptor, original)
+		candidates := permittedFullWindowCandidates(recovery.mode, executionStageRule(recovery.execution.ActualParameters, stage.Kind, descriptor), descriptor, original)
 		for _, candidate := range candidates {
 			request.FullWindowCandidateHashes = append(request.FullWindowCandidateHashes, repository.AdaptiveCandidateHash(candidate))
 		}

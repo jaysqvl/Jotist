@@ -16,6 +16,8 @@ export interface RunChoice {
 	recovery_summary?: {
 		evidence_available: boolean;
 		retry_count: number;
+		worker_retry_count?: number;
+		worker_recovery_actions?: Record<string, number>;
 		cpu_fallback: boolean;
 		reasons: string[];
 	};
@@ -53,9 +55,10 @@ export function runRecoveryBehavior(run: RunChoice) {
 		const raw = run.runtime_metadata?.[key] || '';
 		return /^\d+$/.test(raw) && Number(raw) <= 100000 ? Number(raw) : 0;
 	};
-	const windows = count('auto_token_split_windows') + count('native_timing_retry_windows');
-	const decoderRetries = count('token_retries');
-	const outputRepairs = count('output_repair_count');
+	const actions = run.recovery_summary?.worker_recovery_actions;
+	const windows = actions ? (actions.token_window_split || 0) + (actions.native_timing_split || 0) : count('auto_token_split_windows') + count('native_timing_retry_windows') + count('token_splits');
+	const decoderRetries = actions ? actions.decoder_budget_retry || 0 : count('token_retries');
+	const outputRepairs = actions ? actions.native_timing_repair || 0 : count('output_repair_count');
 	const params = run.actual_parameters || {};
 	const localASR = !['openai', 'openai_whisper'].includes(params.model_family || '');
 	const requestedSpeaker = requestedDiarizationDevice(

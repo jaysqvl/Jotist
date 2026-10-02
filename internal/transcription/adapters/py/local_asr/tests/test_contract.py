@@ -311,6 +311,27 @@ def test_cohere_auto_decoder_cutoff_splits_only_failed_window(monkeypatch, tmp_p
         (0.0, result["segments"][0]["end"]), (result["segments"][0]["end"], 30.0)]
 
 
+@pytest.mark.parametrize("remaining,allow_output,success", [(0, True, False), (3, False, False), (1, True, True)])
+def test_decoder_window_recovery_obeys_the_saved_policy(monkeypatch, tmp_path, capsys, remaining, allow_output, success):
+    def response(length, call):
+        if length > 20 * 16000:
+            raise CohereAutoTokenLimitError(1000)
+        return {"text": f"part {call}", "language": "en"}
+    monkeypatch.setenv("JOTIST_RECOVERY_POLICY", json.dumps({"version": 1, "remaining_retries": remaining, "retries_used": 0,
+        "backoff_seconds": 0, "max_backoff_seconds": 0, "allow_output_changes": allow_output}))
+    config, calls = cohere_cutoff_pipeline(monkeypatch, tmp_path, response)
+    if success:
+        result = transcribe.execute(config)
+        assert result["metadata"]["auto_token_split_windows"] == "1"
+        assert len(calls) == 3 and calls[0] == sum(calls[1:])
+        assert '"action": "token_window_split"' in capsys.readouterr().out
+    else:
+        with pytest.raises(CohereAutoTokenLimitError):
+            transcribe.execute(config)
+        assert len(calls) == 1
+        assert "JOTIST_RECOVERY=" not in capsys.readouterr().out
+
+
 def test_every_generated_backend_can_split_an_auto_cutoff(monkeypatch, tmp_path):
     def response(length, call):
         if length > 20 * 16000:

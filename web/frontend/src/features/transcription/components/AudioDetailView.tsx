@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 // Custom Hooks
 import { useExecutionRecovery, useResumeExecution } from "@/features/transcription/hooks/useExecutionRecovery";
 import { canResumeExecution, recoveryIsActive, type RunSubmissionOptions } from "@/features/transcription/hooks/recoveryPolicy";
+import { newRunRecoveryParameters } from "@/features/transcription/hooks/executionPolicy";
 import { useAudioDetail, useExecutionRuns, useRunTranscript, useSetActiveRun, useUpdateTitle, useTranscript, type ExecutionRun, type Transcript, type TranscriptSegment } from "@/features/transcription/hooks/useAudioDetail";
 import { useSpeakerMappings } from "@/features/transcription/hooks/useTranscriptionSpeakers";
 import { useTranscriptDownload } from "@/features/transcription/hooks/useTranscriptDownload";
@@ -120,6 +121,9 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
         isFetchedAfterMount: audioSessionReady,
         error,
     } = useAudioDetail(audioId || "");
+    const advancedRunParameters = useMemo(() => audioFile?.parameters
+        ? newRunRecoveryParameters(audioFile.parameters as WhisperXParams)
+        : undefined, [audioFile?.parameters]);
     const queueQuery = useTranscriptionQueue(audioId || "", !!audioId);
     const queuedRuns = useMemo(
         () => getQueuedItems(queueQuery.data?.items || []),
@@ -985,7 +989,7 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                 onOpenChange={setRerunAdvancedDialogOpen}
                 onStartTranscription={handleRerun}
                 loading={rerunLoading}
-                initialParams={audioFile.parameters as WhisperXParams | undefined}
+                initialParams={advancedRunParameters}
                 isMultiTrack={audioFile.is_multi_track}
                 title="Run Again Advanced"
             />
@@ -1004,7 +1008,7 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                 open={queueAdvancedDialogOpen}
                 onOpenChange={setQueueAdvancedDialogOpen}
                 onStartTranscription={handleQueueRun}
-                initialParams={audioFile.parameters as WhisperXParams | undefined}
+                initialParams={advancedRunParameters}
                 isMultiTrack={audioFile.is_multi_track}
                 title="Add Advanced Run to Queue"
                 actionLabel="Add to Queue"

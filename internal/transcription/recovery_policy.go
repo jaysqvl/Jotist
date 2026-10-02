@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jaysqvl/Jotist/internal/models"
 	"github.com/jaysqvl/Jotist/internal/processutil"
 	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 )
@@ -27,7 +28,7 @@ const (
 // cannot bypass the UI's disabled choices.
 func ValidateRecoveryMode(mode string) error {
 	switch mode {
-	case "", RecoveryFixed, RecoveryStageManagement, RecoveryBatchManagement, RecoveryCPUFallback, RecoveryShorterWindows:
+	case "", RecoveryFixed, RecoveryStageManagement, RecoveryBatchManagement, RecoveryCPUFallback, RecoveryShorterWindows, models.RecoveryStandard, models.RecoveryStrong, models.RecoveryAggressive:
 		return nil
 	default:
 		return fmt.Errorf("unknown recovery_mode")

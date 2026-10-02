@@ -14,8 +14,13 @@ func (h *Handler) resolveExecutionPolicy(c *gin.Context, params *models.WhisperX
 	if err := transcription.ValidateExecutionPolicyOptions(*params); err != nil {
 		return err
 	}
-	if params.ExecutionPolicyResolved || params.ExecutionPolicySource == "" {
+	if params.ExecutionPolicyResolved {
 		return nil
+	}
+	// A missing source on an old profile inherits defaults for NEW admissions.
+	// Resume restores the immutable saved plan and never calls this resolver.
+	if params.ExecutionPolicySource == "" {
+		params.ExecutionPolicySource = "global"
 	}
 	if params.ExecutionPolicySource == "global" {
 		policy := models.DefaultExecutionPolicy()
@@ -33,17 +38,22 @@ func (h *Handler) resolveExecutionPolicy(c *gin.Context, params *models.WhisperX
 		if err := transcription.ValidateExecutionPolicy(policy); err != nil {
 			return err
 		}
-		params.ExecutionPolicy = &policy
-		params.RecoveryMode = transcription.RecoveryFixed
-		if policy.AutomaticRecovery {
-			params.RecoveryMode = transcription.RecoveryStageManagement
-			if policy.ReduceBatchSize {
-				params.RecoveryMode = transcription.RecoveryBatchManagement
-			}
+		if policy.RecoveryStrength == "" {
+			policy.RecoveryStrength = models.RecoveryStandard
 		}
-		// Shared defaults permit cleanup and qualified smaller batches only.
-		// Per-stage fallback, precision and windows require an explicit override.
-		params.AdaptivePolicy = nil
+		params.ExecutionPolicy = &policy
+		params.RecoveryMode = transcription.SharedRecoveryMode(policy)
+		// Keep explicit stage restrictions/frozen settings without retaining old
+		// learned starts or granting permissions outside the shared strength.
+		if params.AdaptivePolicy != nil {
+			constraints := *params.AdaptivePolicy
+			constraints.Learn = false
+			constraints.LearnedPlans = nil
+			params.AdaptivePolicy = &constraints
+		}
+	}
+	if params.ExecutionPolicy.RecoveryStrength != "" {
+		params.RecoveryMode = transcription.SharedRecoveryMode(*params.ExecutionPolicy)
 	}
 	if !params.ExecutionPolicy.AutomaticRecovery {
 		params.RecoveryMode = transcription.RecoveryFixed

@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { canResumeExecution, partialRecoveryDownload, partialRecoveryText, recoveryAttemptErrorLabel, recoveryAttemptReasonLabel, recoveryMemoryRows, recoveryModeLabel, recoveryStageStatusLabel, stageLabel, type ExecutionRecovery, type RecoveryAttempt, type RecoveryParameters } from "@/features/transcription/hooks/recoveryPolicy";
+import { canResumeExecution, partialRecoveryDownload, partialRecoveryText, permitsCPURecovery, permitsWindowRecovery, recoveryAttemptErrorLabel, recoveryAttemptReasonLabel, recoveryMemoryRows, recoveryModeLabel, recoveryStageStatusLabel, stageLabel, type ExecutionRecovery, type RecoveryAttempt, type RecoveryParameters } from "@/features/transcription/hooks/recoveryPolicy";
 import { adaptiveSettingsSummary, measuredMemory } from "@/features/transcription/hooks/adaptiveLearning";
 import { ADAPTIVE_STAGE_LABELS, stagePolicy, type AdaptiveStageKind } from "@/features/transcription/hooks/adaptivePolicy";
 import type { Transcript } from "@/features/transcription/hooks/useAudioDetail";
@@ -112,11 +112,12 @@ export function RunRecoveryPanel({ executionID, parameters, recovery, loading, e
         <details className="space-y-2 text-xs">
             <summary className="cursor-pointer font-medium text-[var(--text-primary)]">Requested permissions and learned starts</summary>
             <p className="text-[var(--text-secondary)]">Requested policy: {recoveryModeLabel({ ...parameters, recovery_mode: recovery.mode ?? parameters?.recovery_mode })}. Actual attempt settings are recorded below; they do not overwrite the requested profile.</p>
-            {parameters?.execution_policy && <p className="text-[var(--text-secondary)]">Saved {parameters.execution_policy_source === "global" ? "shared" : "override"} policy: {executionPolicySummary(parameters.execution_policy)} · maximum delay {parameters.execution_policy.max_backoff_seconds}s.</p>}
+            {parameters?.execution_policy && <p className="text-[var(--text-secondary)]">Saved {parameters.execution_policy_source === "global" ? "global" : "override"} policy: {executionPolicySummary(parameters.execution_policy, parameters.recovery_mode)} · maximum delay {parameters.execution_policy.max_backoff_seconds}s.</p>}
             {parameters?.adaptive_policy?.stages && Object.keys(parameters.adaptive_policy.stages).filter((key) => key in ADAPTIVE_STAGE_LABELS).map((key) => {
                 const kind = key as AdaptiveStageKind;
                 const policy = stagePolicy(parameters.adaptive_policy, kind);
-                return <div key={kind} className="text-[var(--text-secondary)]"><p>{ADAPTIVE_STAGE_LABELS[kind]}: device {policy.device_locked ? "locked" : "unlocked"}; CPU {policy.allow_cpu ? `permitted at ${policy.cpu_precision}` : "not permitted"}; minimum batch {policy.min_batch_size}; shorter windows {policy.allow_shorter_windows ? `${policy.window_candidates.join(", ")}s, floor ${policy.min_window_seconds}s, overlap ${policy.overlap_seconds}s` : "not permitted"}.</p>{policy.fixed && <p>Frozen stage settings: {adaptiveSettingsSummary(policy.fixed)}</p>}</div>;
+                const mode = parameters.execution_policy?.automatic_recovery === false ? "fixed" : recovery.mode ?? parameters.recovery_mode;
+                return <div key={kind} className="text-[var(--text-secondary)]"><p>{ADAPTIVE_STAGE_LABELS[kind]}: device {policy.device_locked ? "locked" : "unlocked"}; CPU {permitsCPURecovery(mode) && policy.allow_cpu && !policy.device_locked && !policy.fixed ? `permitted at ${policy.cpu_precision}` : "not permitted"}; minimum batch {policy.min_batch_size}; shorter windows {permitsWindowRecovery(mode) && policy.allow_shorter_windows && !policy.fixed ? `${policy.window_candidates.join(", ")}s, floor ${policy.min_window_seconds}s, overlap ${policy.overlap_seconds}s` : "not permitted"}.</p>{policy.fixed && <p>Frozen stage settings: {adaptiveSettingsSummary(policy.fixed)}</p>}</div>;
             })}
             {recovery.learning?.plans?.length ? recovery.learning.plans.map((plan) => <div key={`${plan.scope_key}-${plan.plan_id}`} className="rounded-md border border-[var(--border-subtle)] p-2"><p>Saved learned candidate · {plan.stage_key} · profile revision {plan.profile_revision}, generation {plan.learning_generation}</p><p className="text-[var(--text-secondary)]">{adaptiveSettingsSummary(plan.settings)}</p></div>) : <p className="text-[var(--text-secondary)]">No learned candidate plan was saved for this execution.</p>}
         </details>
@@ -132,6 +133,7 @@ export function RunRecoveryPanel({ executionID, parameters, recovery, loading, e
                         <AttemptSettings attempt={attempt} />
                         <AttemptMeasurements attempt={attempt} />
                         {attempt.reason && <p className="text-[var(--text-secondary)]">{recoveryAttemptReasonLabel(attempt.reason)}</p>}
+                        {Object.entries(attempt.measurements?.worker_recovery_actions ?? {}).map(([action, count]) => <p key={action} className="text-[var(--text-secondary)]">{count} × {recoveryAttemptReasonLabel(action)}</p>)}
                         {(attempt.error_message || attempt.error_code) && <p className="text-[var(--warning-solid)]">{attempt.error_code ? recoveryAttemptErrorLabel(attempt.error_code) : attempt.error_message}</p>}
                     </li>)}</ol>
                 </details>}

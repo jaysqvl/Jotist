@@ -77,8 +77,16 @@ func runRecoverableStage[T any](ctx context.Context, recovery recoveryStageConte
 		Descriptor interfaces.StageDescriptor
 	}{fingerprint, descriptor})
 	planned := effectiveStageParameters(params, recovery.mode, recovery.gpu, adapter.GetCapabilities().ModelFamily)
+	// Keep permission changes in new checkpoint identities. The dynamic remaining
+	// budget is excluded from settings hashes; old saved stage hashes stay valid.
+	if p := recovery.execution.ActualParameters.ExecutionPolicy; p != nil && p.RecoveryStrength != "" {
+		planned["execution_recovery"] = *p
+	}
 	policy := recovery.execution.ActualParameters.AdaptivePolicy
-	rule := stageRule(policy, kind)
+	rule := executionStageRule(recovery.execution.ActualParameters, kind, descriptor)
+	if p := recovery.execution.ActualParameters.ExecutionPolicy; p != nil && p.RecoveryStrength != "" {
+		planned["execution_recovery_stage"] = rule
+	}
 	if rule.Fixed != nil {
 		if err := validateFrozenStage(descriptor, candidateSettings(planned, descriptor, adapter.GetCapabilities().ModelID), *rule.Fixed); err != nil {
 			return zero, nil, fmt.Errorf("%s: %w", node, err)
@@ -135,7 +143,7 @@ func runRecoverableStage[T any](ctx context.Context, recovery recoveryStageConte
 	if existingStage == nil && policy != nil && policy.Learn && recoveryLevel(recovery.mode) > 0 && qualified && reusable {
 		scopes := []models.AdaptiveLearningScope{scope}
 		readings := []models.AdaptiveCapacityReading{{MemoryDomain: scope.MemoryDomain, MemoryCapacityBytes: scope.MemoryCapacityBytes, AvailableBytes: available}}
-		if original.Device == "cuda" && recoveryLevel(recovery.mode) >= 3 && rule.AllowCPU && !rule.DeviceLocked && supportsPrecision(descriptor, "cpu", rule.CPUPrecision) {
+		if original.Device == "cuda" && permitsCPUFallback(recovery.mode) && rule.AllowCPU && !rule.DeviceLocked && supportsPrecision(descriptor, "cpu", rule.CPUPrecision) {
 			total, free := hostCapacity()
 			cpuScope := scope
 			cpuScope.MemoryDomain = "host_system"
@@ -234,13 +242,18 @@ func runRecoverableStage[T any](ctx context.Context, recovery recoveryStageConte
 	var lastCode string
 	var lastMeasurements models.StageMeasurements
 	var lastMetadata map[string]string
-	automaticRetries := 0
 	retryPolicy := recovery.execution.ActualParameters.ExecutionPolicy
+	automaticRetries := stageRetryUsage(history, retryPolicy)
+	recoveryEvidenceUnavailable := false
 	nextCandidate := func(settings models.AdaptiveStageSettings) *adaptiveCandidate {
-		if !automaticRetryAllowed(retryPolicy, automaticRetries) || count >= 7 {
+		if recoveryEvidenceUnavailable || !automaticRetryAllowed(retryPolicy, automaticRetries) || count >= 7 {
 			return nil
 		}
-		return nextAdaptiveCandidate(recovery.mode, lastCode, rule, descriptor, original, settings, history, lastMeasurements.ExternalContention)
+		eligible := descriptor
+		if retryPolicy != nil && !retryPolicy.ReduceBatchSize {
+			eligible.QualifiedBatches = nil
+		}
+		return nextAdaptiveCandidate(recovery.mode, lastCode, rule, eligible, original, settings, history, lastMeasurements.ExternalContention)
 	}
 	invoke := func(attemptParams map[string]interface{}, attemptReason string) (T, error) {
 		lastCode = ""
@@ -268,7 +281,7 @@ func runRecoverableStage[T any](ctx context.Context, recovery recoveryStageConte
 		if err = recovery.store.SetAttemptWaiting(ctx, attempt.ID, recovery.execution.OwnerGeneration, true); err != nil {
 			return zero, err
 		}
-		if delay := retryBackoff(retryPolicy, automaticRetries); delay > 0 {
+		if delay := retryBackoff(retryPolicy, automaticRetries); delay > 0 && attemptReason != "initial" && attemptReason != "learned_start" && attemptReason != "resume_same_settings" {
 			if err = recovery.store.SetAttemptRetryAt(ctx, attempt.ID, recovery.execution.OwnerGeneration, time.Now().Add(delay)); err == nil {
 				err = waitRetryBackoff(ctx, delay)
 			}
@@ -314,17 +327,39 @@ func runRecoverableStage[T any](ctx context.Context, recovery recoveryStageConte
 		finishMeasurements := startStageMeasurements(ctx, settings.Device, recovery.gpu, procCtx.OutputDirectory)
 		defer finishMeasurements()
 		offset := attemptLogOffset(procCtx.OutputDirectory)
+		if workerPolicy := workerRecoveryPolicy(recovery.execution.ActualParameters, automaticRetries, kind); workerPolicy != nil {
+			actual["worker_recovery_policy"] = workerPolicy
+		}
 		result, runErr := run(actual)
-		lastMeasurements = supplementStageMeasurements(finishMeasurements(), attemptLogTail(procCtx.OutputDirectory, offset))
+		log := attemptLogTail(procCtx.OutputDirectory, offset)
+		lastMeasurements = supplementStageMeasurements(finishMeasurements(), log)
+		workerLimit := 0
+		if retryPolicy != nil {
+			workerLimit = policyMax(0, retryPolicy.MaxRetries-automaticRetries)
+		}
+		var evidenceErr error
+		lastMeasurements.WorkerRetryCount, lastMeasurements.WorkerRecoveryActions, evidenceErr = attemptWorkerRecoveryEvidence(procCtx.OutputDirectory, offset, workerLimit)
+		if evidenceErr != nil {
+			recoveryEvidenceUnavailable = true
+			runErr = fmt.Errorf("%s worker recovery evidence could not be read", node)
+		}
+		automaticRetries += lastMeasurements.WorkerRetryCount
 		release()
 		if ctx.Err() != nil {
 			runErr = ctx.Err()
 		}
 		cleanup, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		_ = recovery.store.RecordAttemptMeasurements(cleanup, attempt.ID, recovery.execution.OwnerGeneration, lastMeasurements)
+		if measurementErr := recovery.store.RecordAttemptMeasurements(cleanup, attempt.ID, recovery.execution.OwnerGeneration, lastMeasurements); measurementErr != nil && retryPolicy != nil && retryPolicy.RecoveryStrength != "" {
+			recoveryEvidenceUnavailable = true
+			_ = recovery.store.FailAttempt(cleanup, attempt.ID, recovery.execution.OwnerGeneration, models.RecoveryBlocked, "recovery_evidence_persistence_failed")
+			return zero, fmt.Errorf("%s recovery evidence could not be saved: %w", node, measurementErr)
+		}
 		if runErr != nil {
 			lastCode = stageFailureCode(ctx, runErr, procCtx, offset)
+			if evidenceErr != nil && ctx.Err() == nil {
+				lastCode = "worker_recovery_evidence_unavailable"
+			}
 			appendStageDiagnostic(procCtx.OutputDirectory, node, attempt.ID, runErr)
 			attempt.State = models.RecoveryFailed
 			attempt.ErrorCode = lastCode
@@ -340,7 +375,7 @@ func runRecoverableStage[T any](ctx context.Context, recovery recoveryStageConte
 			if err := recovery.store.FailAttempt(cleanup, attempt.ID, recovery.execution.OwnerGeneration, attempt.State, lastCode); err != nil {
 				return zero, err
 			}
-			recordStageObservation(cleanup, learning, recovery, stage, attempt, scope, settings, lastMeasurements, input, false, qualified && reusable, lastCode, original, descriptor)
+			recordStageObservation(cleanup, learning, recovery, stage, attempt, scope, settings, lastMeasurements, input, false, qualified && reusable && !workerChangedOutput(lastMeasurements), lastCode, original, descriptor)
 			if lastCode == "cuda_out_of_memory" || lastCode == "cuda_runtime_error" {
 				return zero, &interfaces.GPUExecutionError{Kind: lastCode, Err: runErr}
 			}
@@ -376,7 +411,7 @@ func runRecoverableStage[T any](ctx context.Context, recovery recoveryStageConte
 				lastMetadata["checkpoint_id"] = checkpoint.ID
 				lastMetadata["checkpoint_result_sha256"] = checkpoint.ResultSHA256
 				attempt.CheckpointID = &checkpoint.ID
-				recordStageObservation(cleanup, learning, recovery, stage, attempt, scope, settings, lastMeasurements, input, true, qualified && reusable, "succeeded", original, descriptor)
+				recordStageObservation(cleanup, learning, recovery, stage, attempt, scope, settings, lastMeasurements, input, true, qualified && reusable && !workerChangedOutput(lastMeasurements), "succeeded", original, descriptor)
 				return result, nil
 			}
 			if ctx.Err() != nil || errors.Is(err, repository.ErrRecoveryStaleOwner) || errors.Is(err, repository.ErrRecoveryCorrupt) || errors.Is(err, repository.ErrRecoveryQuota) {

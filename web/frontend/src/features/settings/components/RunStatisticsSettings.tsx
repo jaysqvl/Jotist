@@ -349,7 +349,7 @@ export function RunStatisticsSettings() {
 													</span>
 												</p>
 												<p className="mt-1 text-[11px] text-[var(--text-secondary)]">
-													{stage.attempts} attempts · {stage.retries} retries · {stage.failed}{' '}
+													{stage.attempts} stage attempts · {stage.retries} stage retries{stage.worker_retries ? ` · ${stage.worker_retries} model recoveries` : ''} · {stage.failed}{' '}
 													failed
 												</p>
 											</div>

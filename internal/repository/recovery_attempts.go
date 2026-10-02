@@ -5,8 +5,8 @@ import (
 	"math"
 	"time"
 
-	"gorm.io/gorm"
 	"github.com/jaysqvl/Jotist/internal/models"
+	"gorm.io/gorm"
 )
 
 func (r *RecoveryRepository) SetAttemptWaiting(ctx context.Context, id string, generation int64, waiting bool) error {
@@ -64,6 +64,24 @@ func (r *RecoveryRepository) RecordAttemptMeasurements(ctx context.Context, id s
 }
 
 func validateMeasurements(measurements models.StageMeasurements) error {
+	if measurements.WorkerRetryCount < 0 || measurements.WorkerRetryCount > 6 {
+		return ErrRecoveryConflict
+	}
+	workerCount := 0
+	for action, count := range measurements.WorkerRecoveryActions {
+		if count < 1 || count > 6 {
+			return ErrRecoveryConflict
+		}
+		switch action {
+		case "decoder_budget_retry", "token_window_split", "native_timing_split", "native_timing_repair":
+			workerCount += count
+		default:
+			return ErrRecoveryConflict
+		}
+	}
+	if workerCount != measurements.WorkerRetryCount {
+		return ErrRecoveryConflict
+	}
 	if measurements.Samples < 0 || math.IsNaN(measurements.ElapsedSeconds) || math.IsInf(measurements.ElapsedSeconds, 0) || measurements.ElapsedSeconds < 0 {
 		return ErrRecoveryConflict
 	}

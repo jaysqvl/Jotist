@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"gorm.io/gorm"
 	"github.com/jaysqvl/Jotist/internal/models"
+	"gorm.io/gorm"
 )
 
 type statisticsRun struct {
@@ -56,7 +56,7 @@ func ReadRunStatistics(ctx context.Context, db *gorm.DB, days int, now time.Time
 			}
 			return q
 		}
-		keys := []string{"resolved_device", "precision", "diarization_resolved_device", "diarization_device", "diarization_model", "diarization_model_id", "asr_device_fallback", "diarization_device_fallback", "auto_token_split_windows", "native_timing_retry_windows", "output_repair_count", "token_retries"}
+		keys := []string{"resolved_device", "precision", "diarization_resolved_device", "diarization_device", "diarization_model", "diarization_model_id", "asr_device_fallback", "diarization_device_fallback", "auto_token_split_windows", "native_timing_retry_windows", "output_repair_count", "token_retries", "token_splits"}
 		parts := make([]string, 0, len(keys)*2)
 		for _, key := range keys {
 			parts = append(parts, "'"+key+"'", "json_extract(e.transcript, '$.metadata."+key+"')")
@@ -263,6 +263,7 @@ func aggregateRunStatistics(result *models.RunStatistics, runs []statisticsRun, 
 			var m models.StageMeasurements
 			if json.Unmarshal([]byte(attempt.MeasurementsJSON), &m) == nil {
 				stageMeasurements = append(stageMeasurements, m)
+				recovered = recovered || m.WorkerRetryCount > 0 && m.WorkerRetryCount <= 6
 			}
 		}
 		if !run.Diarize {
@@ -281,7 +282,7 @@ func aggregateRunStatistics(result *models.RunStatistics, runs []statisticsRun, 
 		if run.Diarize && statisticsDevice(requestedSpeaker) == "cuda" && speakerDevice == "cpu" {
 			fallback = true
 		}
-		for _, key := range []string{"auto_token_split_windows", "native_timing_retry_windows", "output_repair_count", "token_retries"} {
+		for _, key := range []string{"auto_token_split_windows", "native_timing_retry_windows", "output_repair_count", "token_retries", "token_splits"} {
 			if n, err := strconv.Atoi(meta[key]); err == nil && n > 0 && n <= 100000 {
 				recovered = true
 			}
@@ -412,6 +413,10 @@ func aggregateRunStatistics(result *models.RunStatistics, runs []statisticsRun, 
 		}
 		if attempt.AttemptNumber > 1 {
 			row.Retries++
+		}
+		var measurements models.StageMeasurements
+		if json.Unmarshal([]byte(attempt.MeasurementsJSON), &measurements) == nil && measurements.WorkerRetryCount > 0 && measurements.WorkerRetryCount <= 6 {
+			row.WorkerRetries += measurements.WorkerRetryCount
 		}
 		if attempt.CompletedAt != nil {
 			elapsed := attempt.CompletedAt.Sub(attempt.StartedAt).Seconds()

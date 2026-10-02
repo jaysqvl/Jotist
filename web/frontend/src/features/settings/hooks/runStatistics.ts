@@ -65,6 +65,7 @@ export interface RunStatistics {
 		succeeded: number;
 		failed: number;
 		retries: number;
+		worker_retries?: number;
 		timing_samples: number;
 		median_seconds: number | null;
 	}[];

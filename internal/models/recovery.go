@@ -68,33 +68,35 @@ type RecoveryAttempt struct {
 // Device samples include all allocations, while process peaks include only
 // verified descendants of this coordinator. Missing readings stay unknown.
 type StageMeasurements struct {
-	InvocationID              string   `json:"invocation_id,omitempty"`
-	ProcessPeakRSSBytes       *int64   `json:"process_peak_rss_bytes,omitempty"`
-	ProcessAverageRSSBytes    *int64   `json:"process_average_rss_bytes,omitempty"`
-	ProcessPeakVRAMBytes      *int64   `json:"process_peak_vram_bytes,omitempty"`
-	ProcessAverageVRAMBytes   *int64   `json:"process_average_vram_bytes,omitempty"`
-	DeviceAverageUsedBytes    *int64   `json:"device_average_used_bytes,omitempty"`
-	ProcessCPUAveragePercent  *float64 `json:"process_cpu_average_percent,omitempty"`
-	CPUCapacityCores          *float64 `json:"cpu_capacity_cores,omitempty"`
-	RSSSampledSeconds         float64  `json:"rss_sampled_seconds,omitempty"`
-	ProcessVRAMSampledSeconds float64  `json:"process_vram_sampled_seconds,omitempty"`
-	DeviceSampledSeconds      float64  `json:"device_sampled_seconds,omitempty"`
-	CPUSampledSeconds         float64  `json:"cpu_sampled_seconds,omitempty"`
-	TorchPeakAllocatedBytes   *int64   `json:"torch_peak_allocated_bytes,omitempty"`
-	TorchPeakReservedBytes    *int64   `json:"torch_peak_reserved_bytes,omitempty"`
-	HostTotalBytes            *int64   `json:"host_total_bytes,omitempty"`
-	HostAvailableBeforeBytes  *int64   `json:"host_available_before_bytes,omitempty"`
-	HostMinimumAvailableBytes *int64   `json:"host_minimum_available_bytes,omitempty"`
-	GPUTotalBytes             *int64   `json:"gpu_total_bytes,omitempty"`
-	DeviceUsedBeforeBytes     *int64   `json:"device_used_before_bytes,omitempty"`
-	DevicePeakUsedBytes       *int64   `json:"device_peak_used_bytes,omitempty"`
-	ProcessPeakBytes          *int64   `json:"process_peak_bytes,omitempty"`
-	AvailableAfterBytes       *int64   `json:"available_after_bytes,omitempty"`
-	ExternalContention        bool     `json:"external_contention"`
-	OwnershipUnknown          bool     `json:"ownership_unknown,omitempty"`
-	Samples                   int      `json:"samples"`
-	ElapsedSeconds            float64  `json:"elapsed_seconds"`
-	Scope                     string   `json:"scope"`
+	WorkerRetryCount          int            `json:"worker_retry_count,omitempty"`
+	WorkerRecoveryActions     map[string]int `json:"worker_recovery_actions,omitempty"`
+	InvocationID              string         `json:"invocation_id,omitempty"`
+	ProcessPeakRSSBytes       *int64         `json:"process_peak_rss_bytes,omitempty"`
+	ProcessAverageRSSBytes    *int64         `json:"process_average_rss_bytes,omitempty"`
+	ProcessPeakVRAMBytes      *int64         `json:"process_peak_vram_bytes,omitempty"`
+	ProcessAverageVRAMBytes   *int64         `json:"process_average_vram_bytes,omitempty"`
+	DeviceAverageUsedBytes    *int64         `json:"device_average_used_bytes,omitempty"`
+	ProcessCPUAveragePercent  *float64       `json:"process_cpu_average_percent,omitempty"`
+	CPUCapacityCores          *float64       `json:"cpu_capacity_cores,omitempty"`
+	RSSSampledSeconds         float64        `json:"rss_sampled_seconds,omitempty"`
+	ProcessVRAMSampledSeconds float64        `json:"process_vram_sampled_seconds,omitempty"`
+	DeviceSampledSeconds      float64        `json:"device_sampled_seconds,omitempty"`
+	CPUSampledSeconds         float64        `json:"cpu_sampled_seconds,omitempty"`
+	TorchPeakAllocatedBytes   *int64         `json:"torch_peak_allocated_bytes,omitempty"`
+	TorchPeakReservedBytes    *int64         `json:"torch_peak_reserved_bytes,omitempty"`
+	HostTotalBytes            *int64         `json:"host_total_bytes,omitempty"`
+	HostAvailableBeforeBytes  *int64         `json:"host_available_before_bytes,omitempty"`
+	HostMinimumAvailableBytes *int64         `json:"host_minimum_available_bytes,omitempty"`
+	GPUTotalBytes             *int64         `json:"gpu_total_bytes,omitempty"`
+	DeviceUsedBeforeBytes     *int64         `json:"device_used_before_bytes,omitempty"`
+	DevicePeakUsedBytes       *int64         `json:"device_peak_used_bytes,omitempty"`
+	ProcessPeakBytes          *int64         `json:"process_peak_bytes,omitempty"`
+	AvailableAfterBytes       *int64         `json:"available_after_bytes,omitempty"`
+	ExternalContention        bool           `json:"external_contention"`
+	OwnershipUnknown          bool           `json:"ownership_unknown,omitempty"`
+	Samples                   int            `json:"samples"`
+	ElapsedSeconds            float64        `json:"elapsed_seconds"`
+	Scope                     string         `json:"scope"`
 }
 
 // Compatibility is deliberately not unique: force-fresh runs keep independent

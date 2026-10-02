@@ -1,40 +1,32 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { TRANSCRIPTION_PRESETS, RECOMMENDED_PRESETS, createPresetDraft, presetAlreadyAdded } from "./profilePresets.ts";
-import { REFERENCE_PROFILE_VALUES } from "./referenceProfilePresets.ts";
+import { TRANSCRIPTION_PRESETS, RECOMMENDED_PRESETS, ALTERNATIVE_PRESETS, createPresetDraft, presetAlreadyAdded } from "./profilePresets.ts";
+import { DEFAULT_EXECUTION_POLICY, previewCheckpointReuse } from "./executionPolicy.ts";
 
-test("preset catalog preserves all nine captured configurations, including the GPU-named CPU preset", () => {
-    assert.equal(TRANSCRIPTION_PRESETS.length, 15);
-    assert.equal(new Set(TRANSCRIPTION_PRESETS.map((preset) => preset.id)).size, 15);
-    assert.equal(REFERENCE_PROFILE_VALUES.length, 9);
-    for (const { name, ...parameters } of REFERENCE_PROFILE_VALUES) {
-        const preset = TRANSCRIPTION_PRESETS.find((preset) => preset.name === name)!;
-        assert.ok(preset, name);
-        assert.equal(preset.origin, "existing");
-        for (const [key, value] of Object.entries(parameters)) assert.deepEqual(preset.parameters[key], value, `${name}: ${key}`);
+test("public starters have unique identities and accurate device labels without captured user configurations", () => {
+    assert.equal(TRANSCRIPTION_PRESETS.length, 12);
+    assert.equal(new Set(TRANSCRIPTION_PRESETS.map((preset) => preset.id)).size, TRANSCRIPTION_PRESETS.length);
+    assert.equal(new Set(TRANSCRIPTION_PRESETS.map((preset) => preset.name)).size, TRANSCRIPTION_PRESETS.length);
+    assert.equal(TRANSCRIPTION_PRESETS.some((preset) => preset.id.startsWith("reference-")), false);
+    for (const preset of TRANSCRIPTION_PRESETS) {
+        assert.ok(preset.name.startsWith(preset.group));
+        assert.equal(preset.parameters.execution_policy_source, "global");
+        assert.equal(preset.parameters.execution_policy, undefined);
+        assert.equal(preset.parameters.recovery_mode, undefined);
+        assert.equal(preset.parameters.reuse_checkpoints, undefined);
+        assert.equal(previewCheckpointReuse(preset.parameters, DEFAULT_EXECUTION_POLICY), true);
+        assert.equal(previewCheckpointReuse(preset.parameters, { ...DEFAULT_EXECUTION_POLICY, reuse_checkpoints: false }), false);
     }
-    const mismatch = TRANSCRIPTION_PRESETS.find((preset) => preset.name === "GPU-PARAKEET-PYANNOTE")!;
-    assert.equal(mismatch.parameters.device, "cpu");
-    assert.equal(mismatch.parameters.batch_size, 8);
-    assert.equal(mismatch.parameters.attention_context_left, 512);
-    assert.equal(mismatch.parameters.diarization_device, "auto");
-    assert.match(mismatch.notes, /Name\/device mismatch/);
-    const canary = TRANSCRIPTION_PRESETS.find((preset) => preset.name === "CPU-CANARY-PYANNOTE")!;
-    assert.equal(canary.parameters.nvidia_precision, "bfloat16");
-    assert.equal(canary.parameters.batch_size, 2);
-    const noSpeakers = TRANSCRIPTION_PRESETS.find((preset) => preset.name === "GPU-CANARY-NOSPEAKER")!;
-    assert.equal(noSpeakers.parameters.diarize, false);
-    assert.equal(noSpeakers.parameters.nvidia_timestamps, false);
 });
 
-test("recommended presets use explicit CPU/GPU devices and batch size 1 independently of captured profiles", () => {
+test("GPU starters follow the transcription device while alternatives retain explicit CPU and hybrid choices", () => {
     const hybrid = TRANSCRIPTION_PRESETS.find((preset) => preset.id === "hybrid-parakeet-pyannote")!;
     assert.equal(hybrid.parameters.device, "cuda");
     assert.equal(hybrid.parameters.diarization_device, "cpu");
     assert.equal(hybrid.parameters.diarize, true);
     assert.equal(hybrid.parameters.compute_type, "float32", "Parakeet's runtime keeps FP32 weights on GPU");
     assert.equal(hybrid.parameters.fp16, false);
-    for (const preset of RECOMMENDED_PRESETS) {
+    for (const preset of TRANSCRIPTION_PRESETS) {
         const params = preset.parameters;
         assert.equal(params.batch_size, 1);
         assert.equal(params.compute_type, params.device === "cpu" || params.model_family === "nvidia_parakeet" ? "float32" : "float16");
@@ -43,7 +35,12 @@ test("recommended presets use explicit CPU/GPU devices and batch size 1 independ
         assert.equal(params.language, "en");
         assert.ok(["cpu", "cuda", "same"].includes(params.diarization_device));
     }
-    const initial = RECOMMENDED_PRESETS.find((preset) => preset.id === "cpu-qwen-pyannote")!;
+    for (const preset of RECOMMENDED_PRESETS) {
+        assert.equal(preset.parameters.device, "cuda");
+        assert.equal(preset.parameters.diarization_device, "same");
+        assert.equal(preset.group, "GPU");
+    }
+    const initial = ALTERNATIVE_PRESETS.find((preset) => preset.id === "cpu-qwen-pyannote")!;
     assert.equal(initial.parameters.model, "Qwen/Qwen3-ASR-1.7B-hf");
     assert.equal(initial.parameters.device, "cpu");
     assert.equal(initial.parameters.diarization_device, "cpu");
@@ -51,9 +48,18 @@ test("recommended presets use explicit CPU/GPU devices and batch size 1 independ
     assert.equal(gpuDefault.parameters.device, "cuda");
     assert.equal(gpuDefault.parameters.diarization_device, "same");
     assert.equal(gpuDefault.parameters.execution_policy_source, "global");
-    assert.equal(RECOMMENDED_PRESETS.some((preset) => preset.parameters.model_family === "nvidia_canary"), false);
+    const canary = RECOMMENDED_PRESETS.find((preset) => preset.id === "gpu-canary-pyannote")!;
+    assert.equal(canary.parameters.model, "canary");
+    assert.equal(canary.parameters.nvidia_chunk_duration, 40);
+    assert.equal(canary.parameters.nvidia_use_chunking, true);
+    const sortformer = RECOMMENDED_PRESETS.find((preset) => preset.id === "gpu-parakeet-sortformer")!;
+    assert.equal(sortformer.parameters.diarize_model, "nvidia_sortformer");
+    assert.equal(sortformer.parameters.max_speakers, 4);
+    const diarizen = RECOMMENDED_PRESETS.find((preset) => preset.id === "gpu-qwen-diarizen")!;
+    assert.equal(diarizen.parameters.diarize_model, "diarizen");
+    assert.equal(diarizen.parameters.diarization_checkpoint, "BUT-FIT/diarizen-wavlm-large-s80-md-v2");
     for (const id of ["cpu-qwen-small-pyannote", "cpu-granite-compact-pyannote"]) {
-        const compact = RECOMMENDED_PRESETS.find((preset) => preset.id === id)!;
+        const compact = ALTERNATIVE_PRESETS.find((preset) => preset.id === id)!;
         assert.equal(compact.parameters.device, "cpu");
         assert.equal(compact.parameters.diarization_device, "cpu");
         assert.equal(compact.parameters.diarization_checkpoint, "pyannote/speaker-diarization-community-1");
@@ -77,7 +83,8 @@ test("loading a preset creates an independent review draft with a non-conflictin
     const draft = createPresetDraft(preset, [preset.name.toUpperCase(), `${preset.name} (2)`]);
     assert.equal(draft.name, `${preset.name} (3)`);
     assert.equal("id" in draft, false, "drafts must create new profiles rather than update an existing ID");
-    assert.equal(draft.parameters.language, null, "editing a reference must retain its nullable fields until explicitly changed");
+    assert.equal(draft.parameters.language, "en");
+    assert.equal(draft.parameters.execution_policy_source, "global");
     draft.parameters.model = "edited-in-dialog";
     assert.equal(preset.parameters.model, originalModel);
     assert.equal(createPresetDraft(preset, []).parameters.model, originalModel);

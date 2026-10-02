@@ -7,10 +7,10 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/require"
 	"github.com/jaysqvl/Jotist/internal/models"
 	"github.com/jaysqvl/Jotist/internal/queue"
 	"github.com/jaysqvl/Jotist/internal/repository"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRunPickerMetadataOnlyExposesRuntimeDisplayFields(t *testing.T) {
@@ -88,4 +88,12 @@ func TestRunRecoverySummaryKeepsDifferentStageDevicesSeparate(t *testing.T) {
 	unknown := summarizeRunAttempts([]models.RecoveryAttempt{{StageID: "recognition", AttemptNumber: 1, Device: "cpu", Reason: "initial"}})
 	require.False(t, unknown.CPUFallback)
 	require.Zero(t, unknown.RetryCount)
+}
+
+func TestRunRecoverySummarySeparatesWorkerActionsFromStageAttempts(t *testing.T) {
+	summary := summarizeRunAttempts([]models.RecoveryAttempt{{StageID: "recognition", AttemptNumber: 1, Device: "cuda", Reason: "initial", Measurements: &models.StageMeasurements{WorkerRetryCount: 2, WorkerRecoveryActions: map[string]int{"token_window_split": 1, "decoder_budget_retry": 1}}}})
+	require.Zero(t, summary.RetryCount)
+	require.Equal(t, 2, summary.WorkerRetryCount)
+	require.Equal(t, 1, summary.WorkerRecoveryActions["token_window_split"])
+	require.False(t, summary.CPUFallback)
 }

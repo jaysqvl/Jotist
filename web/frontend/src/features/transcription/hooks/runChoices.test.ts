@@ -10,6 +10,17 @@ import {
 	type RunChoice
 } from './runChoices.ts';
 
+test('worker actions appear once, independently of the selected recovery policy', () => {
+    const run: RunChoice = { id: 'worker-recovered', run_number: 1, status: 'completed',
+        runtime_metadata: { auto_token_split_windows: '1', token_retries: '1' },
+        recovery_summary: { evidence_available: true, retry_count: 0, cpu_fallback: false, reasons: [], worker_retry_count: 2,
+            worker_recovery_actions: { token_window_split: 1, decoder_budget_retry: 1 } } };
+    assert.equal(runRecoveryBehavior(run).details, '1 window recovery · 1 decoder retry');
+    assert.equal(runOutcomeLabel(run), 'Completed with recovery');
+    const ordinary = { ...run, runtime_metadata: {}, recovery_summary: { ...run.recovery_summary!, worker_retry_count: 0, worker_recovery_actions: {} } };
+    assert.equal(runOutcomeLabel(ordinary), 'Completed');
+});
+
 const gpu: RunChoice = {
 	id: 'gpu',
 	run_number: 2,

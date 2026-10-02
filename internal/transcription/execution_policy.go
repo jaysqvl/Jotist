@@ -9,6 +9,11 @@ import (
 )
 
 func ValidateExecutionPolicy(policy models.ExecutionPolicy) error {
+	switch policy.RecoveryStrength {
+	case "", models.RecoveryStandard, models.RecoveryStrong, models.RecoveryAggressive:
+	default:
+		return fmt.Errorf("recovery_strength must be standard, strong or aggressive")
+	}
 	if policy.MaxRetries < 0 || policy.MaxRetries > 6 {
 		return fmt.Errorf("max_retries must be between 0 and 6")
 	}
@@ -16,6 +21,28 @@ func ValidateExecutionPolicy(policy models.ExecutionPolicy) error {
 		return fmt.Errorf("retry backoff must be between 0 and 120 seconds, with a maximum between the initial delay and 300 seconds")
 	}
 	return nil
+}
+
+// Canonical strengths are permissions, independent of normal stage separation.
+// Old modes remain readable for immutable historical execution plans.
+func SharedRecoveryMode(policy models.ExecutionPolicy) string {
+	if !policy.AutomaticRecovery {
+		return RecoveryFixed
+	}
+	switch policy.RecoveryStrength {
+	case models.RecoveryStrong, models.RecoveryAggressive:
+		return policy.RecoveryStrength
+	default:
+		return models.RecoveryStandard
+	}
+}
+
+func permitsCPUFallback(mode string) bool {
+	return mode == RecoveryCPUFallback || mode == RecoveryShorterWindows || mode == models.RecoveryAggressive
+}
+
+func permitsShorterWindows(mode string) bool {
+	return mode == RecoveryShorterWindows || mode == models.RecoveryStrong || mode == models.RecoveryAggressive
 }
 
 func ValidateExecutionPolicyOptions(params models.WhisperXParams) error {

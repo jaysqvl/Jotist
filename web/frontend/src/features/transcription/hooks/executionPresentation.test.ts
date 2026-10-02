@@ -28,11 +28,16 @@ test("requested timing follows alignment or NVIDIA parameters without hiding rep
 
 test("execution details identify the saved recovery policy and never present requested timing as measured", () => {
     const rows = executionEvidenceRows({ model_family: "qwen3_asr", recovery_mode: "stage_management", compute_type: "float16", no_align: false });
-    assert.equal(rows.find((row) => row.label === "Recovery policy")?.value, "Level 1 · Stage management");
+    assert.equal(rows.find((row) => row.label === "Recovery policy")?.value, "Retry with the same settings");
     assert.equal(rows.find((row) => row.label === "Requested precision")?.value, "FP16");
     assert.equal(rows.find((row) => row.label === "Reported precision")?.value, "Not recorded");
     assert.equal(rows.find((row) => row.label === "Requested timing")?.value, "Word alignment enabled");
     assert.equal(rows.find((row) => row.label === "Reported timing")?.value, "Not recorded");
+});
+
+test("historical saved retry settings do not claim a current recovery strength", () => {
+    const rows = executionEvidenceRows({ recovery_mode: "cpu_fallback", execution_policy: { automatic_recovery: true, max_retries: 3, backoff_seconds: 2, max_backoff_seconds: 30, reduce_batch_size: true, reuse_checkpoints: true } });
+    assert.match(rows.find((row) => row.label === "Automatic recovery")?.value ?? "", /^Saved retry policy/);
 });
 
 test("run summaries identify exact ASR and speaker checkpoints from output, including CPU fallback", () => {

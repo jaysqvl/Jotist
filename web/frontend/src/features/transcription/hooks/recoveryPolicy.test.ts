@@ -8,16 +8,16 @@ test("legacy Auto includes independently automatic speaker devices without relab
     assert.equal(recoveryModeLabel({ model_family: "whisper", device: "auto" }), "Legacy Auto fallback");
     assert.equal(usesLegacyAuto({ model_family: "nvidia_canary", device: "cpu", diarize: true, diarize_model: "pyannote" }), true);
     assert.equal(usesLegacyAuto({ model_family: "moss_asr", device: "cpu", diarize: true, diarize_model: "native", diarization_device: "auto" }), false);
-    assert.equal(recoveryModeLabel({ recovery_mode: "fixed", device: "auto" }), "Fixed settings");
-    assert.equal(recoveryModeLabel({ recovery_mode: "stage_management", device: "auto" }), "Level 1 · Stage management");
+    assert.equal(recoveryModeLabel({ recovery_mode: "fixed", device: "auto" }), "Automatic recovery off");
+    assert.equal(recoveryModeLabel({ recovery_mode: "stage_management", device: "auto" }), "Retry with the same settings");
     assert.match(devicePolicyDescription("fixed"), /does not retry.*CPU/);
     assert.match(devicePolicyDescription("stage_management"), /does not retry.*CPU/);
     assert.match(devicePolicyDescription(""), /Legacy Auto.*retry/);
 });
 
-test("new recommended profiles inherit shared execution defaults while captured references retain legacy semantics", () => {
+test("all Quick Add profiles inherit recovery and reuse from global settings", () => {
     assert.ok(RECOMMENDED_PRESETS.every((preset) => preset.parameters.execution_policy_source === "global" && preset.parameters.recovery_mode === undefined && preset.parameters.reuse_checkpoints === undefined));
-    assert.ok(TRANSCRIPTION_PRESETS.filter((preset) => preset.origin === "existing").every((preset) => preset.parameters.recovery_mode === undefined));
+    assert.ok(TRANSCRIPTION_PRESETS.every((preset) => preset.parameters.execution_policy_source === "global" && preset.parameters.execution_policy === undefined && preset.parameters.recovery_mode === undefined && preset.parameters.reuse_checkpoints === undefined));
 });
 
 test("checkpoint reuse defaults on but an explicit fresh request survives all submission shapes", () => {

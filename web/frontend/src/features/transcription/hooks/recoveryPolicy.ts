@@ -1,7 +1,7 @@
 import type { AdaptiveExecutionPolicy } from "./adaptivePolicy.ts";
 import type { AdaptivePlanSettings } from "./adaptiveLearning.ts";
 
-export type RecoveryMode = "" | "fixed" | "stage_management" | "batch_management" | "cpu_fallback" | "shorter_windows";
+export type RecoveryMode = "" | "fixed" | "standard" | "strong" | "aggressive" | "stage_management" | "batch_management" | "cpu_fallback" | "shorter_windows";
 
 export interface RecoveryParameters {
     execution_policy_source?: "global" | "override";
@@ -25,18 +25,29 @@ export function usesLegacyAuto(params: RecoveryParameters): boolean {
 }
 
 export function recoveryModeLabel(params: RecoveryParameters): string {
-    if (params.recovery_mode === "stage_management") return "Level 1 · Stage management";
-    if (params.recovery_mode === "batch_management") return "Level 2 · Batch management";
-    if (params.recovery_mode === "cpu_fallback") return "Level 3 · Explicit CPU fallback";
-    if (params.recovery_mode === "shorter_windows") return "Level 4 · Opt-in shorter windows";
-    if (params.recovery_mode === "fixed") return "Fixed settings";
+    if (params.recovery_mode === "standard") return "Standard recovery";
+    if (params.recovery_mode === "strong") return "Strong recovery";
+    if (params.recovery_mode === "aggressive") return "Aggressive recovery";
+    if (params.recovery_mode === "stage_management") return "Retry with the same settings";
+    if (params.recovery_mode === "batch_management") return "Retry and reduce batches";
+    if (params.recovery_mode === "cpu_fallback") return "Retry with permitted CPU fallback";
+    if (params.recovery_mode === "shorter_windows") return "Retry with permitted CPU and shorter windows";
+    if (params.recovery_mode === "fixed") return "Automatic recovery off";
     return usesLegacyAuto(params) ? "Legacy Auto fallback" : "Legacy fixed settings";
 }
 
 export function devicePolicyDescription(mode?: RecoveryMode): string {
-    if (mode === "cpu_fallback" || mode === "shorter_windows") return "CPU and GPU select the initial device. Auto chooses an available initial device. A stage can move to CPU only when its device is unlocked and CPU fallback is explicitly enabled with a supported precision.";
+    if (permitsCPURecovery(mode)) return "CPU and GPU select the initial device. Auto chooses an available device. Recovery may use a supported CPU precision after GPU options, within saved stage constraints.";
     return mode ? "CPU and GPU are explicit device choices. Auto chooses an available device before this run starts; it does not retry a GPU failure on CPU in this recovery mode."
         : "CPU uses system RAM; GPU uses an NVIDIA GPU. Legacy Auto tries an available GPU and may retry eligible GPU failures on CPU with FP32.";
+}
+
+export function permitsCPURecovery(mode?: RecoveryMode): boolean {
+    return mode === "aggressive" || mode === "cpu_fallback" || mode === "shorter_windows";
+}
+
+export function permitsWindowRecovery(mode?: RecoveryMode): boolean {
+    return mode === "strong" || mode === "aggressive" || mode === "shorter_windows";
 }
 
 export function shouldReuseCheckpoints(value?: boolean | null): boolean {
@@ -48,6 +59,8 @@ export interface RunSubmissionOptions {
 }
 
 export interface ResourceMeasurements {
+    worker_retry_count?: number;
+    worker_recovery_actions?: Record<string, number>;
     invocation_id?: string;
     process_peak_rss_bytes?: number;
     process_average_rss_bytes?: number;
@@ -190,6 +203,10 @@ export function recoveryAttemptReasonLabel(reason: string): string {
         shorter_window: "Retry with an explicitly permitted shorter audio window",
         shorter_windows: "Retry with an explicitly permitted shorter audio window",
         learned_start: "Starting from a compatible measured plan",
+        decoder_budget_retry: "Decoder retry with a larger Auto token budget",
+        token_window_split: "Decoder limit recovery using shorter audio windows",
+        native_timing_split: "Invalid timing recovery using shorter audio windows",
+        native_timing_repair: "Native timing repaired with forced alignment",
     } as Record<string, string>)[reason] || "Additional attempt recorded";
 }
 
@@ -205,6 +222,8 @@ export function recoveryAttemptErrorLabel(code: string): string {
         worker_interrupted: "The worker stopped before this stage completed.",
         checkpoint_serialization_failed: "The model output could not be converted into a valid checkpoint.",
         checkpoint_persistence_failed: "The model output could not be saved as a durable checkpoint.",
+        recovery_evidence_persistence_failed: "Recovery actions could not be saved. Automatic retries stopped to preserve the retry budget.",
+        worker_recovery_evidence_unavailable: "The worker’s recovery actions could not be verified. Automatic retries stopped.",
     } as Record<string, string>)[code] || "This attempt stopped with an unrecognized error code.";
 }
 

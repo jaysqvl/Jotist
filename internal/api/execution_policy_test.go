@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"github.com/jaysqvl/Jotist/internal/models"
 	"github.com/jaysqvl/Jotist/internal/transcription"
+	"github.com/stretchr/testify/require"
 )
 
 func TestExecutionDefaultsPersistAndFenceNewRunSnapshots(t *testing.T) {
@@ -31,7 +31,7 @@ func TestExecutionDefaultsPersistAndFenceNewRunSnapshots(t *testing.T) {
 	admitted, err := h.admitSavedProfile(c, &profile)
 	require.NoError(t, err)
 	require.Equal(t, &policy, admitted.ExecutionPolicy)
-	require.Equal(t, transcription.RecoveryBatchManagement, admitted.RecoveryMode)
+	require.Equal(t, models.RecoveryStandard, admitted.RecoveryMode)
 	require.True(t, *admitted.ReuseCheckpoints)
 	require.Nil(t, profile.Parameters.ExecutionPolicy, "admission must not edit the saved profile")
 	require.Equal(t, "cuda", admitted.Device)
@@ -58,18 +58,17 @@ func TestExecutionDefaultsPersistAndFenceNewRunSnapshots(t *testing.T) {
 	require.False(t, *newRun.ReuseCheckpoints)
 }
 
-func TestExecutionDefaultsPreserveLegacyAndExplicitOverrides(t *testing.T) {
+func TestExecutionDefaultsOldProfilesInheritAndExplicitOverridesStaySaved(t *testing.T) {
 	h, _, user := hfTokenTestHandler(t)
 	c, _ := hfTokenRequest("POST", "", user.ID)
 	legacy := models.WhisperXParams{Device: "auto", RecoveryMode: ""}
 	require.NoError(t, h.resolveExecutionPolicy(c, &legacy))
-	require.Empty(t, legacy.RecoveryMode)
-	require.Nil(t, legacy.ExecutionPolicy)
-	encoded, err := json.Marshal(legacy)
-	require.NoError(t, err)
-	require.NotContains(t, string(encoded), "execution_policy", "new empty fields must not change old recovery hashes")
+	require.Equal(t, models.RecoveryStandard, legacy.RecoveryMode)
+	require.Equal(t, "global", legacy.ExecutionPolicySource)
+	require.Equal(t, models.DefaultExecutionPolicy(), *legacy.ExecutionPolicy)
 
 	policy := models.DefaultExecutionPolicy()
+	policy.RecoveryStrength = "" // Explicit old profiles retain their saved mode.
 	policy.MaxRetries = 1
 	params := models.WhisperXParams{ExecutionPolicySource: "override", ExecutionPolicy: &policy, RecoveryMode: transcription.RecoveryCPUFallback, Device: "cuda", AdaptivePolicy: &models.AdaptiveExecutionPolicy{Stages: map[string]models.AdaptiveStagePolicy{"recognition": {AllowCPU: true, CPUPrecision: "float32"}}}}
 	require.NoError(t, h.resolveExecutionPolicy(c, &params))
@@ -78,9 +77,34 @@ func TestExecutionDefaultsPreserveLegacyAndExplicitOverrides(t *testing.T) {
 	require.Equal(t, 1, params.ExecutionPolicy.MaxRetries)
 }
 
+func TestExecutionDefaultsStrongAndAggressivePreserveOriginalProfileRowsAndConstraints(t *testing.T) {
+	h, db, user := hfTokenTestHandler(t)
+	for _, strength := range []string{models.RecoveryStrong, models.RecoveryAggressive} {
+		policy := models.DefaultExecutionPolicy()
+		policy.RecoveryStrength = strength
+		require.NoError(t, db.Model(&user).Select("execution_policy").Updates(models.User{ExecutionPolicy: &policy}).Error)
+		profile := models.TranscriptionProfile{Name: "old locked " + strength, Parameters: models.WhisperXParams{Model: "small", Device: "cuda", RecoveryMode: transcription.RecoveryBatchManagement, AdaptivePolicy: &models.AdaptiveExecutionPolicy{Stages: map[string]models.AdaptiveStagePolicy{"recognition": {DeviceLocked: true, MinBatchSize: 4}}}}}
+		require.NoError(t, h.profileRepo.Create(context.Background(), &profile))
+		before, err := json.Marshal(profile.Parameters)
+		require.NoError(t, err)
+		c, _ := hfTokenRequest("POST", "", user.ID)
+		params, err := h.admitSavedProfile(c, &profile)
+		require.NoError(t, err)
+		require.Equal(t, strength, params.RecoveryMode)
+		require.True(t, params.AdaptivePolicy.Stages["recognition"].DeviceLocked)
+		require.Equal(t, 4, params.AdaptivePolicy.Stages["recognition"].MinBatchSize)
+		var stored models.TranscriptionProfile
+		require.NoError(t, db.First(&stored, "id = ?", profile.ID).Error)
+		after, err := json.Marshal(stored.Parameters)
+		require.NoError(t, err)
+		require.JSONEq(t, string(before), string(after), "new-run policy resolution must not rewrite a saved profile")
+	}
+}
+
 func TestExecutionDefaultsRejectInvalidUpdatesWithoutChangingSettings(t *testing.T) {
 	h, _, user := hfTokenTestHandler(t)
 	for _, policy := range []models.ExecutionPolicy{
+		{RecoveryStrength: "level5"},
 		{MaxRetries: 7}, {MaxRetries: -1}, {BackoffSeconds: 121, MaxBackoffSeconds: 150}, {BackoffSeconds: 10, MaxBackoffSeconds: 5}, {MaxBackoffSeconds: 301},
 	} {
 		body, err := json.Marshal(map[string]interface{}{"execution_policy": policy})

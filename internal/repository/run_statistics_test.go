@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/glebarez/sqlite"
+	"github.com/jaysqvl/Jotist/internal/models"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-	"github.com/jaysqvl/Jotist/internal/models"
 )
 
 func TestRunStatisticsProjectEvidenceAndExcludeReusedResumedAndDeleted(t *testing.T) {
@@ -124,6 +124,31 @@ func TestRunStatisticsRecoveryAndMissingMeasurementsRemainDistinct(t *testing.T)
 	require.Nil(t, result.Summary.Memory.AverageRAMBytes)
 	require.Nil(t, result.Summary.MedianHourSeconds)
 	require.Equal(t, 1, result.Stages[0].Retries)
+}
+
+func TestRunStatisticsCountsWorkerRecoveryWithoutInventingStageRetries(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&models.TranscriptionJob{}, &models.TranscriptionJobExecution{}, &models.RecoveryStage{}, &models.RecoveryAttempt{}))
+	now := time.Now().UTC()
+	require.NoError(t, db.Create(&models.TranscriptionJob{ID: "worker-recording", AudioPath: "synthetic.wav"}).Error)
+	metadata := `{"metadata":{"token_splits":"1"}}`
+	for _, id := range []string{"worker", "historical"} {
+		run := models.TranscriptionJobExecution{ID: id, TranscriptionJobID: "worker-recording", Status: models.StatusCompleted, StartedAt: now, ActualParameters: models.WhisperXParams{ModelFamily: "local", Model: "synthetic"}}
+		if id == "historical" {
+			run.Transcript = &metadata
+		}
+		require.NoError(t, db.Create(&run).Error)
+	}
+	require.NoError(t, db.Create(&models.RecoveryStage{ID: "worker-stage", ExecutionID: "worker", Kind: "recognition"}).Error)
+	require.NoError(t, db.Create(&models.RecoveryAttempt{ID: "worker-attempt", StageID: "worker-stage", ExecutionID: "worker", AttemptNumber: 1, State: models.RecoverySucceeded, StartedAt: now, Measurements: &models.StageMeasurements{WorkerRetryCount: 2, WorkerRecoveryActions: map[string]int{"decoder_budget_retry": 1, "token_window_split": 1}}}).Error)
+	result, err := ReadRunStatistics(context.Background(), db, 0, now)
+	require.NoError(t, err)
+	require.Equal(t, 2, result.Summary.Recovered, "both saved worker actions and historical split metadata are recovery")
+	require.Len(t, result.Stages, 1)
+	require.Equal(t, 1, result.Stages[0].Attempts)
+	require.Zero(t, result.Stages[0].Retries, "model recovery must not fabricate another stage invocation")
+	require.Equal(t, 2, result.Stages[0].WorkerRetries)
 }
 
 func TestRunStatisticsAcceptsRuntimeStageKindsAndLastSuccessfulAttempt(t *testing.T) {

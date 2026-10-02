@@ -1,8 +1,57 @@
 """Safe GPU execution evidence. No ML imports or user data in failure records."""
 from contextlib import contextmanager
 import json
+import os
+import time
 
 _completed_units = 0
+
+
+class RecoveryBudget:
+    """One stage budget shared by decoder retries, window changes and repairs.
+
+    The coordinator sends this through the worker environment. An absent value
+    preserves immutable legacy plans. Malformed values fail closed.
+    """
+
+    def __init__(self, policy=None):
+        self.policy = policy
+        self.used = 0
+        if policy is None:
+            return
+        if not isinstance(policy, dict) or type(policy.get("version")) is not int or policy["version"] != 1:
+            raise ValueError("Invalid saved worker recovery policy")
+        for key, maximum in (("remaining_retries", 6), ("retries_used", 100), ("backoff_seconds", 120), ("max_backoff_seconds", 300)):
+            value = policy.get(key)
+            if type(value) is not int or not 0 <= value <= maximum:
+                raise ValueError("Invalid saved worker recovery budget")
+        if type(policy.get("allow_output_changes")) is not bool or policy["max_backoff_seconds"] < policy["backoff_seconds"]:
+            raise ValueError("Invalid saved worker recovery permissions")
+
+    @classmethod
+    def from_environment(cls):
+        raw = os.environ.get("JOTIST_RECOVERY_POLICY", "")
+        if not raw:
+            return cls()
+        value = json.loads(raw)
+        if value is None:
+            raise ValueError("Invalid saved worker recovery policy")
+        return cls(value)
+
+    def take(self, action, changes_output=False):
+        if action not in {"decoder_budget_retry", "token_window_split", "native_timing_split", "native_timing_repair"}:
+            raise ValueError("Unknown worker recovery action")
+        if self.policy is None:
+            return True
+        if self.used >= self.policy["remaining_retries"] or changes_output and not self.policy["allow_output_changes"]:
+            return False
+        self.used += 1
+        print("JOTIST_RECOVERY=" + json.dumps({"action": action, "retry": self.used}), flush=True)
+        index = self.policy["retries_used"] + self.used
+        delay = min(self.policy["max_backoff_seconds"], self.policy["backoff_seconds"] * (2 ** min(index - 1, 20)))
+        if delay:
+            time.sleep(delay)  # The supervised worker group is killed on cancel.
+        return True
 
 
 def progress():

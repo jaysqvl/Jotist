@@ -127,7 +127,7 @@ export function executionEvidenceRows(params: ExecutionSettings, metadata?: Reco
         { label: "Recovery policy", value: recoveryModeLabel(params) },
         ...(params.execution_policy ? [
             { label: "Saved execution defaults", value: params.execution_policy_source === "global" ? "Shared settings at admission" : "Run or profile override" },
-            { label: "Automatic recovery", value: executionPolicySummary(params.execution_policy) },
+            { label: "Automatic recovery", value: executionPolicySummary(params.execution_policy, params.recovery_mode) },
             { label: "Maximum retry delay", value: `${params.execution_policy.max_backoff_seconds}s` },
         ] : []),
         { label: "Requested precision", value: requestedExecutionPrecision(params, capability) },

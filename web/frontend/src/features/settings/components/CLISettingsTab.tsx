@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { cliInstallCommand } from '../hooks/cliInstall'
 
 
 export function CLISettingsTab() {
@@ -9,11 +10,7 @@ export function CLISettingsTab() {
     useEffect(() => {
         const generateCommand = async () => {
             try {
-                const protocol = window.location.protocol
-                const host = window.location.host
-                const url = `${protocol}//${host}/install.sh`
-
-                setInstallCmd(`curl -sL "${url}" | bash`)
+                setInstallCmd(cliInstallCommand(window.location.origin))
             } catch (err) {
                 console.error(err)
             } finally {

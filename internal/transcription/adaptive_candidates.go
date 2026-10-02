@@ -17,9 +17,13 @@ func recoveryLevel(mode string) int {
 		return 1
 	case RecoveryBatchManagement:
 		return 2
+	case models.RecoveryStandard:
+		return 2
 	case RecoveryCPUFallback:
 		return 3
 	case RecoveryShorterWindows:
+		return 4
+	case models.RecoveryStrong, models.RecoveryAggressive:
 		return 4
 	}
 	return 0
@@ -46,6 +50,43 @@ func stageRule(policy *models.AdaptiveExecutionPolicy, kind string) models.Adapt
 		return policy.Stages[recoveryStageKey(kind)]
 	}
 	return models.AdaptiveStagePolicy{}
+}
+
+// A strength grants only actions declared by this adapter. Existing explicit
+// stage restrictions are retained; missing restrictions use qualified defaults.
+func executionStageRule(params models.WhisperXParams, kind string, desc interfaces.StageDescriptor) models.AdaptiveStagePolicy {
+	rule := stageRule(params.AdaptivePolicy, kind)
+	if params.RecoveryMode != models.RecoveryStandard && params.RecoveryMode != models.RecoveryStrong && params.RecoveryMode != models.RecoveryAggressive {
+		return rule
+	}
+	if params.AdaptivePolicy != nil {
+		if _, exists := params.AdaptivePolicy.Stages[recoveryStageKey(kind)]; exists {
+			return rule
+		}
+	}
+	rule.MinBatchSize = 1
+	rule.DeviceLocked = !permitsCPUFallback(params.RecoveryMode)
+	rule.AllowCPU = permitsCPUFallback(params.RecoveryMode) && supportsPrecision(desc, "cpu", "float32")
+	if rule.AllowCPU {
+		rule.CPUPrecision = "float32"
+	}
+	if permitsShorterWindows(params.RecoveryMode) && desc.WindowPolicy != nil && desc.WindowPolicy.Unit == "seconds" && desc.WindowPolicy.StitchingVersion != "" {
+		rule.OverlapSeconds = float64(desc.WindowPolicy.MinimumOverlap)
+		for _, window := range desc.WindowPolicy.Candidates {
+			if window > 0 && float64(window) > 2*rule.OverlapSeconds {
+				rule.WindowCandidates = append(rule.WindowCandidates, window)
+			}
+		}
+		sort.Sort(sort.Reverse(sort.IntSlice(rule.WindowCandidates)))
+		if len(rule.WindowCandidates) > 2 {
+			rule.WindowCandidates = rule.WindowCandidates[:2]
+		}
+		if len(rule.WindowCandidates) > 0 {
+			rule.MinWindowSeconds = rule.WindowCandidates[len(rule.WindowCandidates)-1]
+			rule.AllowShorterWindows = true
+		}
+	}
+	return rule
 }
 func ValidateAdaptivePolicy(params models.WhisperXParams) error {
 	if err := ValidateRecoveryMode(params.RecoveryMode); err != nil {
@@ -228,19 +269,29 @@ func nextAdaptiveCandidate(mode, code string, rule models.AdaptiveStagePolicy, d
 			}
 		}
 	}
-	if level >= 3 && gpuFailure && current.Device == "cuda" && !rule.DeviceLocked && rule.AllowCPU && !cpuUsed && supportsPrecision(desc, "cpu", rule.CPUPrecision) {
-		next := current
-		next.Device = "cpu"
-		next.Precision = rule.CPUPrecision
-		if !tried(next) {
-			return &adaptiveCandidate{next, "cpu_fallback"}
+	cpuCandidate := func() *adaptiveCandidate {
+		if permitsCPUFallback(mode) && gpuFailure && current.Device == "cuda" && !rule.DeviceLocked && rule.AllowCPU && !cpuUsed && supportsPrecision(desc, "cpu", rule.CPUPrecision) {
+			next := current
+			next.Device = "cpu"
+			next.Precision = rule.CPUPrecision
+			if !tried(next) {
+				return &adaptiveCandidate{next, "cpu_fallback"}
+			}
+		}
+		return nil
+	}
+	// Preserve old saved ladders. New Aggressive recovery exhausts permitted
+	// GPU windows before CPU, keeping its last qualified window on CPU.
+	if mode != models.RecoveryAggressive {
+		if next := cpuCandidate(); next != nil {
+			return next
 		}
 	}
-	if level < 4 || code == "cuda_runtime_error" || !rule.AllowShorterWindows || desc.WindowPolicy == nil || desc.WindowPolicy.StitchingVersion == "" || desc.WindowPolicy.Unit != "seconds" || windowsUsed >= 2 {
-		return nil
+	if !permitsShorterWindows(mode) || code == "cuda_runtime_error" || !rule.AllowShorterWindows || desc.WindowPolicy == nil || desc.WindowPolicy.StitchingVersion == "" || desc.WindowPolicy.Unit != "seconds" || windowsUsed >= 2 {
+		return cpuCandidate()
 	}
 	if rule.OverlapSeconds < float64(desc.WindowPolicy.MinimumOverlap) {
-		return nil
+		return cpuCandidate()
 	}
 	windows := append([]int(nil), rule.WindowCandidates...)
 	sort.Sort(sort.Reverse(sort.IntSlice(windows)))
@@ -268,7 +319,7 @@ func nextAdaptiveCandidate(mode, code string, rule models.AdaptiveStagePolicy, d
 			return &adaptiveCandidate{next, "shorter_window"}
 		}
 	}
-	return nil
+	return cpuCandidate()
 }
 func settingsFromAttempt(a models.RecoveryAttempt) models.AdaptiveStageSettings {
 	return models.AdaptiveStageSettings{Device: a.Device, Precision: a.Precision, BatchSize: a.BatchSize, Concurrency: 1, WindowSeconds: a.WindowSeconds, OverlapSeconds: a.OverlapSeconds, StitchingVersion: a.StitchingVersion}
@@ -297,14 +348,14 @@ func candidateAllowed(mode string, rule models.AdaptiveStagePolicy, desc interfa
 		}
 	}
 	if candidate.Device != original.Device {
-		if level < 3 || rule.DeviceLocked || !rule.AllowCPU || candidate.Device != "cpu" || candidate.Precision != rule.CPUPrecision || !supportsPrecision(desc, "cpu", candidate.Precision) {
+		if !permitsCPUFallback(mode) || rule.DeviceLocked || !rule.AllowCPU || candidate.Device != "cpu" || candidate.Precision != rule.CPUPrecision || !supportsPrecision(desc, "cpu", candidate.Precision) {
 			return false
 		}
 	} else if candidate.Precision != original.Precision {
 		return false
 	}
 	if candidate.WindowSeconds != original.WindowSeconds || candidate.OverlapSeconds != original.OverlapSeconds || candidate.StitchingVersion != original.StitchingVersion {
-		if level < 4 || !rule.AllowShorterWindows || desc.WindowPolicy == nil || candidate.StitchingVersion != desc.WindowPolicy.StitchingVersion || candidate.OverlapSeconds != rule.OverlapSeconds || candidate.OverlapSeconds < float64(desc.WindowPolicy.MinimumOverlap) || candidate.WindowSeconds <= 2*candidate.OverlapSeconds || desc.WindowPolicy.Unit != "seconds" || candidate.WindowSeconds < float64(rule.MinWindowSeconds) || (original.WindowSeconds > 0 && candidate.WindowSeconds >= original.WindowSeconds) {
+		if !permitsShorterWindows(mode) || !rule.AllowShorterWindows || desc.WindowPolicy == nil || candidate.StitchingVersion != desc.WindowPolicy.StitchingVersion || candidate.OverlapSeconds != rule.OverlapSeconds || candidate.OverlapSeconds < float64(desc.WindowPolicy.MinimumOverlap) || candidate.WindowSeconds <= 2*candidate.OverlapSeconds || desc.WindowPolicy.Unit != "seconds" || candidate.WindowSeconds < float64(rule.MinWindowSeconds) || (original.WindowSeconds > 0 && candidate.WindowSeconds >= original.WindowSeconds) {
 			return false
 		}
 		ok := false

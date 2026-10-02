@@ -9,6 +9,7 @@ type AdaptiveStagePolicy struct {
 	CPUPrecision        string                 `json:"cpu_precision,omitempty"`
 	MinBatchSize        int                    `json:"min_batch_size,omitempty"`
 	AllowShorterWindows bool                   `json:"allow_shorter_windows"`
+	AllowOutputChanges  *bool                  `json:"allow_output_changes,omitempty"`
 	WindowCandidates    []int                  `json:"window_candidates,omitempty"`
 	MinWindowSeconds    int                    `json:"min_window_seconds,omitempty"`
 	OverlapSeconds      float64                `json:"overlap_seconds,omitempty"`
