@@ -7,15 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Loader2, SlidersHorizontal } from "lucide-react";
 import type { WhisperXParams } from "@/features/transcription/types";
 import { useAuth } from "@/features/auth/hooks/useAuth";
@@ -23,16 +15,9 @@ import { sortProfilesByName } from "@/lib/profiles";
 import { CheckpointReuseField } from "./transcription/RecoveryPolicyFields";
 import { recoveryModeLabel, type RunSubmissionOptions } from "@/features/transcription/hooks/recoveryPolicy";
 import { DEFAULT_EXECUTION_POLICY, executionPolicySummary, previewCheckpointReuse, type ExecutionPolicy } from "@/features/transcription/hooks/executionPolicy";
-
-interface TranscriptionProfile {
-  id: string;
-  name: string;
-  description?: string;
-  is_default: boolean;
-  parameters: WhisperXParams;
-  created_at: string;
-  updated_at: string;
-}
+import { normalizeModelCapabilities, type TranscriptionModelCapability } from "@/features/transcription/hooks/modelCapabilities";
+import { profilePickerStorageKey, readProfilePickerPreferences, restoreProfileSelection, saveProfilePickerPreferences, type ProfilePickerPreferences, type SavedTranscriptionProfile } from "@/features/transcription/hooks/profilePicker";
+import { ProfilePicker } from "./transcription/ProfilePicker";
 
 interface TranscribeDDialogProps {
   open: boolean;
@@ -57,66 +42,74 @@ export function TranscribeDDialog({
   loadingLabel = "Starting...",
   onAdvanced,
 }: TranscribeDDialogProps) {
-  const { getAuthHeaders } = useAuth();
-  const [profiles, setProfiles] = useState<TranscriptionProfile[]>([]);
-  const [selectedProfileId, setSelectedProfileId] = useState<string>("");
+  const { getAuthHeaders, token } = useAuth();
+  const storageKey = profilePickerStorageKey(token);
+  const [preferences, setPreferences] = useState(() => readProfilePickerPreferences(storageKey));
+  const [profiles, setProfiles] = useState<SavedTranscriptionProfile[]>([]);
   const [profilesLoading, setProfilesLoading] = useState(false);
-  const [defaultProfile, setDefaultProfile] = useState<TranscriptionProfile | null>(null);
+  const [profilesError, setProfilesError] = useState(false);
+  const [reload, setReload] = useState(0);
+  const [defaultProfile, setDefaultProfile] = useState<SavedTranscriptionProfile | null>(null);
+  const [models, setModels] = useState<TranscriptionModelCapability[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogError, setCatalogError] = useState(false);
   const [reuseOverride, setReuseOverride] = useState<boolean | undefined>();
   const [sharedPolicy, setSharedPolicy] = useState<ExecutionPolicy | null>(null);
-  const selectedProfile = profiles.find((profile) => profile.id === selectedProfileId);
-
-  const fetchProfiles = useCallback(async () => {
-    try {
-      setProfilesLoading(true);
-
-      // Fetch all profiles
-      const profilesResponse = await fetch("/api/v1/profiles", {
-        headers: {
-          ...getAuthHeaders(),
-        },
-      });
-
-      if (profilesResponse.ok) {
-        const profilesData: TranscriptionProfile[] = await profilesResponse.json();
-        const sortedProfiles = sortProfilesByName(profilesData);
-        setProfiles(sortedProfiles);
-
-        // Fetch user's default profile
-        const defaultResponse = await fetch("/api/v1/user/default-profile", {
-          headers: {
-            ...getAuthHeaders(),
-          },
-        });
-
-        if (defaultResponse.ok) {
-          const defaultData: TranscriptionProfile = await defaultResponse.json();
-          setDefaultProfile(defaultData);
-          setSelectedProfileId(defaultData.id);
-        } else if (defaultResponse.status === 404) {
-          // No default profile set, use the first available profile
-          setDefaultProfile(null);
-          if (sortedProfiles.length > 0) {
-            setSelectedProfileId(sortedProfiles[0].id);
-          }
-        }
-      } else {
-        console.error("Failed to fetch profiles");
-      }
-    } catch (error) {
-      console.error("Error fetching profiles:", error);
-    } finally {
-      setProfilesLoading(false);
-    }
-  }, [getAuthHeaders]);
+  const selectedProfile = profiles.find((profile) => profile.id === preferences.profileId);
+  const updatePreferences = useCallback((patch: Partial<ProfilePickerPreferences>) => {
+    setPreferences((previous) => {
+      const next = { ...previous, ...patch };
+      saveProfilePickerPreferences(storageKey, next);
+      return next;
+    });
+  }, [storageKey]);
 
   // Fetch profiles when dialog opens
   useEffect(() => {
-    if (open) {
-      setReuseOverride(undefined);
-      fetchProfiles();
-    }
-  }, [open, fetchProfiles]);
+    if (!open) return;
+    const controller = new AbortController();
+    const remembered = readProfilePickerPreferences(storageKey);
+    setPreferences(remembered);
+    setReuseOverride(undefined);
+    setProfiles([]);
+    setDefaultProfile(null);
+    setProfilesLoading(true);
+    setProfilesError(false);
+    setModels([]);
+    setCatalogLoading(true);
+    setCatalogError(false);
+    const load = async () => {
+      const options = { headers: getAuthHeaders(), signal: controller.signal };
+      const [profileResult, defaultResult, catalogResult] = await Promise.allSettled([
+        fetch("/api/v1/profiles", options).then(async (response) => {
+          if (!response.ok) throw new Error("Profiles unavailable");
+          return sortProfilesByName(await response.json() as SavedTranscriptionProfile[]);
+        }),
+        fetch("/api/v1/user/default-profile", options).then(async (response) => response.ok ? await response.json() as SavedTranscriptionProfile : null),
+        fetch("/api/v1/transcription/models", options).then(async (response) => {
+          if (!response.ok) throw new Error("Model comparisons unavailable");
+          const data = await response.json();
+          return normalizeModelCapabilities(data.models ?? {});
+        }),
+      ]);
+      if (controller.signal.aborted) return;
+      if (profileResult.status === "fulfilled") {
+        const loadedProfiles = profileResult.value;
+        const loadedDefault = defaultResult.status === "fulfilled" ? defaultResult.value : null;
+        const next = { ...remembered, profileId: restoreProfileSelection(loadedProfiles, remembered.profileId, loadedDefault?.id) };
+        setProfiles(loadedProfiles);
+        setDefaultProfile(loadedDefault);
+        setPreferences(next);
+        saveProfilePickerPreferences(storageKey, next);
+      } else setProfilesError(true);
+      if (catalogResult.status === "fulfilled") setModels(catalogResult.value);
+      else setCatalogError(true);
+      setProfilesLoading(false);
+      setCatalogLoading(false);
+    };
+    void load();
+    return () => controller.abort();
+  }, [open, getAuthHeaders, storageKey, reload]);
 
   useEffect(() => {
     if (!open) return;
@@ -129,16 +122,13 @@ export function TranscribeDDialog({
   }, [open, getAuthHeaders]);
 
   const handleStartTranscription = () => {
-    if (!selectedProfileId) return;
-
-    const selectedProfile = profiles.find(p => p.id === selectedProfileId);
     if (selectedProfile) {
       onStartTranscription(selectedProfile.parameters, selectedProfile.id, selectedProfile.name, { reuse_checkpoints: reuseOverride });
     }
   };
 
   const handleProfileChange = (value: string) => {
-    setSelectedProfileId(value);
+    updatePreferences({ profileId: value });
     setReuseOverride(undefined);
   };
 
@@ -146,7 +136,7 @@ export function TranscribeDDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md glass-card rounded-[var(--radius-card)] p-0 gap-0 overflow-hidden border border-[var(--border-subtle)] shadow-[var(--shadow-float)]">
+      <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col sm:max-w-xl glass-card rounded-[var(--radius-card)] p-0 gap-0 overflow-hidden border border-[var(--border-subtle)] shadow-[var(--shadow-float)]">
         <DialogHeader className="p-6 pb-2">
           <DialogTitle className="text-xl font-bold tracking-tight text-[var(--text-primary)]">
             {title || "Transcribe with Profile"}
@@ -158,56 +148,25 @@ export function TranscribeDDialog({
 
 
 
-        <div className="max-h-[65vh] space-y-4 overflow-y-auto px-6 py-2">
+        <div className="min-h-0 space-y-4 overflow-y-auto px-6 py-2">
           <div className="space-y-2">
-            <Label htmlFor="profile" className="text-[var(--text-secondary)] font-medium">
-              Select Profile
-            </Label>
-
             {profilesLoading ? (
               <div className="flex items-center space-x-2 p-3 bg-[var(--bg-main)]/50 rounded-[var(--radius-btn)] border border-[var(--border-subtle)]">
                 <Loader2 className="h-4 w-4 animate-spin text-[var(--text-tertiary)]" />
                 <span className="text-sm text-[var(--text-secondary)]">Loading profiles...</span>
+              </div>
+            ) : profilesError ? (
+              <div role="alert" className="rounded-xl border border-[var(--border-subtle)] p-3 text-sm text-[var(--text-secondary)]">
+                Could not load saved profiles. <Button size="sm" variant="ghost" onClick={() => setReload((value) => value + 1)}>Try again</Button>
               </div>
             ) : profiles.length === 0 ? (
               <div className="p-3 bg-[var(--bg-main)]/50 rounded-[var(--radius-btn)] border border-[var(--border-subtle)]">
                 <span className="text-sm text-[var(--text-secondary)]">No profiles available</span>
               </div>
             ) : (
-              <Select
-                value={selectedProfileId}
-                onValueChange={handleProfileChange}
-              >
-                <SelectTrigger className="h-11 rounded-[var(--radius-btn)] bg-[var(--bg-main)] border border-[var(--border-subtle)] text-[var(--text-primary)] focus:ring-[var(--brand-light)] focus:border-[var(--brand-solid)] shadow-none">
-                  <SelectValue placeholder="Choose a profile..." />
-                </SelectTrigger>
-                <SelectContent className="glass-card rounded-[var(--radius-btn)] border border-[var(--border-subtle)] shadow-[var(--shadow-float)]">
-                  {/* All profiles */}
-                  {profiles.map((profile) => (
-                    <SelectItem
-                      key={profile.id}
-                      value={profile.id}
-                      className="text-[var(--text-primary)] focus:bg-[var(--brand-light)] focus:text-[var(--brand-solid)] rounded-[8px] my-1 mx-1 cursor-pointer"
-                    >
-                      <div className="flex flex-col space-y-1">
-                        <div className="flex items-center space-x-2">
-                          <span>{profile.name}</span>
-                          {defaultProfile && profile.id === defaultProfile.id && (
-                            <span className="text-xs text-[var(--success-solid)] bg-[var(--success-translucent)] px-1.5 py-0.5 rounded">
-                              Default
-                            </span>
-                          )}
-                        </div>
-                        {profile.description && (
-                          <span className="text-xs text-[var(--text-tertiary)] truncate">
-                            {profile.description}
-                          </span>
-                        )}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <ProfilePicker profiles={profiles} models={models} preferences={preferences} onPreferencesChange={updatePreferences}
+                onValueChange={handleProfileChange} defaultProfileId={defaultProfile?.id}
+                catalogLoading={catalogLoading} catalogError={catalogError} disabled={loading} />
             )}
           </div>
           {selectedProfile && <div className="space-y-3">
@@ -242,7 +201,7 @@ export function TranscribeDDialog({
           )}
           <Button
             onClick={handleStartTranscription}
-            disabled={loading || !selectedProfileId || profilesLoading || profiles.length === 0}
+            disabled={loading || !selectedProfile || profilesLoading}
             className="min-w-[140px] !bg-[image:var(--brand-gradient)] hover:!opacity-90 !text-white border-none shadow-lg shadow-brand-500/20"
           >
             {loading ? (
