@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0](https://github.com/jaysqvl/Jotist/compare/v1.9.0...v2.0.0) (2026-10-02)
+
+- Install and run the CLI as `jotist`. Configuration uses `~/.jotist.yaml` and
+  `JOTIST_*` variables, and the watcher service is `jotist-watcher`.
+- New containers and archives use `jotist-server` and default to `jotist.db`.
+  Existing installations must retain their data and signing secret, migrate
+  configuration and scripts, and sign in again. There are no Scriberr aliases
+  or automatic fallbacks; follow the [migration guide](https://github.com/jaysqvl/Jotist/blob/v2.0.0/docs/jotist-migration.md).
+- Jotist names now cover installers, CLI downloads, browser storage, webhooks,
+  runtime messages, and source modules.
+
 ## [1.9.0](https://github.com/jaysqvl/Jotist/compare/v1.8.0...v1.9.0) (2026-10-02)
 
 
