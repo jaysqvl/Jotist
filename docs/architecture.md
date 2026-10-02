@@ -53,8 +53,13 @@ committed together for reproducibility and are not independent source files.
 - `AuthProvider` owns browser session initialization and its one renewal timer.
   `useAuth` reads the shared store; adding a consumer must not start another
   lifecycle. The fetch interceptor adds credentials only to the same-origin API.
-- A queue has a fixed worker count for its lifetime. `QUEUE_WORKERS` overrides
-  the server default of two; the durable pending records survive a full queue.
+- Recording queues share one worker by default. Settings stores a server-wide
+  concurrency limit; lowering it lets active runs finish before another claim.
+  `QUEUE_WORKERS` is an explicit deployment override and locks the Settings
+  control. Resource waits, retries and cleanup retain worker ownership. Durable
+  pending records survive a full queue. Queue cards use a shared read-only
+  activity projection to name worker owners across recordings without assigning
+  a global FIFO position.
 - Upload conversion finishes before a short database transaction publishes the
   recording and binds its upload session. Dispatch follows that commit, so a
   repeated completion request returns the same result. Quick results remain

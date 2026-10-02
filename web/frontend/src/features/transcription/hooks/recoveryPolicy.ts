@@ -4,6 +4,8 @@ import type { AdaptivePlanSettings } from "./adaptiveLearning.ts";
 export type RecoveryMode = "" | "fixed" | "stage_management" | "batch_management" | "cpu_fallback" | "shorter_windows";
 
 export interface RecoveryParameters {
+    execution_policy_source?: "global" | "override";
+    execution_policy?: import("./executionPolicy").ExecutionPolicy;
     recovery_mode?: RecoveryMode;
     reuse_checkpoints?: boolean | null;
     model_family?: string;
@@ -76,6 +78,7 @@ export interface ResourceMeasurements {
 }
 
 export interface RecoveryAttempt {
+    retry_at?: string;
     id: string;
     attempt_number: number;
     status: string;
@@ -147,7 +150,14 @@ export interface ExecutionRecovery {
 }
 
 export function recoveryIsActive(status?: string): boolean {
-    return ["pending", "running", "processing", "waiting"].includes(status || "");
+    return ["pending", "running", "processing", "waiting", "waiting_for_resource"].includes(status || "");
+}
+
+export function recoveryStageStatusLabel(stage: RecoveryStage): string {
+    const latest = stage.attempts?.at(-1);
+    if (stage.status === "waiting_for_resource") return latest?.retry_at ? `Retry scheduled · ${new Date(latest.retry_at).toLocaleTimeString()}` : "Waiting for compute resources";
+    const labels: Record<string, string> = { succeeded: "Complete", running: "Running", pending: "Pending", retryable: "Retrying", failed: "Failed", interrupted: "Interrupted", blocked: "Needs attention", cancelled: "Cancelled" };
+    return labels[stage.status] ?? stage.status;
 }
 
 export function canResumeExecution(recovery: ExecutionRecovery | undefined, executionID: string, otherRunActive = false): boolean {

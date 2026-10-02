@@ -2965,18 +2965,20 @@ func (h *Handler) SetUserDefaultProfile(c *gin.Context) {
 
 // UserSettingsResponse represents the user's settings
 type UserSettingsResponse struct {
-	AutoTranscriptionEnabled  bool    `json:"auto_transcription_enabled"`
-	DefaultProfileID          *string `json:"default_profile_id,omitempty"`
-	TranscriptionContext      string  `json:"transcription_context"`
-	TranscriptionContextTerms string  `json:"transcription_context_terms"`
-	HasHFToken                bool    `json:"has_hf_token"`
+	ExecutionPolicy           models.ExecutionPolicy `json:"execution_policy"`
+	AutoTranscriptionEnabled  bool                   `json:"auto_transcription_enabled"`
+	DefaultProfileID          *string                `json:"default_profile_id,omitempty"`
+	TranscriptionContext      string                 `json:"transcription_context"`
+	TranscriptionContextTerms string                 `json:"transcription_context_terms"`
+	HasHFToken                bool                   `json:"has_hf_token"`
 }
 
 // UpdateUserSettingsRequest represents the request to update user settings
 type UpdateUserSettingsRequest struct {
-	AutoTranscriptionEnabled  *bool   `json:"auto_transcription_enabled,omitempty"`
-	TranscriptionContext      *string `json:"transcription_context,omitempty"`
-	TranscriptionContextTerms *string `json:"transcription_context_terms,omitempty"`
+	ExecutionPolicy           *models.ExecutionPolicy `json:"execution_policy,omitempty"`
+	AutoTranscriptionEnabled  *bool                   `json:"auto_transcription_enabled,omitempty"`
+	TranscriptionContext      *string                 `json:"transcription_context,omitempty"`
+	TranscriptionContextTerms *string                 `json:"transcription_context_terms,omitempty"`
 	// Write-only: omitted/null preserves the saved token; an empty string clears it.
 	HFToken *string `json:"hf_token,omitempty"`
 }
@@ -3004,6 +3006,7 @@ func (h *Handler) GetUserSettings(c *gin.Context) {
 	}
 
 	response := UserSettingsResponse{
+		ExecutionPolicy:           user.EffectiveExecutionPolicy(),
 		AutoTranscriptionEnabled:  user.AutoTranscriptionEnabled,
 		DefaultProfileID:          user.DefaultProfileID,
 		TranscriptionContext:      user.TranscriptionContext,
@@ -3046,6 +3049,15 @@ func (h *Handler) UpdateUserSettings(c *gin.Context) {
 	}
 
 	// Update fields if provided
+	fields := []string{}
+	if req.ExecutionPolicy != nil {
+		if err := transcription.ValidateExecutionPolicy(*req.ExecutionPolicy); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		user.ExecutionPolicy = req.ExecutionPolicy
+		fields = append(fields, "execution_policy")
+	}
 	if err := validateContext(req.TranscriptionContext, req.TranscriptionContextTerms); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -3056,24 +3068,29 @@ func (h *Handler) UpdateUserSettings(c *gin.Context) {
 	}
 	if req.HFToken != nil {
 		user.HFToken = strings.TrimSpace(*req.HFToken)
+		fields = append(fields, "hf_token")
 	}
 	if req.TranscriptionContext != nil {
 		user.TranscriptionContext = strings.TrimSpace(*req.TranscriptionContext)
+		fields = append(fields, "transcription_context")
 	}
 	if req.TranscriptionContextTerms != nil {
 		user.TranscriptionContextTerms = strings.TrimSpace(*req.TranscriptionContextTerms)
+		fields = append(fields, "transcription_context_terms")
 	}
 	if req.AutoTranscriptionEnabled != nil {
 		user.AutoTranscriptionEnabled = *req.AutoTranscriptionEnabled
+		fields = append(fields, "auto_transcription_enabled")
 	}
 
 	// Save updated user
-	if err := h.userRepo.Update(c.Request.Context(), user); err != nil {
+	if err := h.userRepo.UpdateSettings(c.Request.Context(), user, fields); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update settings"})
 		return
 	}
 
 	response := UserSettingsResponse{
+		ExecutionPolicy:           user.EffectiveExecutionPolicy(),
 		AutoTranscriptionEnabled:  user.AutoTranscriptionEnabled,
 		DefaultProfileID:          user.DefaultProfileID,
 		TranscriptionContext:      user.TranscriptionContext,

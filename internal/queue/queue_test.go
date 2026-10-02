@@ -21,7 +21,9 @@ func TestConfiguredWorkerCount(t *testing.T) {
 		fallback int
 		want     int
 	}{
-		{"default", "", 2, 2},
+		{"server default", "", models.DefaultQueueWorkers, 1},
+		{"unspecified default", "", 0, 1},
+		{"embedder override", "", 2, 2},
 		{"environment override", "4", 2, 4},
 		{"invalid override", "invalid", 2, 2},
 		{"zero override", "0", 3, 3},
@@ -35,7 +37,7 @@ func TestConfiguredWorkerCount(t *testing.T) {
 		})
 	}
 	t.Setenv("QUEUE_WORKERS", "")
-	require.Positive(t, configuredWorkerCount(0))
+	require.Equal(t, 1, configuredWorkerCount(0))
 }
 
 type burstProcessor struct {

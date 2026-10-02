@@ -97,6 +97,7 @@ func Initialize(dbPath string) error {
 		&models.AdaptivePlanSelection{},
 		&models.AdaptiveProfileRevision{},
 		&models.TranscriptionQueueItem{},
+		&models.QueueSetting{},
 		&models.SpeakerMapping{},
 		&models.MultiTrackFile{},
 		&models.User{},

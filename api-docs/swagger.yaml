@@ -223,6 +223,13 @@ definitions:
       diarize_model:
         description: 'Options: ''pyannote'', ''nvidia_sortformer'''
         type: string
+      execution_policy:
+        $ref: '#/definitions/models.ExecutionPolicy'
+      execution_policy_source:
+        description: |-
+          Empty retains pre-existing profile/API behavior. New UI configurations use
+          global defaults; override opts into an explicit per-profile policy.
+        type: string
       fp16:
         type: boolean
       hf_token:
@@ -583,10 +590,19 @@ definitions:
       job_id:
         type: string
     type: object
+  api.UpdateQueueSettingsRequest:
+    properties:
+      workers:
+        type: integer
+    required:
+    - workers
+    type: object
   api.UpdateUserSettingsRequest:
     properties:
       auto_transcription_enabled:
         type: boolean
+      execution_policy:
+        $ref: '#/definitions/models.ExecutionPolicy'
       hf_token:
         description: 'Write-only: omitted/null preserves the saved token; an empty
           string clears it.'
@@ -602,6 +618,8 @@ definitions:
         type: boolean
       default_profile_id:
         type: string
+      execution_policy:
+        $ref: '#/definitions/models.ExecutionPolicy'
       has_hf_token:
         type: boolean
       transcription_context:
@@ -879,6 +897,21 @@ definitions:
       window_seconds:
         type: number
     type: object
+  models.ExecutionPolicy:
+    properties:
+      automatic_recovery:
+        type: boolean
+      backoff_seconds:
+        type: integer
+      max_backoff_seconds:
+        type: integer
+      max_retries:
+        type: integer
+      reduce_batch_size:
+        type: boolean
+      reuse_checkpoints:
+        type: boolean
+    type: object
   models.JobStatus:
     enum:
     - uploaded
@@ -959,6 +992,288 @@ definitions:
         type: string
       updated_at:
         type: string
+    type: object
+  models.QueueActivity:
+    properties:
+      busy_workers:
+        type: integer
+      generated_at:
+        type: string
+      queued_runs:
+        type: integer
+      recordings:
+        items:
+          $ref: '#/definitions/models.QueueActivityEntry'
+        type: array
+      waiting_recordings:
+        type: integer
+      workers:
+        type: integer
+    type: object
+  models.QueueActivityEntry:
+    properties:
+      execution_id:
+        type: string
+      has_worker:
+        type: boolean
+      model:
+        type: string
+      model_family:
+        type: string
+      profile_name:
+        type: string
+      queue_item_id:
+        type: string
+      queued_at:
+        type: string
+      queued_jobs:
+        items:
+          $ref: '#/definitions/models.QueueActivityQueuedJob'
+        type: array
+      queued_runs:
+        type: integer
+      recording_id:
+        type: string
+      recording_title:
+        type: string
+      retry_at:
+        type: string
+      run_number:
+        type: integer
+      stage:
+        type: string
+      stage_number:
+        type: integer
+      stage_scope:
+        type: string
+      stage_state:
+        type: string
+      stage_total:
+        type: integer
+      started_at:
+        type: string
+      state:
+        type: string
+    type: object
+  models.QueueActivityQueuedJob:
+    properties:
+      model:
+        type: string
+      model_family:
+        type: string
+      profile_name:
+        type: string
+      queue_item_id:
+        type: string
+      queued_at:
+        type: string
+    type: object
+  models.QueueSettingsResponse:
+    properties:
+      busy_workers:
+        type: integer
+      environment_override:
+        type: boolean
+      max_workers:
+        type: integer
+      workers:
+        type: integer
+    type: object
+  models.RunActivity:
+    properties:
+      completed:
+        type: integer
+      date:
+        type: string
+      failed:
+        type: integer
+      other:
+        type: integer
+    type: object
+  models.RunFailureStatistics:
+    properties:
+      attempts:
+        type: integer
+      code:
+        type: string
+      stage:
+        type: string
+    type: object
+  models.RunHistory:
+    properties:
+      pagination:
+        properties:
+          limit:
+            type: integer
+          page:
+            type: integer
+          pages:
+            type: integer
+          total:
+            type: integer
+        type: object
+      runs:
+        items:
+          $ref: '#/definitions/models.RunHistoryEntry'
+        type: array
+    type: object
+  models.RunHistoryEntry:
+    properties:
+      completed_at:
+        type: string
+      id:
+        type: string
+      model:
+        type: string
+      model_family:
+        type: string
+      processing_duration:
+        type: integer
+      profile_name:
+        type: string
+      recording_title:
+        type: string
+      run_number:
+        type: integer
+      started_at:
+        type: string
+      status:
+        type: string
+      transcription_job_id:
+        type: string
+    type: object
+  models.RunMemoryStatistics:
+    properties:
+      average_gpu_bytes:
+        type: number
+      average_ram_bytes:
+        type: number
+      contention_runs:
+        type: integer
+      gpu_sampled_seconds:
+        type: number
+      peak_gpu_bytes:
+        type: integer
+      peak_ram_bytes:
+        type: integer
+      peak_worker_gpu_bytes:
+        type: integer
+      ram_sampled_seconds:
+        type: number
+      unknown_ownership_runs:
+        type: integer
+    type: object
+  models.RunModelStatistics:
+    properties:
+      completed:
+        type: integer
+      cpu_fallback:
+        type: integer
+      diarizer:
+        type: string
+      failed:
+        type: integer
+      median_hour_seconds:
+        type: number
+      memory:
+        $ref: '#/definitions/models.RunMemoryStatistics'
+      model:
+        type: string
+      model_family:
+        type: string
+      precision:
+        type: string
+      recognition_device:
+        type: string
+      recovered:
+        type: integer
+      reused:
+        type: integer
+      runs:
+        type: integer
+      speaker_device:
+        type: string
+      timing_measured_runs:
+        type: integer
+    type: object
+  models.RunStageStatistics:
+    properties:
+      attempts:
+        type: integer
+      failed:
+        type: integer
+      kind:
+        type: string
+      median_seconds:
+        type: number
+      retries:
+        type: integer
+      succeeded:
+        type: integer
+      timing_samples:
+        type: integer
+    type: object
+  models.RunStatistics:
+    properties:
+      activity:
+        items:
+          $ref: '#/definitions/models.RunActivity'
+        type: array
+      failures:
+        items:
+          $ref: '#/definitions/models.RunFailureStatistics'
+        type: array
+      generated_at:
+        type: string
+      library_recordings:
+        type: integer
+      models:
+        items:
+          $ref: '#/definitions/models.RunModelStatistics'
+        type: array
+      stages:
+        items:
+          $ref: '#/definitions/models.RunStageStatistics'
+        type: array
+      summary:
+        $ref: '#/definitions/models.RunStatisticsSummary'
+      window_days:
+        type: integer
+    type: object
+  models.RunStatisticsSummary:
+    properties:
+      active:
+        type: integer
+      audio_measured_runs:
+        type: integer
+      audio_seconds:
+        type: number
+      completed:
+        type: integer
+      completion_rate:
+        type: number
+      cpu_fallback:
+        type: integer
+      failed:
+        type: integer
+      median_hour_seconds:
+        type: number
+      memory:
+        $ref: '#/definitions/models.RunMemoryStatistics'
+      other:
+        type: integer
+      recovered:
+        type: integer
+      resource_measured_runs:
+        type: integer
+      resumed:
+        type: integer
+      reused:
+        type: integer
+      runs:
+        type: integer
+      timing_measured_runs:
+        type: integer
     type: object
   models.Summary:
     properties:
@@ -1169,6 +1484,13 @@ definitions:
       diarize_model:
         description: 'Options: ''pyannote'', ''nvidia_sortformer'''
         type: string
+      execution_policy:
+        $ref: '#/definitions/models.ExecutionPolicy'
+      execution_policy_source:
+        description: |-
+          Empty retains pre-existing profile/API behavior. New UI configurations use
+          global defaults; override opts into an explicit per-profile policy.
+        type: string
       fp16:
         type: boolean
       hf_token:
@@ -1346,6 +1668,61 @@ info:
   title: Jotist API
   version: "1.0"
 paths:
+  /api/v1/admin/queue/activity:
+    get:
+      description: Sample shared worker ownership, current stages and waiting recordings
+        without private request or transcript content.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.QueueActivity'
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Show activity across recording queues
+      tags:
+      - admin
+  /api/v1/admin/queue/settings:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.QueueSettingsResponse'
+      security:
+      - BearerAuth: []
+      summary: Read recording queue settings
+      tags:
+      - admin
+    put:
+      consumes:
+      - application/json
+      description: Save a server-wide limit. Active executions finish normally when
+        the limit is lowered. QUEUE_WORKERS is an explicit deployment override.
+      parameters:
+      - description: Recording concurrency
+        in: body
+        name: settings
+        required: true
+        schema:
+          $ref: '#/definitions/api.UpdateQueueSettingsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.QueueSettingsResponse'
+      security:
+      - BearerAuth: []
+      summary: Set recording concurrency
+      tags:
+      - admin
   /api/v1/admin/queue/stats:
     get:
       description: Get current queue statistics
@@ -4006,6 +4383,42 @@ paths:
       - ApiKeyAuth: []
       - BearerAuth: []
       summary: Get quick transcription status
+      tags:
+      - transcription
+  /api/v1/transcription/statistics:
+    get:
+      parameters:
+      - default: 30
+        description: 'Window: 0 (all), 7, 30 or 90 days'
+        in: query
+        name: days
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.RunStatistics'
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Get global run statistics
+      tags:
+      - transcription
+  /api/v1/transcription/statistics/runs:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.RunHistory'
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: List run diagnostics history
       tags:
       - transcription
   /api/v1/transcription/submit:

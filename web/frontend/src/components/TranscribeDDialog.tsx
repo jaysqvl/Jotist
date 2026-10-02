@@ -21,7 +21,8 @@ import type { WhisperXParams } from "@/features/transcription/types";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { sortProfilesByName } from "@/lib/profiles";
 import { CheckpointReuseField } from "./transcription/RecoveryPolicyFields";
-import { recoveryModeLabel, shouldReuseCheckpoints, type RunSubmissionOptions } from "@/features/transcription/hooks/recoveryPolicy";
+import { recoveryModeLabel, type RunSubmissionOptions } from "@/features/transcription/hooks/recoveryPolicy";
+import { DEFAULT_EXECUTION_POLICY, executionPolicySummary, previewCheckpointReuse, type ExecutionPolicy } from "@/features/transcription/hooks/executionPolicy";
 
 interface TranscriptionProfile {
   id: string;
@@ -62,6 +63,7 @@ export function TranscribeDDialog({
   const [profilesLoading, setProfilesLoading] = useState(false);
   const [defaultProfile, setDefaultProfile] = useState<TranscriptionProfile | null>(null);
   const [reuseOverride, setReuseOverride] = useState<boolean | undefined>();
+  const [sharedPolicy, setSharedPolicy] = useState<ExecutionPolicy | null>(null);
   const selectedProfile = profiles.find((profile) => profile.id === selectedProfileId);
 
   const fetchProfiles = useCallback(async () => {
@@ -115,6 +117,16 @@ export function TranscribeDDialog({
       fetchProfiles();
     }
   }, [open, fetchProfiles]);
+
+  useEffect(() => {
+    if (!open) return;
+    const controller = new AbortController();
+    setSharedPolicy(null);
+    void fetch("/api/v1/user/settings", { headers: getAuthHeaders(), signal: controller.signal })
+      .then(async (response) => { if (response.ok) { const data = await response.json(); if (!controller.signal.aborted) setSharedPolicy(data.execution_policy ?? DEFAULT_EXECUTION_POLICY); } })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [open, getAuthHeaders]);
 
   const handleStartTranscription = () => {
     if (!selectedProfileId) return;
@@ -199,8 +211,13 @@ export function TranscribeDDialog({
             )}
           </div>
           {selectedProfile && <div className="space-y-3">
-            <p className="text-xs text-[var(--text-secondary)]">Execution policy: {recoveryModeLabel(selectedProfile.parameters)}. Starting creates a new run; it does not resume an earlier execution.</p>
-            <CheckpointReuseField value={reuseOverride ?? shouldReuseCheckpoints(selectedProfile.parameters.reuse_checkpoints)} onChange={setReuseOverride} />
+            <p className="text-xs text-[var(--text-secondary)]">{selectedProfile.parameters.execution_policy_source === "global"
+              ? `Shared execution defaults${sharedPolicy ? ` · ${executionPolicySummary(sharedPolicy)}` : " · resolved when queued"}`
+              : `Saved recovery override · ${recoveryModeLabel(selectedProfile.parameters)}`}</p>
+            <details className="rounded-xl border border-[var(--border-subtle)]">
+              <summary className="cursor-pointer px-3 py-3 text-sm font-medium">Run overrides</summary>
+              <div className="px-3 pb-3"><CheckpointReuseField value={reuseOverride ?? previewCheckpointReuse(selectedProfile.parameters, sharedPolicy ?? undefined)} onChange={setReuseOverride} /></div>
+            </details>
           </div>}
         </div>
 

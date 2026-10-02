@@ -457,6 +457,13 @@
     },
     {
       "method": "GET",
+      "path": "/api/v1/admin/queue/activity",
+      "summary": "Show activity across recording queues",
+      "description": "Sample shared worker ownership, current stages and waiting recordings without private request or transcript content.",
+      "tag": "admin"
+    },
+    {
+      "method": "GET",
       "path": "/api/v1/transcription/{id}/queue",
       "summary": "List sequential transcription runs",
       "description": "Return the active per-audio queue item and all future queued runs",
@@ -489,6 +496,20 @@
       "summary": "Clear future queued transcription runs",
       "description": "",
       "tag": "transcription"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/queue/settings",
+      "summary": "Read recording queue settings",
+      "description": "",
+      "tag": "admin"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/admin/queue/settings",
+      "summary": "Set recording concurrency",
+      "description": "Save a server-wide limit. Active executions finish normally when the limit is lowered. QUEUE_WORKERS is an explicit deployment override.",
+      "tag": "admin"
     },
     {
       "method": "GET",
@@ -541,9 +562,23 @@
     },
     {
       "method": "GET",
+      "path": "/api/v1/transcription/statistics/runs",
+      "summary": "List run diagnostics history",
+      "description": "",
+      "tag": "transcription"
+    },
+    {
+      "method": "GET",
       "path": "/api/v1/transcription/{id}/runs/{run_id}/resources",
       "summary": "Get run resource measurements",
       "description": "Return invocation measurements and stage attempt timing, settings and resource usage",
+      "tag": "transcription"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transcription/statistics",
+      "summary": "Get global run statistics",
+      "description": "",
       "tag": "transcription"
     },
     {

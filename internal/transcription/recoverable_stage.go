@@ -26,6 +26,7 @@ type recoveryStageContext struct {
 	nodePrefix                 string
 	upstream                   []repository.CheckpointInput
 	descriptor                 *interfaces.StageDescriptor
+	stageKinds                 []string
 }
 
 func runRecoverableStage[T any](ctx context.Context, recovery recoveryStageContext, kind, node string, adapter interfaces.ModelAdapter, input interfaces.AudioInput, params map[string]interface{}, procCtx interfaces.ProcessingContext, run func(map[string]interface{}) (T, error)) (T, map[string]string, error) {
@@ -170,7 +171,14 @@ func runRecoverableStage[T any](ctx context.Context, recovery recoveryStageConte
 		}
 		return digestJSON(values)
 	}
-	stage, err := recovery.store.EnsureStage(ctx, repository.StageSpec{RecordingID: recovery.execution.TranscriptionJobID, ExecutionID: recovery.execution.ID, NodeKey: node, Kind: kind, SchemaVersion: schema, CompatibilityKey: compatibilityFor(provenance), OwnerGeneration: recovery.execution.OwnerGeneration, DurationSeconds: input.Duration.Seconds(), RecoverableBoundary: true, Provenance: provenance})
+	stageNumber, stageTotal := 0, 0
+	for index, plannedKind := range recovery.stageKinds {
+		if plannedKind == kind {
+			stageNumber, stageTotal = index+1, len(recovery.stageKinds)
+			break
+		}
+	}
+	stage, err := recovery.store.EnsureStage(ctx, repository.StageSpec{RecordingID: recovery.execution.TranscriptionJobID, ExecutionID: recovery.execution.ID, NodeKey: node, Kind: kind, StageNumber: stageNumber, StageTotal: stageTotal, SchemaVersion: schema, CompatibilityKey: compatibilityFor(provenance), OwnerGeneration: recovery.execution.OwnerGeneration, DurationSeconds: input.Duration.Seconds(), RecoverableBoundary: true, Provenance: provenance})
 	if err != nil {
 		return zero, nil, fmt.Errorf("cannot establish %s checkpoint identity: %w", node, err)
 	}
@@ -226,6 +234,14 @@ func runRecoverableStage[T any](ctx context.Context, recovery recoveryStageConte
 	var lastCode string
 	var lastMeasurements models.StageMeasurements
 	var lastMetadata map[string]string
+	automaticRetries := 0
+	retryPolicy := recovery.execution.ActualParameters.ExecutionPolicy
+	nextCandidate := func(settings models.AdaptiveStageSettings) *adaptiveCandidate {
+		if !automaticRetryAllowed(retryPolicy, automaticRetries) || count >= 7 {
+			return nil
+		}
+		return nextAdaptiveCandidate(recovery.mode, lastCode, rule, descriptor, original, settings, history, lastMeasurements.ExternalContention)
+	}
 	invoke := func(attemptParams map[string]interface{}, attemptReason string) (T, error) {
 		lastCode = ""
 		if count >= 7 {
@@ -249,7 +265,29 @@ func runRecoverableStage[T any](ctx context.Context, recovery recoveryStageConte
 			return zero, err
 		}
 		count = attempt.AttemptNumber
-		_ = recovery.store.SetAttemptWaiting(ctx, attempt.ID, recovery.execution.OwnerGeneration, true)
+		if err = recovery.store.SetAttemptWaiting(ctx, attempt.ID, recovery.execution.OwnerGeneration, true); err != nil {
+			return zero, err
+		}
+		if delay := retryBackoff(retryPolicy, automaticRetries); delay > 0 {
+			if err = recovery.store.SetAttemptRetryAt(ctx, attempt.ID, recovery.execution.OwnerGeneration, time.Now().Add(delay)); err == nil {
+				err = waitRetryBackoff(ctx, delay)
+			}
+			if err == nil {
+				// The delay has finished; subsequent waiting is for capacity.
+				err = recovery.store.SetAttemptWaiting(ctx, attempt.ID, recovery.execution.OwnerGeneration, true)
+			}
+			if err != nil {
+				cleanup, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				state := models.RecoveryBlocked
+				code := "retry_backoff_failed"
+				if ctx.Err() != nil {
+					state, code = models.RecoveryCancelled, "cancelled"
+				}
+				_ = recovery.store.FailAttempt(cleanup, attempt.ID, recovery.execution.OwnerGeneration, state, code)
+				return zero, err
+			}
+		}
 		release, err := acquireGPUStage(ctx, actual)
 		if release != nil {
 			rawRelease := release
@@ -292,7 +330,7 @@ func runRecoverableStage[T any](ctx context.Context, recovery recoveryStageConte
 			attempt.ErrorCode = lastCode
 			attempt.Measurements = &lastMeasurements
 			history = append(history, *attempt)
-			next := nextAdaptiveCandidate(recovery.mode, lastCode, rule, descriptor, original, settings, history, lastMeasurements.ExternalContention)
+			next := nextCandidate(settings)
 			if next != nil {
 				attempt.State = models.RecoveryRetryable
 			}
@@ -367,12 +405,13 @@ func runRecoverableStage[T any](ctx context.Context, recovery recoveryStageConte
 		if ctx.Err() != nil {
 			return zero, nil, ctx.Err()
 		}
-		next := nextAdaptiveCandidate(recovery.mode, lastCode, rule, descriptor, original, current, history, lastMeasurements.ExternalContention)
+		next := nextCandidate(current)
 		if next == nil {
 			return zero, nil, safeOrOriginalStageError(node, lastCode, err)
 		}
 		current = next.Settings
 		reason = next.Reason
+		automaticRetries++
 	}
 }
 

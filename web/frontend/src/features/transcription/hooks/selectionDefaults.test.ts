@@ -45,7 +45,7 @@ test("Whisper device changes choose FP16 GPU and FP32 CPU with a bounded batch w
     assert.equal(original.batch_size, 8);
 });
 
-test("Canary GPU selection and device changes enable 40-second chunks and retain the external diarizer on CPU", () => {
+test("Canary GPU selection and device changes enable 40-second chunks and preserve the chosen speaker device", () => {
     const original = { ...params(), device: "cuda" };
     const selected = applyModelSelectionDefaults(original, choice(canary), models);
     assert.equal(selected.device, "cuda");
@@ -57,7 +57,7 @@ test("Canary GPU selection and device changes enable 40-second chunks and retain
     assert.equal(selected.nvidia_timestamps, true);
     assert.equal(selected.task, "transcribe");
     assert.equal(selected.nvidia_target_language, "fr");
-    assert.equal(selected.diarization_device, "cpu");
+    assert.equal(selected.diarization_device, "cuda");
     assert.equal(selected.diarize_model, original.diarize_model);
     assert.equal(selected.diarization_checkpoint, original.diarization_checkpoint);
     const gpu = applyDeviceSelectionDefaults({ ...selected, device: "cpu", nvidia_use_chunking: false, nvidia_chunk_duration: 300 }, "cuda", models);
@@ -138,7 +138,7 @@ test("native speaker entry, external preservation and exit use valid timing and 
     assert.equal(leaving.audio_chunk_duration, 30);
     const canaryExit = applyModelSelectionDefaults({ ...selected, device: "cuda", diarization_device: "cuda" }, choice(canary), models);
     assert.equal(canaryExit.diarize_model, "pyannote");
-    assert.equal(canaryExit.diarization_device, "cpu");
+    assert.equal(canaryExit.diarization_device, "cuda");
     assert.equal(applyModelSelectionDefaults(params(), choice(moss), models, true).diarize, false);
 });
 
@@ -176,7 +176,7 @@ test("Auto requests GPU FP16 for backend CPU fallback and capability restriction
         assert.equal(automatic.batch_size, 1);
         assert.equal(automatic.nvidia_chunk_duration, 40);
         assert.equal(automatic.nvidia_use_chunking, true);
-        assert.equal(automatic.diarization_device, "cpu");
+        assert.equal(automatic.diarization_device, "cuda");
     }
     const autoParakeet = applyModelSelectionDefaults({ ...params(), device: "auto" }, choice(parakeet), models);
     assert.equal(autoParakeet.device, "auto");

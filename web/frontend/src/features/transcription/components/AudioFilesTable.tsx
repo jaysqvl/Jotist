@@ -13,6 +13,8 @@ import {
 	X
 } from "lucide-react";
 import { WandAdvancedIcon } from "@/components/icons/WandAdvancedIcon";
+import { useQueueActivity } from '../hooks/useQueueActivity';
+import { activityStateLabel, recordingQueueMessage } from '../hooks/queueActivity';
 // Checkbox removed
 
 import {
@@ -62,6 +64,7 @@ interface AudioFilesTableProps {
 export const AudioFilesTable = memo(function AudioFilesTable({
 	onTranscribe,
 }: AudioFilesTableProps) {
+	const activityQuery = useQueueActivity();
 	const navigate = useNavigate();
 	const { getAuthHeaders } = useAuth();
 	const { shouldShowHint, markHintShown } = useSwipeHint();
@@ -117,7 +120,6 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 
 
 	// Local state for UI
-	// queuePositions state removed
 
 
 	// Selection and Dialog state
@@ -245,23 +247,9 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 	const [selectedFile, setSelectedFile] = useState<AudioFile | null>(null);
 
-	// Calculate queue positions for pending jobs
-	const queuePositions = useMemo(() => {
-		const pendingJobs = data.filter(job => job.status === "pending");
-		// Sort by created_at ascending (FIFO)
-		pendingJobs.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-
-		const positions: Record<string, number> = {};
-		pendingJobs.forEach((job, index) => {
-			positions[job.id] = index + 1;
-		});
-		return positions;
-	}, [data]);
-
 	// Side effects for queue and progress
 	useEffect(() => {
 		if (data.length > 0) {
-			// queuePositions logic derived above
 
 			// Fetch track progress for processing multi-track jobs
 			const processingMultiTrackJobs = data.filter(job =>
@@ -630,6 +618,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 	const getStatusIcon = useCallback((file: AudioFile) => {
 		const status = file.status;
 		const progress = trackProgress[file.id];
+		const activity = !activityQuery.isError ? activityQuery.data?.recordings.find((entry) => entry.recording_id === file.id) : undefined;
 
 		// Multi-track processing
 		if (file.is_multi_track && status === "processing" && progress) {
@@ -665,10 +654,10 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<div className="cursor-help text-amber-500">
-								<Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} />
+								{activity && ['resource_wait', 'retry_wait'].includes(activity.state) ? <Clock className="h-4 w-4" /> : <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} />}
 							</div>
 						</TooltipTrigger>
-						<TooltipContent>Processing</TooltipContent>
+						<TooltipContent>{activity ? activityStateLabel(activity) : 'Processing'}</TooltipContent>
 					</Tooltip>
 				);
 			case "failed":
@@ -683,17 +672,15 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					</Tooltip>
 				);
 			case "pending": {
-				const position = queuePositions[file.id];
 				return (
 					<Tooltip>
 						<TooltipTrigger asChild>
-							<div className="flex items-center gap-1.5 cursor-help">
-								<div className="flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 text-[10px] font-bold shadow-sm whitespace-nowrap">
-									#{position || "-"}
-								</div>
+							<div className="cursor-help text-amber-500">
+								<Clock className="h-4 w-4" />
+								<span className="sr-only">Waiting for a worker</span>
 							</div>
 						</TooltipTrigger>
-						<TooltipContent>Queue Position: #{position}</TooltipContent>
+						<TooltipContent className="max-w-xs">{activityQuery.data && !activityQuery.isError ? recordingQueueMessage(activityQuery.data, file.id) : 'Waiting for a worker'}</TooltipContent>
 					</Tooltip>
 				);
 			}
@@ -720,7 +707,7 @@ export const AudioFilesTable = memo(function AudioFilesTable({
 					</Tooltip>
 				);
 		}
-	}, [trackProgress, queuePositions]);
+	}, [trackProgress, activityQuery.data, activityQuery.isError]);
 
 	// formatDuration removed as requested
 

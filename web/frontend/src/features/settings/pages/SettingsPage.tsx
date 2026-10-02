@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import { RunStatisticsSettings } from "../components/RunStatisticsSettings";
 import { useQueryClient } from "@tanstack/react-query";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { User, Settings as SettingsIcon, Key, Bot, FileText, Plus, Terminal } from "lucide-react";
+import { User, Settings as SettingsIcon, Key, Bot, FileText, Plus, Terminal, BarChart3 } from "lucide-react";
 import {
   Tabs,
   TabsContent,
@@ -21,7 +23,10 @@ import { useAuth } from "@/features/auth/hooks/useAuth";
 import { unknownAppInfo, useAppInfo } from "@/hooks/useAppInfo";
 
 export function Settings() {
-  const [activeTab, setActiveTab] = useState("transcription");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get("tab") || "transcription";
+  const activeTab = ["transcription", "statistics", "account", "apikeys", "llms", "summary", "cli"].includes(requestedTab) ? requestedTab : "transcription";
+  const setActiveTab = (tab: string) => { const next = new URLSearchParams(searchParams); next.set("tab", tab); setSearchParams(next, { replace: true }); };
   const { getAuthHeaders } = useAuth();
   const queryClient = useQueryClient();
   const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
@@ -54,7 +59,7 @@ export function Settings() {
       header={<Header />}
     >
       {/* Main Content Container with same styling as Homepage */}
-      <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] shadow-[var(--shadow-card)] rounded-[var(--radius-card)] p-2 sm:p-6 mt-8">
+      <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] shadow-[var(--shadow-card)] min-w-0 rounded-[var(--radius-card)] p-4 sm:p-6 mt-4 sm:mt-8">
         <div className="mb-4 sm:mb-8">
           <h1 className="text-2xl font-display font-bold text-[var(--text-primary)] mb-2">
             Settings
@@ -70,54 +75,55 @@ export function Settings() {
           onValueChange={setActiveTab}
           className="space-y-4 sm:space-y-6"
         >
-          <TabsList className="grid w-full grid-cols-6 items-center h-auto bg-[var(--bg-main)]/50 border border-[var(--border-subtle)] p-1 rounded-xl">
+          <TabsList className="flex w-full min-w-0 justify-start overflow-x-auto items-center h-auto bg-[var(--bg-main)]/50 border border-[var(--border-subtle)] p-1 rounded-xl">
             <TabsTrigger
               value="transcription"
               aria-label="Transcription"
-              className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-[var(--bg-card)] data-[state=active]:shadow-sm data-[state=active]:text-[var(--text-primary)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] font-medium rounded-lg text-xs sm:text-sm transition-all"
+              className="flex items-center justify-center gap-2 h-11 shrink-0 px-3 py-2 data-[state=active]:bg-[var(--bg-card)] data-[state=active]:shadow-sm data-[state=active]:text-[var(--text-primary)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] font-medium rounded-lg text-xs sm:text-sm transition-all"
             >
               <SettingsIcon className="h-4 w-4" />
-              <span className="hidden sm:inline">Transcription</span>
+              <span className="inline">Transcription</span>
             </TabsTrigger>
+            <TabsTrigger value="statistics" aria-label="Statistics" className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-[var(--text-tertiary)] transition-all hover:text-[var(--text-secondary)] data-[state=active]:bg-[var(--bg-card)] data-[state=active]:text-[var(--text-primary)] data-[state=active]:shadow-sm sm:text-sm"><BarChart3 className="h-4 w-4" /><span>Statistics</span></TabsTrigger>
             <TabsTrigger
               value="account"
               aria-label="Account"
-              className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-[var(--bg-card)] data-[state=active]:shadow-sm data-[state=active]:text-[var(--text-primary)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] font-medium rounded-lg text-xs sm:text-sm transition-all"
+              className="flex items-center justify-center gap-2 h-11 shrink-0 px-3 py-2 data-[state=active]:bg-[var(--bg-card)] data-[state=active]:shadow-sm data-[state=active]:text-[var(--text-primary)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] font-medium rounded-lg text-xs sm:text-sm transition-all"
             >
               <User className="h-4 w-4" />
-              <span className="hidden sm:inline">Account</span>
+              <span className="inline">Account</span>
             </TabsTrigger>
             <TabsTrigger
               value="apikeys"
               aria-label="API Keys"
-              className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-[var(--bg-card)] data-[state=active]:shadow-sm data-[state=active]:text-[var(--text-primary)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] font-medium rounded-lg text-xs sm:text-sm transition-all"
+              className="flex items-center justify-center gap-2 h-11 shrink-0 px-3 py-2 data-[state=active]:bg-[var(--bg-card)] data-[state=active]:shadow-sm data-[state=active]:text-[var(--text-primary)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] font-medium rounded-lg text-xs sm:text-sm transition-all"
             >
               <Key className="h-4 w-4" />
-              <span className="hidden sm:inline">API Keys</span>
+              <span className="inline">API Keys</span>
             </TabsTrigger>
             <TabsTrigger
               value="llms"
               aria-label="LLMs"
-              className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-[var(--bg-card)] data-[state=active]:shadow-sm data-[state=active]:text-[var(--text-primary)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] font-medium rounded-lg text-xs sm:text-sm transition-all"
+              className="flex items-center justify-center gap-2 h-11 shrink-0 px-3 py-2 data-[state=active]:bg-[var(--bg-card)] data-[state=active]:shadow-sm data-[state=active]:text-[var(--text-primary)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] font-medium rounded-lg text-xs sm:text-sm transition-all"
             >
               <Bot className="h-4 w-4" />
-              <span className="hidden sm:inline">LLMs</span>
+              <span className="inline">LLMs</span>
             </TabsTrigger>
             <TabsTrigger
               value="summary"
               aria-label="Summary"
-              className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-[var(--bg-card)] data-[state=active]:shadow-sm data-[state=active]:text-[var(--text-primary)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] font-medium rounded-lg text-xs sm:text-sm transition-all"
+              className="flex items-center justify-center gap-2 h-11 shrink-0 px-3 py-2 data-[state=active]:bg-[var(--bg-card)] data-[state=active]:shadow-sm data-[state=active]:text-[var(--text-primary)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] font-medium rounded-lg text-xs sm:text-sm transition-all"
             >
               <FileText className="h-4 w-4" />
-              <span className="hidden sm:inline">Summary</span>
+              <span className="inline">Summary</span>
             </TabsTrigger>
             <TabsTrigger
               value="cli"
               aria-label="CLI Watcher"
-              className="flex items-center justify-center gap-2 h-9 py-1.5 data-[state=active]:bg-[var(--bg-card)] data-[state=active]:shadow-sm data-[state=active]:text-[var(--text-primary)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] font-medium rounded-lg text-xs sm:text-sm transition-all"
+              className="flex items-center justify-center gap-2 h-11 shrink-0 px-3 py-2 data-[state=active]:bg-[var(--bg-card)] data-[state=active]:shadow-sm data-[state=active]:text-[var(--text-primary)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] font-medium rounded-lg text-xs sm:text-sm transition-all"
             >
               <Terminal className="h-4 w-4" />
-              <span className="hidden sm:inline">CLI Watcher</span>
+              <span className="inline">CLI Watcher</span>
             </TabsTrigger>
           </TabsList>
 
@@ -125,6 +131,8 @@ export function Settings() {
           <TabsContent value="transcription" className="space-y-6">
             <ProfileSettings />
           </TabsContent>
+
+          <TabsContent value="statistics"><RunStatisticsSettings /></TabsContent>
 
           {/* Account Tab */}
           <TabsContent value="account" className="space-y-6">

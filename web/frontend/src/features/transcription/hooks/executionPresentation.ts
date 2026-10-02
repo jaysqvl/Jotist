@@ -1,5 +1,6 @@
 import { transcriptionModelLabel, transcriptionPrecision, requestedDiarizationDevice, type TranscriptionModelCapability } from "./modelCapabilities.ts";
 import { recoveryModeLabel, type RecoveryParameters } from "./recoveryPolicy.ts";
+import { executionPolicySummary } from "./executionPolicy.ts";
 
 export interface ExecutionSettings extends RecoveryParameters {
     model?: string;
@@ -124,6 +125,11 @@ export function reportedExecutionTiming(metadata?: Record<string, string>): stri
 export function executionEvidenceRows(params: ExecutionSettings, metadata?: Record<string, string>, capability?: TranscriptionModelCapability) {
     return [
         { label: "Recovery policy", value: recoveryModeLabel(params) },
+        ...(params.execution_policy ? [
+            { label: "Saved execution defaults", value: params.execution_policy_source === "global" ? "Shared settings at admission" : "Run or profile override" },
+            { label: "Automatic recovery", value: executionPolicySummary(params.execution_policy) },
+            { label: "Maximum retry delay", value: `${params.execution_policy.max_backoff_seconds}s` },
+        ] : []),
         { label: "Requested precision", value: requestedExecutionPrecision(params, capability) },
         { label: "Reported precision", value: reportedExecutionPrecision(params, metadata) },
         { label: "Requested timing", value: requestedExecutionTiming(params, capability) },

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"math"
+	"time"
 
 	"gorm.io/gorm"
 	"scriberr/internal/models"
@@ -21,10 +22,26 @@ func (r *RecoveryRepository) SetAttemptWaiting(ctx context.Context, id string, g
 		if waiting {
 			state = models.RecoveryWaiting
 		}
-		if err := tx.Model(a).Update("state", state).Error; err != nil {
+		updates := map[string]interface{}{"state": state, "retry_at": nil}
+		if err := tx.Model(a).Updates(updates).Error; err != nil {
 			return err
 		}
 		return tx.Model(stage).Update("state", state).Error
+	})
+}
+
+// RetryAt distinguishes a scheduled backoff from waiting for GPU capacity.
+// Both are active, cancellable work and use the same ownership fences.
+func (r *RecoveryRepository) SetAttemptRetryAt(ctx context.Context, id string, generation int64, retryAt time.Time) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		a, stage, err := r.ownedAttempt(tx, id, generation)
+		if err != nil {
+			return err
+		}
+		if a.State != models.RecoveryWaiting || stage.State != models.RecoveryWaiting {
+			return ErrRecoveryConflict
+		}
+		return tx.Model(a).Update("retry_at", retryAt).Error
 	})
 }
 

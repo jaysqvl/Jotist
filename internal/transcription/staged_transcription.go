@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"scriberr/internal/models"
 	"scriberr/internal/repository"
 	"scriberr/internal/transcription/interfaces"
 )
@@ -24,20 +25,7 @@ func runRecoverableTranscription(ctx context.Context, recovery recoveryStageCont
 	var recognitionMetadata map[string]string
 	var alignmentMetadata map[string]string
 	finalMetadata := map[string]string{}
-	for _, descriptor := range staged.Stages() {
-		if descriptor.Kind == "alignment" {
-			if params["timestamps"] == false {
-				continue
-			}
-			if alignWords, present := params["align_words"].(bool); present && !alignWords {
-				continue
-			}
-		}
-		if descriptor.Kind == "speaker_assignment" {
-			if diarize, present := params["diarize"].(bool); !present || !diarize {
-				continue
-			}
-		}
+	for _, descriptor := range enabledTranscriptionStages(staged, params) {
 		if !descriptor.Recoverable {
 			return nil, nil, fmt.Errorf("%s does not expose a recoverable boundary", descriptor.Kind)
 		}
@@ -137,4 +125,41 @@ func runRecoverableTranscription(ctx context.Context, recovery recoveryStageCont
 		finalMetadata[key] = value
 	}
 	return result, finalMetadata, nil
+}
+
+// Selection is shared by execution and progress numbering. Stages disabled by
+// the admitted request are absent; attempts never increase the stage count.
+func enabledTranscriptionStages(adapter interfaces.StagedTranscriptionAdapter, params map[string]interface{}) []interfaces.StageDescriptor {
+	var stages []interfaces.StageDescriptor
+	for _, stage := range adapter.Stages() {
+		if stage.Kind == "alignment" && (params["timestamps"] == false || params["align_words"] == false) {
+			continue
+		}
+		if stage.Kind == "speaker_assignment" && params["diarize"] != true {
+			continue
+		}
+		stages = append(stages, stage)
+	}
+	return stages
+}
+
+func (u *UnifiedTranscriptionService) plannedStageKinds(params models.WhisperXParams, transcriptionModelID, diarizationModelID string) []string {
+	var kinds []string
+	if transcriptionModelID != "" {
+		adapter, err := u.registry.GetTranscriptionAdapter(transcriptionModelID)
+		if err != nil {
+			return nil
+		}
+		if staged, ok := adapter.(interfaces.StagedTranscriptionAdapter); ok && u.recovery != nil {
+			for _, stage := range enabledTranscriptionStages(staged, u.convertParametersForModel(params, transcriptionModelID)) {
+				kinds = append(kinds, stage.Kind)
+			}
+		} else {
+			kinds = append(kinds, "combined")
+		}
+	}
+	if params.Diarize && diarizationModelID != "" && !u.transcriptionIncludesDiarization(transcriptionModelID, params) {
+		kinds = append(kinds, "diarize")
+	}
+	return kinds
 }

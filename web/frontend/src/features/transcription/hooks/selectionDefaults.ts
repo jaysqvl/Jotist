@@ -45,7 +45,7 @@ function supportedDevice(requested: string, family: string, capability?: Transcr
         : capability?.requires_gpu ? ["cuda"]
         : ["cpu", "cuda", "auto"];
     if (supported.includes(requested)) return requested;
-    const preferred = capability?.metadata?.default_device || "cpu";
+    const preferred = supported.includes("cuda") ? "cuda" : capability?.metadata?.default_device || "cpu";
     return supported.includes(preferred) ? preferred : supported[0];
 }
 
@@ -66,9 +66,7 @@ function resourceDefaults<T extends SelectionDefaultParams>(params: T, requested
         // enabling Canary chunking bounds long-meeting GPU memory use.
         next.nvidia_chunk_duration = 40;
         next.nvidia_use_chunking = true;
-        // Keep the chosen external model/checkpoint while leaving room on the
-        // reference 12 GB GPU for ASR. Users can explicitly change this after.
-        if (device === "cuda" || device === "auto") next.diarization_device = "cpu";
+        // Preserve the chosen speaker model, checkpoint and device.
     }
     return next;
 }

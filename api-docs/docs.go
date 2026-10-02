@@ -24,6 +24,95 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/v1/admin/queue/activity": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Sample shared worker ownership, current stages and waiting recordings without private request or transcript content.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Show activity across recording queues",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.QueueActivity"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/queue/settings": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Read recording queue settings",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.QueueSettingsResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Save a server-wide limit. Active executions finish normally when the limit is lowered. QUEUE_WORKERS is an explicit deployment override.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Set recording concurrency",
+                "parameters": [
+                    {
+                        "description": "Recording concurrency",
+                        "name": "settings",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.UpdateQueueSettingsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.QueueSettingsResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/admin/queue/stats": {
             "get": {
                 "security": [
@@ -2456,6 +2545,69 @@ const docTemplate = `{
                             "additionalProperties": {
                                 "type": "string"
                             }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/transcription/statistics": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "transcription"
+                ],
+                "summary": "Get global run statistics",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 30,
+                        "description": "Window: 0 (all), 7, 30 or 90 days",
+                        "name": "days",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.RunStatistics"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/transcription/statistics/runs": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "transcription"
+                ],
+                "summary": "List run diagnostics history",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.RunHistory"
                         }
                     }
                 }
@@ -5301,6 +5453,13 @@ const docTemplate = `{
                     "description": "Options: 'pyannote', 'nvidia_sortformer'",
                     "type": "string"
                 },
+                "execution_policy": {
+                    "$ref": "#/definitions/models.ExecutionPolicy"
+                },
+                "execution_policy_source": {
+                    "description": "Empty retains pre-existing profile/API behavior. New UI configurations use\nglobal defaults; override opts into an explicit per-profile policy.",
+                    "type": "string"
+                },
                 "fp16": {
                     "type": "boolean"
                 },
@@ -5819,11 +5978,25 @@ const docTemplate = `{
                 }
             }
         },
+        "api.UpdateQueueSettingsRequest": {
+            "type": "object",
+            "required": [
+                "workers"
+            ],
+            "properties": {
+                "workers": {
+                    "type": "integer"
+                }
+            }
+        },
         "api.UpdateUserSettingsRequest": {
             "type": "object",
             "properties": {
                 "auto_transcription_enabled": {
                     "type": "boolean"
+                },
+                "execution_policy": {
+                    "$ref": "#/definitions/models.ExecutionPolicy"
                 },
                 "hf_token": {
                     "description": "Write-only: omitted/null preserves the saved token; an empty string clears it.",
@@ -5845,6 +6018,9 @@ const docTemplate = `{
                 },
                 "default_profile_id": {
                     "type": "string"
+                },
+                "execution_policy": {
+                    "$ref": "#/definitions/models.ExecutionPolicy"
                 },
                 "has_hf_token": {
                     "type": "boolean"
@@ -6267,6 +6443,29 @@ const docTemplate = `{
                 }
             }
         },
+        "models.ExecutionPolicy": {
+            "type": "object",
+            "properties": {
+                "automatic_recovery": {
+                    "type": "boolean"
+                },
+                "backoff_seconds": {
+                    "type": "integer"
+                },
+                "max_backoff_seconds": {
+                    "type": "integer"
+                },
+                "max_retries": {
+                    "type": "integer"
+                },
+                "reduce_batch_size": {
+                    "type": "boolean"
+                },
+                "reuse_checkpoints": {
+                    "type": "boolean"
+                }
+            }
+        },
         "models.JobStatus": {
             "type": "string",
             "enum": [
@@ -6381,6 +6580,436 @@ const docTemplate = `{
                 },
                 "updated_at": {
                     "type": "string"
+                }
+            }
+        },
+        "models.QueueActivity": {
+            "type": "object",
+            "properties": {
+                "busy_workers": {
+                    "type": "integer"
+                },
+                "generated_at": {
+                    "type": "string"
+                },
+                "queued_runs": {
+                    "type": "integer"
+                },
+                "recordings": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.QueueActivityEntry"
+                    }
+                },
+                "waiting_recordings": {
+                    "type": "integer"
+                },
+                "workers": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.QueueActivityEntry": {
+            "type": "object",
+            "properties": {
+                "execution_id": {
+                    "type": "string"
+                },
+                "has_worker": {
+                    "type": "boolean"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "model_family": {
+                    "type": "string"
+                },
+                "profile_name": {
+                    "type": "string"
+                },
+                "queue_item_id": {
+                    "type": "string"
+                },
+                "queued_at": {
+                    "type": "string"
+                },
+                "queued_jobs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.QueueActivityQueuedJob"
+                    }
+                },
+                "queued_runs": {
+                    "type": "integer"
+                },
+                "recording_id": {
+                    "type": "string"
+                },
+                "recording_title": {
+                    "type": "string"
+                },
+                "retry_at": {
+                    "type": "string"
+                },
+                "run_number": {
+                    "type": "integer"
+                },
+                "stage": {
+                    "type": "string"
+                },
+                "stage_number": {
+                    "type": "integer"
+                },
+                "stage_scope": {
+                    "type": "string"
+                },
+                "stage_state": {
+                    "type": "string"
+                },
+                "stage_total": {
+                    "type": "integer"
+                },
+                "started_at": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.QueueActivityQueuedJob": {
+            "type": "object",
+            "properties": {
+                "model": {
+                    "type": "string"
+                },
+                "model_family": {
+                    "type": "string"
+                },
+                "profile_name": {
+                    "type": "string"
+                },
+                "queue_item_id": {
+                    "type": "string"
+                },
+                "queued_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.QueueSettingsResponse": {
+            "type": "object",
+            "properties": {
+                "busy_workers": {
+                    "type": "integer"
+                },
+                "environment_override": {
+                    "type": "boolean"
+                },
+                "max_workers": {
+                    "type": "integer"
+                },
+                "workers": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.RunActivity": {
+            "type": "object",
+            "properties": {
+                "completed": {
+                    "type": "integer"
+                },
+                "date": {
+                    "type": "string"
+                },
+                "failed": {
+                    "type": "integer"
+                },
+                "other": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.RunFailureStatistics": {
+            "type": "object",
+            "properties": {
+                "attempts": {
+                    "type": "integer"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "stage": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.RunHistory": {
+            "type": "object",
+            "properties": {
+                "pagination": {
+                    "type": "object",
+                    "properties": {
+                        "limit": {
+                            "type": "integer"
+                        },
+                        "page": {
+                            "type": "integer"
+                        },
+                        "pages": {
+                            "type": "integer"
+                        },
+                        "total": {
+                            "type": "integer"
+                        }
+                    }
+                },
+                "runs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.RunHistoryEntry"
+                    }
+                }
+            }
+        },
+        "models.RunHistoryEntry": {
+            "type": "object",
+            "properties": {
+                "completed_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "model_family": {
+                    "type": "string"
+                },
+                "processing_duration": {
+                    "type": "integer"
+                },
+                "profile_name": {
+                    "type": "string"
+                },
+                "recording_title": {
+                    "type": "string"
+                },
+                "run_number": {
+                    "type": "integer"
+                },
+                "started_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "transcription_job_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.RunMemoryStatistics": {
+            "type": "object",
+            "properties": {
+                "average_gpu_bytes": {
+                    "type": "number"
+                },
+                "average_ram_bytes": {
+                    "type": "number"
+                },
+                "contention_runs": {
+                    "type": "integer"
+                },
+                "gpu_sampled_seconds": {
+                    "type": "number"
+                },
+                "peak_gpu_bytes": {
+                    "type": "integer"
+                },
+                "peak_ram_bytes": {
+                    "type": "integer"
+                },
+                "peak_worker_gpu_bytes": {
+                    "type": "integer"
+                },
+                "ram_sampled_seconds": {
+                    "type": "number"
+                },
+                "unknown_ownership_runs": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.RunModelStatistics": {
+            "type": "object",
+            "properties": {
+                "completed": {
+                    "type": "integer"
+                },
+                "cpu_fallback": {
+                    "type": "integer"
+                },
+                "diarizer": {
+                    "type": "string"
+                },
+                "failed": {
+                    "type": "integer"
+                },
+                "median_hour_seconds": {
+                    "type": "number"
+                },
+                "memory": {
+                    "$ref": "#/definitions/models.RunMemoryStatistics"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "model_family": {
+                    "type": "string"
+                },
+                "precision": {
+                    "type": "string"
+                },
+                "recognition_device": {
+                    "type": "string"
+                },
+                "recovered": {
+                    "type": "integer"
+                },
+                "reused": {
+                    "type": "integer"
+                },
+                "runs": {
+                    "type": "integer"
+                },
+                "speaker_device": {
+                    "type": "string"
+                },
+                "timing_measured_runs": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.RunStageStatistics": {
+            "type": "object",
+            "properties": {
+                "attempts": {
+                    "type": "integer"
+                },
+                "failed": {
+                    "type": "integer"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "median_seconds": {
+                    "type": "number"
+                },
+                "retries": {
+                    "type": "integer"
+                },
+                "succeeded": {
+                    "type": "integer"
+                },
+                "timing_samples": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.RunStatistics": {
+            "type": "object",
+            "properties": {
+                "activity": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.RunActivity"
+                    }
+                },
+                "failures": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.RunFailureStatistics"
+                    }
+                },
+                "generated_at": {
+                    "type": "string"
+                },
+                "library_recordings": {
+                    "type": "integer"
+                },
+                "models": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.RunModelStatistics"
+                    }
+                },
+                "stages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.RunStageStatistics"
+                    }
+                },
+                "summary": {
+                    "$ref": "#/definitions/models.RunStatisticsSummary"
+                },
+                "window_days": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.RunStatisticsSummary": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "integer"
+                },
+                "audio_measured_runs": {
+                    "type": "integer"
+                },
+                "audio_seconds": {
+                    "type": "number"
+                },
+                "completed": {
+                    "type": "integer"
+                },
+                "completion_rate": {
+                    "type": "number"
+                },
+                "cpu_fallback": {
+                    "type": "integer"
+                },
+                "failed": {
+                    "type": "integer"
+                },
+                "median_hour_seconds": {
+                    "type": "number"
+                },
+                "memory": {
+                    "$ref": "#/definitions/models.RunMemoryStatistics"
+                },
+                "other": {
+                    "type": "integer"
+                },
+                "recovered": {
+                    "type": "integer"
+                },
+                "resource_measured_runs": {
+                    "type": "integer"
+                },
+                "resumed": {
+                    "type": "integer"
+                },
+                "reused": {
+                    "type": "integer"
+                },
+                "runs": {
+                    "type": "integer"
+                },
+                "timing_measured_runs": {
+                    "type": "integer"
                 }
             }
         },
@@ -6692,6 +7321,13 @@ const docTemplate = `{
                 },
                 "diarize_model": {
                     "description": "Options: 'pyannote', 'nvidia_sortformer'",
+                    "type": "string"
+                },
+                "execution_policy": {
+                    "$ref": "#/definitions/models.ExecutionPolicy"
+                },
+                "execution_policy_source": {
+                    "description": "Empty retains pre-existing profile/API behavior. New UI configurations use\nglobal defaults; override opts into an explicit per-profile policy.",
                     "type": "string"
                 },
                 "fp16": {

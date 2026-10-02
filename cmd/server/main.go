@@ -15,6 +15,7 @@ import (
 	"scriberr/internal/auth"
 	"scriberr/internal/config"
 	"scriberr/internal/database"
+	"scriberr/internal/models"
 	"scriberr/internal/processing"
 	"scriberr/internal/queue"
 	"scriberr/internal/repository"
@@ -113,6 +114,7 @@ func main() {
 	speakerMappingRepo := repository.NewSpeakerMappingRepository(database.DB)
 	refreshTokenRepo := repository.NewRefreshTokenRepository(database.DB)
 	transcriptionQueueRepo := repository.NewTranscriptionQueueRepository(database.DB)
+	queueSettingsRepo := repository.NewQueueSettingsRepository(database.DB)
 
 	// Initialize services
 	logger.Startup("service", "Initializing services")
@@ -145,8 +147,9 @@ func main() {
 
 	// Initialize task queue
 	logger.Startup("queue", "Starting background processing")
-	taskQueue := queue.NewTaskQueue(2, unifiedProcessor, jobRepo) // 2 workers
+	taskQueue := queue.NewTaskQueue(models.DefaultQueueWorkers, unifiedProcessor, jobRepo)
 	taskQueue.SetTranscriptionQueueRepository(transcriptionQueueRepo)
+	taskQueue.SetQueueSettingsRepository(queueSettingsRepo)
 	if err := taskQueue.Start(); err != nil {
 		logger.Error("Cannot start task queue", "error", err)
 		logger.Warn("Transcription dispatch is blocked; the interface remains available for recovery inspection")

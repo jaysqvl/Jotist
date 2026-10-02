@@ -27,6 +27,7 @@ export interface TranscriptionQueueItem {
     profile_name?: string;
     execution_id?: string;
     created_at: string;
+    queued_at?: string;
     started_at?: string;
 }
 

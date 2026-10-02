@@ -14,13 +14,17 @@ import { Loader2, Check, XCircle } from "lucide-react";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { TranscriptionContextFields } from "./TranscriptionContextFields";
 import { RecoveryPolicyFields } from "./RecoveryPolicyFields";
-import { ModelLanguageDetails, ModelLanguageTable } from "./ModelLanguageComparison";
+import { ModelLanguageDetails } from "./ModelLanguageComparison";
+import { ModelPicker, ModelMetricSummary } from "./ModelPicker";
+import { transcriptionMetrics, diarizationMetrics, diarizationEvidenceCheckpoint } from "@/features/transcription/hooks/modelComparisonMetrics";
+import { diarizationChoices } from "@/features/transcription/hooks/diarizationChoices";
 import { devicePolicyDescription } from "@/features/transcription/hooks/recoveryPolicy";
+import { DEFAULT_EXECUTION_POLICY, executionPolicyErrors, sharedRecoveryMode, type ExecutionPolicy } from "@/features/transcription/hooks/executionPolicy";
 import { offeredModelLanguages } from "@/features/transcription/hooks/modelLanguages";
 import { adaptivePolicyErrors, adaptiveStageChoices, alignmentMemoryForConfiguration } from "@/features/transcription/hooks/adaptivePolicy";
 import type { WhisperXParams } from "@/features/transcription/types";
 import {
-    LEGACY_MODEL_FAMILIES, contextSupport, findModelCapability, modelDetailsApply, requestedDiarizationDevice, normalizeModelCapabilities, modelVariants, isTranscriptionModel, transcriptionPrecision, transcriptionModelChoices, sortModelChoices, filterModelChoices, defaultModelList, modelChoiceMetrics, modelChoiceValue, isCloudASR, modelExecutionLocation, hfTokenSource, needsCustomHFToken, additionalBenchmarks, diarizationBenchmarkApplies, modelMemoryEstimate, gpuMemoryEstimate, referenceGPUFit, type ModelSort, type ModelList,
+    LEGACY_MODEL_FAMILIES, contextSupport, findModelCapability, modelDetailsApply, requestedDiarizationDevice, normalizeModelCapabilities, transcriptionPrecision, transcriptionModelChoices, sortModelChoices, modelChoiceValue, isCloudASR, hfTokenSource, needsCustomHFToken, additionalBenchmarks, diarizationBenchmarkApplies, modelMemoryEstimate, gpuMemoryEstimate, type ModelSort,
     type TranscriptionModelCapability,
 } from "@/features/transcription/hooks/modelCapabilities";
 import { applyModelSelectionDefaults, applyDeviceSelectionDefaults } from "@/features/transcription/hooks/selectionDefaults";
@@ -51,17 +55,16 @@ interface TranscriptionConfigDialogProps {
 
 const DEFAULT_PARAMS: WhisperXParams = {
     model_family: "whisper",
-    recovery_mode: "fixed",
-    reuse_checkpoints: true,
+    execution_policy_source: "global",
     model: "small",
     model_cache_only: false,
-    device: "cpu",
+    device: "cuda",
     diarization_device: "same",
     transcription_context: null,
     transcription_context_terms: null,
     device_index: 0,
-    batch_size: 8,
-    compute_type: "float32",
+    batch_size: 1,
+    compute_type: "float16",
     threads: 0,
     output_format: "all",
     verbose: true,
@@ -207,7 +210,10 @@ const PARAM_DESCRIPTIONS = {
 // Main Component
 // ============================================================================
 
-const ModelCapabilitiesContext = createContext<TranscriptionModelCapability[]>([]);
+const ModelCapabilitiesContext = createContext<{
+    models: TranscriptionModelCapability[];
+    selectDiarizer: (diarizer: string, checkpoint?: string) => void;
+}>({ models: [], selectDiarizer: () => {} });
 
 export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog({
     open,
@@ -239,20 +245,20 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
 
     const { getAuthHeaders } = useAuth();
     const [modelSort, setModelSort] = useState<ModelSort>("recommended");
-    const [modelList, setModelList] = useState<ModelList>("english");
     const [hasSavedHFToken, setHasSavedHFToken] = useState(false);
     const [modelCapabilities, setModelCapabilities] = useState<TranscriptionModelCapability[]>([]);
     const [catalogLoading, setCatalogLoading] = useState(false);
     const [catalogError, setCatalogError] = useState("");
     const [savedContext, setSavedContext] = useState({ context: "", terms: "" });
     const [contextDefaultsError, setContextDefaultsError] = useState("");
+    const [sharedExecutionPolicy, setSharedExecutionPolicy] = useState<ExecutionPolicy | null>(null);
+    const displayParams = params.execution_policy_source === "global" ? { ...params, recovery_mode: sharedRecoveryMode(sharedExecutionPolicy ?? DEFAULT_EXECUTION_POLICY) } : params;
     const selectedCapability = findModelCapability(modelCapabilities, params.model_family, params.model);
     const selectedContextSupport = contextSupport(selectedCapability);
     const isDynamicFamily = !LEGACY_MODEL_FAMILIES.some((family) => family.value === params.model_family);
     const isDynamicModel = isDynamicFamily || selectedCapability?.model_id.includes("/") === true;
-    const activeModelList = defaultModelList(params) === "all" ? "all" : modelList;
     const allModelChoices = transcriptionModelChoices(modelCapabilities, params, availableModels);
-    const modelChoices = sortModelChoices(filterModelChoices(allModelChoices, activeModelList, modelChoiceValue(params.model_family, params.model)), modelSort);
+    const modelChoices = sortModelChoices(allModelChoices, modelSort);
     const selectedChoice = modelChoices.find((choice) => choice.value === modelChoiceValue(params.model_family, params.model));
     const cloudSelected = isCloudASR(params.model_family);
     const requiresCustomHFToken = !cloudSelected && needsCustomHFToken(params, isExistingProfile);
@@ -262,7 +268,10 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
         && [params.language, params.task === "translate" ? params.nvidia_target_language : undefined]
             .some((language) => language && language !== "auto" && !knownLanguages.includes(language));
     const adaptiveStages = adaptiveStageChoices(params, modelCapabilities);
-    const adaptiveErrors = cloudSelected ? [] : adaptivePolicyErrors(params, adaptiveStages);
+    const adaptiveErrors = cloudSelected || params.execution_policy_source === "global" ? [] : [
+        ...adaptivePolicyErrors(params, adaptiveStages),
+        ...(params.execution_policy ? executionPolicyErrors(params.execution_policy) : []),
+    ];
 
 
     useEffect(() => {
@@ -289,6 +298,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
             if (results[1].status === "fulfilled") {
                 setSavedContext({ context: results[1].value.transcription_context ?? "", terms: results[1].value.transcription_context_terms ?? "" });
                 setHasSavedHFToken(results[1].value.has_hf_token === true);
+                setSharedExecutionPolicy(results[1].value.execution_policy ?? DEFAULT_EXECUTION_POLICY);
             }
             else setContextDefaultsError("Could not preview saved defaults. Inherited values will still be resolved when queued.");
             setCatalogLoading(false);
@@ -302,8 +312,9 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
         if (open) {
             const baseParams = {
                 ...DEFAULT_PARAMS, ...initialParams,
-                recovery_mode: initialParams ? initialParams.recovery_mode ?? "" : "fixed",
-                reuse_checkpoints: initialParams ? initialParams.reuse_checkpoints : true,
+                recovery_mode: initialParams ? initialParams.recovery_mode ?? "" : undefined,
+                execution_policy_source: initialParams ? initialParams.execution_policy_source : "global" as const,
+                reuse_checkpoints: initialParams?.reuse_checkpoints,
                 diarization_device: initialParams ? initialParams.diarization_device ?? "" : "same",
             };
             setParams({
@@ -315,7 +326,6 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
             setNameEdited(false);
             setDescriptionEdited(false);
             setModelSort("recommended");
-            setModelList(defaultModelList(initialParams));
             setProfileName(initialName);
             setProfileDescription(initialDescription);
         }
@@ -326,7 +336,8 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
         const choice = modelChoices.find((entry) => entry.value === modelChoiceValue(next.model_family, next.model));
         const name = choice?.label.replace(/^(Local|Cloud|Location unknown) · /, "") || next.model;
         const device = isCloudASR(next.model_family) ? "Cloud" : next.device === "cuda" ? "GPU" : next.device === "cpu" ? "CPU" : "Auto";
-        const speaker = next.diarize_model === "native" ? "native speakers" : modelCapabilities.find((model) => model.model_id === (next.diarize_model === "nvidia_sortformer" ? "sortformer" : next.diarize_model))?.display_name || next.diarize_model;
+        const speakers = diarizationChoices(modelCapabilities, next, choice?.capability?.features.integrated_diarization);
+        const speaker = next.diarize_model === "native" ? "native speakers" : speakers.choices.find((entry) => entry.value === speakers.value)?.label || next.diarize_model;
         if (!nameEdited) setProfileName(`${device} ${name}${next.diarize ? ` + ${speaker}` : ""}`);
         if (!descriptionEdited) setProfileDescription(`${name} on ${device}${next.diarize ? `, with ${speaker}` : ""}.`);
     };
@@ -384,10 +395,14 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
     );
 
     return (
-        <ModelCapabilitiesContext.Provider value={modelCapabilities}>
+        <ModelCapabilitiesContext.Provider value={{ models: modelCapabilities, selectDiarizer: (diarizer, checkpoint) => {
+            const next = { ...params, diarize_model: diarizer, diarization_checkpoint: checkpoint };
+            setParams(next);
+            updateDraftIdentity(next);
+        } }}>
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent
-                className="max-w-full sm:max-w-2xl w-[calc(100vw-1rem)] max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0 bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-2xl"
+                className="max-w-full sm:max-w-2xl w-[calc(100vw-1rem)] max-h-[90dvh] overflow-hidden flex flex-col p-0 gap-0 bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-2xl"
                 style={{ boxShadow: 'var(--shadow-float)' }}
             >
                 {/* Header */}
@@ -404,7 +419,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                 </DialogHeader>
 
                 {/* Scrollable Content */}
-                <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+                <div className="min-w-0 flex-1 overflow-y-auto px-4 py-5 space-y-5 sm:px-6 sm:py-6 sm:space-y-6">
 
                     {/* Profile Name/Description (if profile mode) */}
                     {isProfileMode && (
@@ -433,33 +448,42 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                     )}
 
                     <div className="space-y-3">
-                        <SelectField label="Model list" value={activeModelList} onValueChange={(value) => setModelList(value as ModelList)} options={[
-                            { value: "english", label: "English meeting shortlist", disabled: defaultModelList(params) === "all" },
-                            { value: "all", label: "All models" },
-                        ]} />
-                        <SelectField label="Sort models by" value={modelSort} onValueChange={(value) => setModelSort(value as ModelSort)} options={[
-                            { value: "recommended", label: "Recommended for English meetings" },
-                            { value: "meeting", label: "Meeting WER · lowest first" },
-                            { value: "conversational", label: "Conversational WER · lowest first" },
-                            { value: "memory", label: "Estimated CPU RAM · lowest first" },
-                            { value: "gpu_memory", label: "Estimated GPU VRAM · lowest first" },
-                        ]} />
-                        <SelectField label="Transcription model" value={modelChoiceValue(params.model_family, params.model)}
+                        <ModelPicker label="Transcription model" value={modelChoiceValue(params.model_family, params.model)}
                             onValueChange={(value) => {
                                 const choice = modelChoices.find((entry) => entry.value === value);
                                 if (choice) {
-                                    const selectionParams = activeModelList === "english" ? { ...params, language: "en" } : params;
-                                    const next = applyModelSelectionDefaults(selectionParams, choice, modelCapabilities, isMultiTrack);
+                                    const next = applyModelSelectionDefaults(params, choice, modelCapabilities, isMultiTrack);
                                     setParams(next);
                                     updateDraftIdentity(next);
                                     setDefaultsNotice("Model defaults applied: precision, batch size and chunk settings updated for your device. Review speaker processing below.");
                                 }
                             }}
-                            options={modelChoices.map((choice) => ({ value: choice.value, label: choice.label, description: modelChoiceMetrics(choice, modelSort), disabled: !cloudSelected && modelCapabilities.length > 0 && !catalogError && !choice.capability && choice.location !== "cloud" }))} />
-                        {activeModelList === "english" && <p className="text-xs leading-5 text-[var(--text-secondary)]">Accuracy, efficient GPU and smaller CPU choices for recorded English meetings. All models includes translation, specialist and cloud options. Your current selection stays available.</p>}
-                        {selectedChoice?.recommendationReason && <p className="text-sm leading-6 text-[var(--text-primary)]">{selectedChoice.recommendationCategory === "core" ? "English shortlist" : selectedChoice.recommendationCategory === "legacy" ? "Legacy option" : selectedChoice.recommendationCategory === "specialist" ? "Specialist option" : "English meeting guidance"} · {selectedChoice.recommendationReason}</p>}
-                        {modelSort === "recommended" && <p className="text-xs leading-5 text-[var(--text-secondary)]">Recommendation based on published results and meeting features; not measured on your recordings.</p>}
-                        <p className="text-xs leading-5 text-[var(--text-secondary)]">Local models run on your Jotist server. Cloud APIs upload audio. Published WER is not accuracy on your recordings. RAM and VRAM are planning estimates for batch size 1. Unknown results sort last.</p>
+                            sort={{ value: modelSort, onChange: (value) => setModelSort(value as ModelSort), options: [
+                                { value: "recommended", label: "English meeting guidance" },
+                                { value: "meeting", label: "AMI-Cleaned WER" },
+                                { value: "conversational", label: "Conversation WER" },
+                                { value: "gpu_memory", label: "GPU memory" },
+                                { value: "memory", label: "CPU memory" },
+                            ] }}
+                            footer="Published English WER · lower is better. Memory estimates use batch 1. — = unavailable."
+                            options={modelChoices.map((choice) => ({
+                                value: choice.value,
+                                label: choice.label.replace(/^(Local|Cloud|Location unknown) · /, ""),
+                                note: choice.location === "cloud" ? "Cloud · uploads audio" : `${choice.location === "local" ? "Local" : "Saved selection"}${choice.gpuSupported === false ? " · CPU only" : ""}`,
+                                keywords: `${choice.family} ${choice.model} ${choice.capability?.supported_languages?.join(" ") ?? ""}`,
+                                metrics: transcriptionMetrics(choice).filter((_, index) => index < 2 || index === (modelSort === "memory" ? 3 : 2)).map((metric, index) => ({ ...metric, label: index === 0 ? "AMI WER" : index === 1 ? "Conv. WER" : modelSort === "memory" ? "RAM est." : "VRAM est." })),
+                                disabled: modelCapabilities.length > 0 && !catalogError && !choice.capability && choice.location !== "cloud",
+                            }))} />
+                        {selectedChoice && <ModelMetricSummary metrics={transcriptionMetrics(selectedChoice, params.device === "cpu" ? undefined : transcriptionPrecision(params))}
+                            note="Published English WER: AMI-Cleaned / private conversational test. Memory is estimated; — means unavailable." />}
+                        {selectedCapability && <details className="min-w-0 border-b border-[var(--border-subtle)]">
+                            <summary className="min-h-11 cursor-pointer py-3 text-xs font-medium text-[var(--text-secondary)]">Model details & sources</summary>
+                            <div className="min-w-0 space-y-3 pb-4">
+                                {selectedChoice?.recommendationReason && <p className="text-xs leading-5 text-[var(--text-secondary)]">{selectedChoice.recommendationReason}</p>}
+                                {selectedCapability && <ModelComparisonDetails model={selectedCapability} variant={params.model} device={params.device} precision={transcriptionPrecision(params)} batchSize={params.batch_size} />}
+                                {selectedCapability && <PipelineMemoryDetails params={displayParams} models={modelCapabilities} />}
+                            </div>
+                        </details>}
                         {catalogLoading && <p role="status" className="text-xs text-[var(--text-secondary)]">Loading model capabilities…</p>}
                         {catalogError && <p role="alert" className="text-xs text-[var(--warning-solid)]">{catalogError}</p>}
                     </div>
@@ -472,15 +496,47 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                     {defaultsNotice && <p role="status" className="text-xs leading-5 text-[var(--text-secondary)]">{defaultsNotice}</p>}
                     {cloudSelected ? <InfoBanner variant="warning" title="Cloud · audio uploaded to OpenAI">
                         This model sends your recording to the OpenAI API for transcription. It runs on OpenAI’s servers and requires an API key.
-                    </InfoBanner> : <>
-                        <p className="text-sm font-medium text-[var(--text-primary)]">{modelExecutionLocation(params.model_family, selectedCapability) === "local" ? "Local · runs on your Jotist server" : "Check model execution location"}</p>
-                        {selectedCapability && <ModelComparisonDetails model={selectedCapability} variant={params.model} device={params.device} precision={transcriptionPrecision(params)} batchSize={params.batch_size} />}
-                        {selectedCapability && <PipelineMemoryDetails params={params} models={modelCapabilities} />}
-                    </>}
-                    <ModelLanguageTable choices={allModelChoices} />
+                    </InfoBanner> : null}
+                    {/* Multi-track notice */}
+                    {isMultiTrack && (
+                        <InfoBanner variant="info" title="Multi-track Audio Detected">
+                            Each audio track will be transcribed separately. Speaker diarization is disabled.
+                        </InfoBanner>
+                    )}
 
-                    {!cloudSelected && <RecoveryPolicyFields params={params} stages={adaptiveStages} validationErrors={adaptiveErrors} onModeChange={(value) => updateParam("recovery_mode", value)} onReuseChange={(value) => updateParam("reuse_checkpoints", value)} onPolicyChange={(value) => updateParam("adaptive_policy", value)} />}
+                    {/* Model-Specific Configuration */}
+                    {params.model_family === "whisper" && (
+                        <WhisperConfig params={displayParams} updateParam={updateParam} isMultiTrack={isMultiTrack} />
+                    )}
+                    {params.model_family === "nvidia_parakeet" && (
+                        <ParakeetConfig params={displayParams} updateParam={updateParam} isMultiTrack={isMultiTrack} />
+                    )}
+                    {params.model_family === "nvidia_canary" && (
+                        <CanaryConfig params={displayParams} updateParam={updateParam} isMultiTrack={isMultiTrack} />
+                    )}
+                    {params.model_family === "nvidia_canary_qwen" && (
+                        <CanaryQwenConfig params={displayParams} updateParam={updateParam} isMultiTrack={isMultiTrack} />
+                    )}
+                    {cloudSelected && <OpenAIConfig params={params} updateParam={updateParam}
+                        isValidating={isValidating} validationStatus={validationStatus} validationMessage={validationMessage}
+                        onValidate={validateAPIKey} />}
+                    {params.model_family === "mistral_voxtral" && !isDynamicModel && (
+                        <VoxtralConfig params={displayParams} updateParam={updateParam} />
+                    )}
+                    {!cloudSelected && isDynamicModel && selectedCapability && (
+                        <LocalModelConfig params={displayParams} updateParam={updateParam} isMultiTrack={isMultiTrack} capability={selectedCapability} />
+                    )}
+                    {!cloudSelected && <RecoveryPolicyFields params={params} stages={adaptiveStages} validationErrors={adaptiveErrors} sharedPolicy={sharedExecutionPolicy}
+                        onSourceChange={(shared) => setParams((previous) => shared
+                            ? { ...previous, execution_policy_source: "global", execution_policy: undefined, recovery_mode: undefined, adaptive_policy: undefined, reuse_checkpoints: undefined }
+                            : { ...previous, execution_policy_source: "override", execution_policy: { ...(sharedExecutionPolicy ?? DEFAULT_EXECUTION_POLICY) }, recovery_mode: sharedRecoveryMode(sharedExecutionPolicy ?? DEFAULT_EXECUTION_POLICY) })}
+                        onExecutionChange={(policy) => setParams((previous) => ({ ...previous, execution_policy_source: "override", execution_policy: policy, recovery_mode: policy.automatic_recovery ? previous.recovery_mode && previous.recovery_mode !== "fixed" ? previous.recovery_mode : sharedRecoveryMode(policy) : "fixed" }))}
+                        onModeChange={(value) => setParams((previous) => ({ ...previous, recovery_mode: value, execution_policy_source: value ? "override" : undefined, execution_policy: value ? { ...(previous.execution_policy ?? sharedExecutionPolicy ?? DEFAULT_EXECUTION_POLICY), automatic_recovery: value !== "fixed" } : undefined }))}
+                        onReuseChange={(value) => updateParam("reuse_checkpoints", value)} onPolicyChange={(value) => updateParam("adaptive_policy", value)} />}
 
+                    <details className="min-w-0 rounded-xl border border-[var(--border-subtle)]">
+                        <summary className="cursor-pointer px-4 py-3 text-sm font-medium">Context & vocabulary <span className="text-xs font-normal text-[var(--text-secondary)]">· {params.transcription_context == null && params.transcription_context_terms == null ? "Shared defaults" : "Custom"}</span></summary>
+                        <div className="min-w-0 p-4 pt-0">
                     <Section title="Transcription context" description="Guide recognition with meeting background and exact vocabulary.">
                         {catalogLoading && !selectedCapability ? (
                             <p className="text-sm text-[var(--text-secondary)]">Checking model support…</p>
@@ -501,42 +557,15 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                             <p className="text-sm text-[var(--text-secondary)]">{selectedCapability ? "This model does not use context or vocabulary hints. Your saved defaults remain available for models that support them." : "Context support could not be verified until the model catalog loads."}</p>
                         )}
                     </Section>
+                        </div>
+                    </details>
 
-                    {/* Multi-track notice */}
-                    {isMultiTrack && (
-                        <InfoBanner variant="info" title="Multi-track Audio Detected">
-                            Each audio track will be transcribed separately. Speaker diarization is disabled.
-                        </InfoBanner>
-                    )}
-
-                    {/* Model-Specific Configuration */}
-                    {params.model_family === "whisper" && (
-                        <WhisperConfig params={params} updateParam={updateParam} isMultiTrack={isMultiTrack} />
-                    )}
-                    {params.model_family === "nvidia_parakeet" && (
-                        <ParakeetConfig params={params} updateParam={updateParam} isMultiTrack={isMultiTrack} />
-                    )}
-                    {params.model_family === "nvidia_canary" && (
-                        <CanaryConfig params={params} updateParam={updateParam} isMultiTrack={isMultiTrack} />
-                    )}
-                    {params.model_family === "nvidia_canary_qwen" && (
-                        <CanaryQwenConfig params={params} updateParam={updateParam} isMultiTrack={isMultiTrack} />
-                    )}
-                    {cloudSelected && <OpenAIConfig params={params} updateParam={updateParam}
-                        isValidating={isValidating} validationStatus={validationStatus} validationMessage={validationMessage}
-                        onValidate={validateAPIKey} />}
-                    {params.model_family === "mistral_voxtral" && !isDynamicModel && (
-                        <VoxtralConfig params={params} updateParam={updateParam} />
-                    )}
-                    {!cloudSelected && isDynamicModel && selectedCapability && (
-                        <LocalModelConfig params={params} updateParam={updateParam} isMultiTrack={isMultiTrack} capability={selectedCapability} />
-                    )}
                     {!cloudSelected && <HFTokenOverride params={params} updateParam={updateParam} hasSavedToken={hasSavedHFToken} requiresToken={requiresCustomHFToken} />}
 
                 </div>
 
                 {/* Footer */}
-                <DialogFooter className="px-6 py-4 border-t border-[var(--border-subtle)] gap-3 sm:gap-2">
+                <DialogFooter className="px-4 sm:px-6 py-4 border-t border-[var(--border-subtle)] gap-3 sm:gap-2">
                     <Button
                         variant="ghost"
                         onClick={() => onOpenChange(false)}
@@ -576,11 +605,13 @@ function DiarizationSection({ id, params, updateParam, description, integrated =
     description?: string;
     integrated?: boolean;
 }) {
-    const capabilities = useContext(ModelCapabilitiesContext);
+    const { models: capabilities, selectDiarizer } = useContext(ModelCapabilitiesContext);
     const device = requestedDiarizationDevice(params.model_family, params.diarization_device);
-    const diarizationModels = capabilities.filter((model) => !isTranscriptionModel(model));
-    const diarizationCapability = capabilities.find((model) => model.model_id === (params.diarize_model === "nvidia_sortformer" ? "sortformer" : params.diarize_model));
-    const checkpoints = modelVariants(diarizationCapability);
+    const { choices: speakerChoices, value: speakerValue } = diarizationChoices(capabilities, params, integrated);
+    const selectedSpeaker = speakerChoices.find((choice) => choice.value === speakerValue);
+    const diarizationCapability = selectedSpeaker?.capability;
+    const selectedCheckpoint = selectedSpeaker?.checkpoint;
+    const speakerComparison = diarizationCapability ? diarizationMetrics(diarizationCapability, selectedCheckpoint) : undefined;
     return (
         <Section title="Speaker Diarization" description={description}>
             <div className="space-y-4">
@@ -588,30 +619,26 @@ function DiarizationSection({ id, params, updateParam, description, integrated =
 
                 {params.diarize && (
                     <div className="p-4 bg-[var(--bg-main)] rounded-xl border border-[var(--border-subtle)] space-y-4">
-                        <SelectField
-                            label="Diarization Model"
-                            description="Choose the model that assigns speech to speakers. Check published DER, speaker limits, and model license before comparing runs."
-                            value={params.diarize_model}
+                        <ModelPicker
+                            label="Diarization model"
+                            value={speakerValue}
                             onValueChange={(v) => {
-                                updateParam('diarize_model', v);
-                                updateParam('diarization_checkpoint', undefined);
+                                if (v === speakerValue) return;
+                                const choice = speakerChoices.find((entry) => entry.value === v);
+                                if (choice) selectDiarizer(choice.diarizer, choice.checkpoint);
                             }}
-                            options={[
-                                ...(integrated ? [{ value: "native", label: "Built into this model" }] : []),
-                                { value: "pyannote", label: "Pyannote" },
-                                { value: "nvidia_sortformer", label: "NVIDIA Sortformer" },
-                                ...diarizationModels.filter((model) => !["pyannote", "sortformer"].includes(model.model_id)).map((model) => ({ value: model.model_id, label: model.display_name })),
-                            ]}
+                            options={speakerChoices.map((choice) => {
+                                const comparison = choice.capability ? diarizationMetrics(choice.capability, choice.checkpoint) : undefined;
+                                return { value: choice.value, label: choice.label, keywords: `${choice.diarizer} ${choice.checkpoint ?? ""}`, metrics: comparison?.metrics, note: comparison?.note, disabled: choice.savedOnly };
+                            })}
+                            footer="DER measures speaker errors. Datasets and protocols differ; see sources for each model."
                         />
 
-                        {checkpoints.length > 1 && (
-                            <SelectField
-                                label="Diarization checkpoint"
-                                value={params.diarization_checkpoint || diarizationCapability?.metadata?.model_id || checkpoints[0]}
-                                onValueChange={(value) => updateParam('diarization_checkpoint', value)}
-                                options={checkpoints.map((value) => ({ value, label: value }))}
-                            />
-                        )}
+                        {speakerComparison && <ModelMetricSummary metrics={speakerComparison.metrics} note={speakerComparison.note} />}
+                        {diarizationCapability && <details className="border-b border-[var(--border-subtle)]">
+                            <summary className="min-h-11 cursor-pointer py-3 text-xs font-medium text-[var(--text-secondary)]">Diarization details & sources</summary>
+                            <div className="pb-3"><DiarizationComparisonDetails model={diarizationCapability} checkpoint={selectedCheckpoint} device={device === "same" ? params.device : device} /></div>
+                        </details>}
 
                         {params.diarize_model === "native" ? (
                             <p className="text-sm text-[var(--text-secondary)]">Speaker labels are generated with the transcript on the transcription device.</p>
@@ -625,44 +652,47 @@ function DiarizationSection({ id, params, updateParam, description, integrated =
                             />
                         )}
 
-                        {params.diarize_model !== "native" && diarizationCapability && (
-                            <DiarizationComparisonDetails model={diarizationCapability} checkpoint={params.diarization_checkpoint} device={device === "same" ? params.device : device} />
-                        )}
-
-                        {params.diarize_model !== "native" && <div className="grid grid-cols-2 gap-4">
-                            <FormField label="Min Speakers" optional>
+                        {params.diarize_model !== "native" && <details className="border-t border-[var(--border-subtle)]">
+                            <summary className="cursor-pointer py-3 text-sm font-medium">Speaker options</summary>
+                            <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField label="Min Speakers" htmlFor={`${id}-min-speakers`} optional>
                                 <Input
+                                    id={`${id}-min-speakers`}
                                     type="number" min={1} max={20} placeholder="Auto"
                                     value={params.min_speakers || ""}
                                     onChange={(e) => updateParam('min_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
                                     className={inputClassName}
                                 />
                             </FormField>
-                            <FormField label="Max Speakers" optional>
+                            <FormField label="Max Speakers" htmlFor={`${id}-max-speakers`} optional>
                                 <Input
+                                    id={`${id}-max-speakers`}
                                     type="number" min={1} max={20} placeholder="Auto"
                                     value={params.max_speakers || ""}
                                     onChange={(e) => updateParam('max_speakers', e.target.value ? parseInt(e.target.value) : undefined)}
                                     className={inputClassName}
                                 />
                             </FormField>
-                        </div>}
+                        </div>
 
                         {params.diarize_model === "pyannote" && (
                             <>
                                 <div className="pt-3 border-t border-[var(--border-subtle)]">
                                     <p className="text-xs text-[var(--text-tertiary)] mb-3">Voice Detection Tuning (for noisy/distant audio)</p>
                                     <div className="grid grid-cols-2 gap-4">
-                                        <FormField label="VAD Onset" description={PARAM_DESCRIPTIONS.vad_onset}>
+                                        <FormField label="VAD Onset" htmlFor={`${id}-vad-onset`} description={PARAM_DESCRIPTIONS.vad_onset}>
                                             <Input
+                                                id={`${id}-vad-onset`}
                                                 type="number" min={0.1} max={0.9} step={0.05}
                                                 value={params.vad_onset}
                                                 onChange={(e) => updateParam('vad_onset', parseFloat(e.target.value) || 0.5)}
                                                 className={inputClassName}
                                             />
                                         </FormField>
-                                        <FormField label="VAD Offset" description={PARAM_DESCRIPTIONS.vad_offset}>
+                                        <FormField label="VAD Offset" htmlFor={`${id}-vad-offset`} description={PARAM_DESCRIPTIONS.vad_offset}>
                                             <Input
+                                                id={`${id}-vad-offset`}
                                                 type="number" min={0.1} max={0.9} step={0.05}
                                                 value={params.vad_offset}
                                                 onChange={(e) => updateParam('vad_offset', parseFloat(e.target.value) || 0.363)}
@@ -673,6 +703,8 @@ function DiarizationSection({ id, params, updateParam, description, integrated =
                                 </div>
                             </>
                         )}
+                            </div>
+                        </details>}
                     </div>
                 )}
             </div>
@@ -804,7 +836,7 @@ function ParakeetConfig({ params, updateParam, isMultiTrack }: ConfigProps) {
 }
 
 function CanaryConfig({ params, updateParam, isMultiTrack }: ConfigProps) {
-    const offered = useContext(ModelCapabilitiesContext).find((model) => model.model_family === "nvidia_canary")?.supported_languages;
+    const offered = useContext(ModelCapabilitiesContext).models.find((model) => model.model_family === "nvidia_canary")?.supported_languages;
     const languages = CANARY_LANGUAGES.filter((language) => !offered || offered.includes(language.value));
     const languageOptions = (saved: string) => languages.some((language) => language.value === saved) ? languages
         : [...languages, { value: saved, label: `${LANGUAGES.find((language) => language.value === saved)?.label || saved} · saved, unsupported`, disabled: true }];
@@ -1058,7 +1090,6 @@ function ModelComparisonDetails({ model, variant, device, precision, batchSize }
                 <div><dt className="text-xs text-[var(--text-tertiary)]">Estimated CPU RAM ({cpuMemoryLabel})</dt><dd className="mt-1 font-medium text-[var(--text-primary)]">{cpuRAM ? `${cpuRAM} GB` : "Not estimated"}</dd></div>
                 <div><dt className="text-xs text-[var(--text-tertiary)]">Estimated GPU VRAM ({gpu.precision})</dt><dd className="mt-1 font-medium text-[var(--text-primary)]">{memoryEstimate.gpuSupported === false ? "GPU not supported" : gpu.value ? `${gpu.value} GB` : "Not estimated"}</dd></div>
             </dl>
-            <p className="text-xs leading-5 text-[var(--text-secondary)]">{memoryEstimate.gpuSupported !== false && referenceGPUFit(gpu.value)} Reference hardware: RTX 3060 12 GB VRAM; 32 GB system RAM available for models.</p>
             <p className="text-xs leading-5 text-[var(--text-secondary)]">ASR planning ranges for one worker, batch size 1 and short chunks. {batchSize > 1 ? `Your batch size is ${batchSize}; peak memory may be higher.` : "GPU runs also use system RAM for loading and audio."} {device === "auto" ? "Auto can use either device." : `Selected: ${device === "cuda" ? "GPU" : "CPU"} · ${precision}.`}</p>
             <details className="text-xs leading-5 text-[var(--text-secondary)]">
                 <summary className="cursor-pointer font-medium">Benchmark sources and memory assumptions</summary>
@@ -1082,7 +1113,7 @@ function ModelComparisonDetails({ model, variant, device, precision, batchSize }
 
 function PipelineMemoryDetails({ params, models }: { params: WhisperXParams; models: TranscriptionModelCapability[] }) {
     const speaker = models.find((model) => model.model_id === (params.diarize_model === "nvidia_sortformer" ? "sortformer" : params.diarize_model));
-    const speakerMemory = speaker ? modelMemoryEstimate(speaker, params.diarization_checkpoint) : undefined;
+    const speakerMemory = speaker ? modelMemoryEstimate(speaker, diarizationEvidenceCheckpoint(speaker, params.diarization_checkpoint)) : undefined;
     const speakerGPU = speakerMemory ? gpuMemoryEstimate(speakerMemory) : undefined;
     const requested = requestedDiarizationDevice(params.model_family, params.diarization_device);
     const speakerDevice = requested === "same" ? params.device : requested;
@@ -1110,9 +1141,11 @@ function PipelineMemoryDetails({ params, models }: { params: WhisperXParams; mod
 
 function DiarizationComparisonDetails({ model, device, checkpoint }: { model: TranscriptionModelCapability; device: string; checkpoint?: string }) {
     const metadata = model.metadata ?? {};
-    const otherDER = additionalBenchmarks(model, checkpoint).find((result) => result.metric.toUpperCase() === "DER");
-    const benchmarkApplies = diarizationBenchmarkApplies(model, checkpoint);
-    const memory = modelMemoryEstimate(model, checkpoint);
+    const evidenceCheckpoint = diarizationEvidenceCheckpoint(model, checkpoint);
+    const otherDER = additionalBenchmarks(model, evidenceCheckpoint).find((result) => result.metric.toUpperCase() === "DER");
+    const benchmarkApplies = diarizationBenchmarkApplies(model, evidenceCheckpoint)
+        && (model.model_id !== "sortformer" || !metadata.memory_model || evidenceCheckpoint === metadata.memory_model);
+    const memory = modelMemoryEstimate(model, evidenceCheckpoint);
     const gpu = gpuMemoryEstimate(memory);
     return (
         <div className="space-y-2 text-xs leading-5 text-[var(--text-secondary)]">
@@ -1124,7 +1157,7 @@ function DiarizationComparisonDetails({ model, device, checkpoint }: { model: Tr
             <p>Speaker device: {device === "cuda" ? "GPU" : device === "cpu" ? "CPU" : "Auto"}. {memory.gpuNotes || memory.notes || "Working memory varies with recording length and settings."}</p>
             {benchmarkApplies && (metadata.benchmark_notes || metadata.benchmark_caveat) && <p>{metadata.benchmark_notes || metadata.benchmark_caveat}</p>}
             {benchmarkApplies && metadata.benchmark_source?.startsWith("https://") && <a href={metadata.benchmark_source} target="_blank" rel="noreferrer" className="underline underline-offset-2">Diarization benchmark source</a>}
-            <OtherBenchmarkDetails model={model} variant={checkpoint} />
+            <OtherBenchmarkDetails model={model} variant={evidenceCheckpoint} />
         </div>
     );
 }

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import type { WhisperXParams } from "@/features/transcription/types";
+import { queueActivityKey } from './useQueueActivity';
 import {
     buildQueueRequest,
     reorderQueuedItems,
@@ -48,6 +49,7 @@ function useInvalidateTranscriptionQueue(audioId: string) {
 
     return async () => {
         await Promise.all([
+            queryClient.invalidateQueries({ queryKey: queueActivityKey }),
             queryClient.invalidateQueries({ queryKey: queueQueryKey(audioId) }),
             queryClient.invalidateQueries({ queryKey: ["audio", audioId] }),
             queryClient.invalidateQueries({ queryKey: ["executionRuns", audioId] }),

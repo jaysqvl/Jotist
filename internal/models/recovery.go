@@ -22,6 +22,8 @@ type RecoveryStage struct {
 	ExecutionID           string            `json:"execution_id" gorm:"not null;uniqueIndex:idx_recovery_execution_node"`
 	NodeKey               string            `json:"node_key" gorm:"not null;uniqueIndex:idx_recovery_execution_node"`
 	Kind                  string            `json:"kind" gorm:"not null"`
+	StageNumber           int               `json:"stage_number,omitempty"`
+	StageTotal            int               `json:"stage_total,omitempty"`
 	SchemaVersion         string            `json:"schema_version" gorm:"not null"`
 	CompatibilityKey      string            `json:"compatibility_key" gorm:"not null;index"`
 	ProvenanceJSON        string            `json:"-" gorm:"type:text;not null"`
@@ -56,6 +58,7 @@ type RecoveryAttempt struct {
 	ProvenanceJSON   string             `json:"-" gorm:"type:text"`
 	Measurements     *StageMeasurements `json:"measurements,omitempty" gorm:"serializer:json;type:text"`
 	Reason           string             `json:"reason,omitempty"`
+	RetryAt          *time.Time         `json:"retry_at,omitempty"`
 	ErrorCode        string             `json:"error_code,omitempty"`
 	CheckpointID     *string            `json:"checkpoint_id,omitempty"`
 	StartedAt        time.Time          `json:"started_at"`

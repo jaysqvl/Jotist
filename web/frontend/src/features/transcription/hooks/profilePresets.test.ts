@@ -4,8 +4,8 @@ import { TRANSCRIPTION_PRESETS, RECOMMENDED_PRESETS, createPresetDraft, presetAl
 import { REFERENCE_PROFILE_VALUES } from "./referenceProfilePresets.ts";
 
 test("preset catalog preserves all nine captured configurations, including the GPU-named CPU preset", () => {
-    assert.equal(TRANSCRIPTION_PRESETS.length, 14);
-    assert.equal(new Set(TRANSCRIPTION_PRESETS.map((preset) => preset.id)).size, 14);
+    assert.equal(TRANSCRIPTION_PRESETS.length, 15);
+    assert.equal(new Set(TRANSCRIPTION_PRESETS.map((preset) => preset.id)).size, 15);
     assert.equal(REFERENCE_PROFILE_VALUES.length, 9);
     for (const { name, ...parameters } of REFERENCE_PROFILE_VALUES) {
         const preset = TRANSCRIPTION_PRESETS.find((preset) => preset.name === name)!;
@@ -41,12 +41,16 @@ test("recommended presets use explicit CPU/GPU devices and batch size 1 independ
         assert.equal(params.nvidia_precision, params.compute_type);
         assert.equal(params.fp16, params.compute_type === "float16");
         assert.equal(params.language, "en");
-        assert.ok(["cpu", "cuda"].includes(params.diarization_device));
+        assert.ok(["cpu", "cuda", "same"].includes(params.diarization_device));
     }
     const initial = RECOMMENDED_PRESETS.find((preset) => preset.id === "cpu-qwen-pyannote")!;
     assert.equal(initial.parameters.model, "Qwen/Qwen3-ASR-1.7B-hf");
     assert.equal(initial.parameters.device, "cpu");
     assert.equal(initial.parameters.diarization_device, "cpu");
+    const gpuDefault = RECOMMENDED_PRESETS.find((preset) => preset.id === "gpu-qwen-pyannote")!;
+    assert.equal(gpuDefault.parameters.device, "cuda");
+    assert.equal(gpuDefault.parameters.diarization_device, "same");
+    assert.equal(gpuDefault.parameters.execution_policy_source, "global");
     assert.equal(RECOMMENDED_PRESETS.some((preset) => preset.parameters.model_family === "nvidia_canary"), false);
     for (const id of ["cpu-qwen-small-pyannote", "cpu-granite-compact-pyannote"]) {
         const compact = RECOMMENDED_PRESETS.find((preset) => preset.id === id)!;
