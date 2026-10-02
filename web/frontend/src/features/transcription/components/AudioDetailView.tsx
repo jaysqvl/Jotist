@@ -47,19 +47,18 @@ import {
     useAddTranscriptionQueueItem,
     useCancelTranscriptionQueueItem,
     useClearTranscriptionQueue,
-    useReorderTranscriptionQueue,
     useTranscriptionQueue,
 } from "@/features/transcription/hooks/useTranscriptionQueue";
 import {
     buildImmediateRunRequest,
     getQueuedItems,
     isStopRunTargetCurrent,
-    moveQueuedItemIds,
     shouldRefreshRunArtifacts,
     type RunArtifactRefreshSnapshot,
     type StopRunTargetSnapshot,
 } from "@/features/transcription/hooks/transcriptionQueue";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { queueActivityKey } from "@/features/transcription/hooks/useQueueActivity";
 
 // Types
 interface AudioDetailViewProps {
@@ -136,13 +135,12 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
         ? "pending"
         : "processing";
     const addQueueItem = useAddTranscriptionQueueItem(audioId || "");
-    const reorderQueue = useReorderTranscriptionQueue(audioId || "");
     const cancelQueueItem = useCancelTranscriptionQueueItem(audioId || "");
     const clearQueue = useClearTranscriptionQueue(audioId || "");
     const queueBusy = addQueueItem.isPending
-        || reorderQueue.isPending
         || cancelQueueItem.isPending
-        || clearQueue.isPending;
+        || clearQueue.isPending
+        || stopRunLoading;
     const { mutate: updateTitle } = useUpdateTitle(audioId || "");
     const { mutateAsync: setActiveRun, isPending: activeRunUpdating } = useSetActiveRun(audioId || "");
     // Fetch transcript & speakers here to support menu actions
@@ -367,6 +365,7 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
             setRerunProfileDialogOpen(false);
             setRerunAdvancedDialogOpen(false);
             await Promise.all([
+                queryClient.invalidateQueries({ queryKey: queueActivityKey }),
                 queryClient.invalidateQueries({ queryKey: ["transcriptionQueue", audioId] }),
                 queryClient.invalidateQueries({ queryKey: ["audio", audioId] }),
                 queryClient.invalidateQueries({ queryKey: ["transcript", audioId] }),
@@ -427,6 +426,7 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
             setStopRunDialogOpen(false);
             setStopRunTarget(null);
             await Promise.all([
+                queryClient.invalidateQueries({ queryKey: queueActivityKey }),
                 queryClient.invalidateQueries({ queryKey: ["transcriptionQueue", audioId] }),
                 queryClient.invalidateQueries({ queryKey: ["audio", audioId] }),
                 queryClient.invalidateQueries({ queryKey: ["transcript", audioId] }),
@@ -576,22 +576,6 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
             });
         }
     }, [cancelQueueItem, queuedRuns, toast]);
-
-    const handleMoveQueuedRun = useCallback(async (runId: string, direction: "up" | "down") => {
-        const currentIndex = queuedRuns.findIndex((item) => item.id === runId);
-        const nextIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
-        if (currentIndex < 0 || nextIndex < 0 || nextIndex >= queuedRuns.length) return;
-
-        try {
-            await reorderQueue.mutateAsync(moveQueuedItemIds(queuedRuns, runId, direction));
-            setQueueAnnouncement(`Queued run moved to position ${nextIndex + 1}.`);
-        } catch (err) {
-            toast({
-                title: "Could not reorder queue",
-                description: err instanceof Error ? err.message : "The queue order could not be saved.",
-            });
-        }
-    }, [queuedRuns, reorderQueue, toast]);
 
     const handleClearQueuedRuns = useCallback(async () => {
         try {
@@ -848,6 +832,8 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                                 </div>
 
                                 <RunQueuePanel
+                                    recordingId={audioId || ''}
+                                    recordingTitle={audioFile.title || 'Untitled Recording'}
                                     items={queuedRuns}
                                     activeItem={activeQueueItem}
                                     currentRun={currentRun}
@@ -861,10 +847,9 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                                     announcement={queueAnnouncement}
                                     onAddRun={() => setQueueProfileDialogOpen(true)}
                                     onRemoveRun={handleRemoveQueuedRun}
-                                    onMoveRun={handleMoveQueuedRun}
                                     onClearQueue={handleClearQueuedRuns}
                                     onStopRun={handleOpenStopRunDialog}
-                                    onRetry={() => void queueQuery.refetch()}
+                                    onRetry={() => queueQuery.refetch()}
                                 />
 
                                 <RunWorkspace

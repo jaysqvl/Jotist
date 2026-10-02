@@ -68,6 +68,7 @@ func syntheticRecognitionState(t *testing.T) []byte {
 func TestStagedTranscriptionFailedAlignmentResumesRecognitionAndPreservesASRDevice(t *testing.T) {
 	f := newStageTestFixture(t)
 	r := f.execution(t, RecoveryCPUFallback, true)
+	r.stageKinds = []string{"recognition", "alignment", "diarize"}
 	setAdaptiveExecutionPolicy(t, f, &r, map[string]models.AdaptiveStagePolicy{"alignment": {AllowCPU: true, CPUPrecision: "float32", MinBatchSize: 1}})
 	adapter := newStagedOrchestrationAdapter(t)
 	params := stageTestParams()
@@ -134,6 +135,8 @@ func TestStagedTranscriptionFailedAlignmentResumesRecognitionAndPreservesASRDevi
 	require.Equal(t, originalBytes, retained)
 	alignment := f.stage(t, r.execution.ID, "alignment")
 	require.Len(t, alignment.Attempts, 4)
+	require.Equal(t, 2, alignment.StageNumber)
+	require.Equal(t, 3, alignment.StageTotal, "retries and future stages must not change the planned count")
 	require.Equal(t, "cpu_fallback", alignment.Attempts[3].Reason)
 	var provenance repository.CheckpointProvenance
 	require.NoError(t, json.Unmarshal([]byte(alignment.Attempts[3].ProvenanceJSON), &provenance))

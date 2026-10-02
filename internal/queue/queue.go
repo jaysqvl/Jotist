@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -47,6 +46,10 @@ var (
 // TaskQueue manages transcription job processing
 type TaskQueue struct {
 	workerCount    int
+	spawnedWorkers int
+	started        bool
+	workerOverride bool
+	workersChanged chan struct{}
 	jobChannel     chan queuedTask
 	ctx            context.Context
 	cancel         context.CancelFunc
@@ -59,6 +62,7 @@ type TaskQueue struct {
 	scheduledTasks map[queuedTask]struct{}
 	jobRepo        repository.JobRepository
 	runQueueRepo   repository.TranscriptionQueueRepository
+	settingsRepo   repository.QueueSettingsRepository
 	jobTimeout     time.Duration
 	reconcileEvery time.Duration
 	protectedJobs  map[string]struct{}
@@ -78,9 +82,8 @@ type MultiTrackJobProcessor interface {
 	IsMultiTrackJob(jobID string) bool
 }
 
-// configuredWorkerCount fixes concurrency for the lifetime of the queue.
-// A positive environment override wins; invalid values retain the caller's
-// default. Embedders without a default get a conservative CPU-based count.
+// A positive deployment override wins. Without an explicit default, run one
+// recording at a time regardless of CPU count or detected GPU count.
 func configuredWorkerCount(defaultWorkers int) int {
 	if workers, err := strconv.Atoi(os.Getenv("QUEUE_WORKERS")); err == nil && workers > 0 {
 		return workers
@@ -88,17 +91,17 @@ func configuredWorkerCount(defaultWorkers int) int {
 	if defaultWorkers > 0 {
 		return defaultWorkers
 	}
-	if runtime.NumCPU() <= 4 {
-		return 1
-	}
-	return 2
+	return models.DefaultQueueWorkers
 }
 
-// NewTaskQueue creates a queue with a fixed number of transcription workers.
+// NewTaskQueue creates a queue with an explicit recording concurrency limit.
 func NewTaskQueue(defaultWorkers int, processor JobProcessor, jobRepo repository.JobRepository) *TaskQueue {
 	ctx, cancel := context.WithCancel(context.Background())
+	override, _ := strconv.Atoi(os.Getenv("QUEUE_WORKERS"))
 	return &TaskQueue{
 		workerCount:    configuredWorkerCount(defaultWorkers),
+		workerOverride: override > 0,
+		workersChanged: make(chan struct{}),
 		jobChannel:     make(chan queuedTask, 200),
 		ctx:            ctx,
 		cancel:         cancel,
@@ -129,6 +132,14 @@ func (tq *TaskQueue) SetJobTimeout(timeout time.Duration) {
 
 // Start starts the task queue workers
 func (tq *TaskQueue) Start() error {
+	if tq.settingsRepo != nil && !tq.workerOverride {
+		workers, err := tq.settingsRepo.LoadWorkers(tq.ctx)
+		if err != nil {
+			tq.startupError = err
+			return fmt.Errorf("load recording concurrency: %w", err)
+		}
+		tq.workerCount = workers
+	}
 	workers := tq.workerCount
 	logger.Debug("Starting task queue", "workers", workers)
 
@@ -151,11 +162,11 @@ func (tq *TaskQueue) Start() error {
 	// before recovering pending work.
 	tq.recoverSequentialRuns()
 
-	// Start initial workers
-	for i := 0; i < workers; i++ {
-		tq.wg.Add(1)
-		go tq.worker(i)
-	}
+	// The ownership claim enforces the configured limit, including reductions.
+	tq.jobsMutex.Lock()
+	tq.started = true
+	tq.growWorkersLocked()
+	tq.jobsMutex.Unlock()
 
 	// One-time recovery: enqueue any pending jobs left from previous server run.
 	// Workers are started first so recovery cannot deadlock when more than the
@@ -172,7 +183,9 @@ func (tq *TaskQueue) Start() error {
 // Stop stops the task queue
 func (tq *TaskQueue) Stop() {
 	logger.Debug("Stopping task queue")
+	tq.jobsMutex.Lock()
 	tq.cancel()
+	tq.jobsMutex.Unlock()
 	// Do not close jobChannel here as it causes panics in EnqueueJob
 	// The channel will be garbage collected when the queue is no longer referenced
 	tq.wg.Wait()
@@ -501,9 +514,37 @@ func (tq *TaskQueue) worker(id int) {
 				logger.Error("Failed to load queued job", "worker_id", id, "job_id", jobID, "error", err)
 				continue
 			}
-			// Publish cancellation state atomically with the database claim. KillJob
-			// takes the same lock, so it can never misclassify the narrow
-			// claim-to-running-map window as a zombie and promote overlapping work.
+			tq.jobsMutex.Lock()
+			// Lowering concurrency leaves active runs intact. Pending claims wait
+			// until existing owners return and finish releasing their resources.
+			for len(tq.runningJobs) >= tq.workerCount && tq.ctx.Err() == nil {
+				changed := tq.workersChanged
+				tq.jobsMutex.Unlock()
+				select {
+				case <-changed:
+				case <-tq.ctx.Done():
+				}
+				tq.jobsMutex.Lock()
+			}
+			if tq.ctx.Err() != nil {
+				tq.releaseScheduledTask(task)
+				tq.jobsMutex.Unlock()
+				return
+			}
+			if _, deleting := tq.deletingJobs[jobID]; deleting {
+				tq.releaseScheduledTask(task)
+				tq.jobsMutex.Unlock()
+				logger.Info("Skipping queued task while job deletion is reserved", "worker_id", id, "job_id", jobID)
+				continue
+			}
+			if _, alreadyRunning := tq.runningJobs[jobID]; alreadyRunning {
+				tq.releaseScheduledTask(task)
+				tq.jobsMutex.Unlock()
+				logger.Info("Skipping queued task because the audio still has running ownership", "worker_id", id, "job_id", jobID, "queue_item_id", task.QueueItemID)
+				continue
+			}
+			// Queue capacity waits do not consume a new run's processing budget.
+			// A resumed execution keeps its already-persisted absolute deadline.
 			jobCtx, jobCancel := context.WithCancel(tq.ctx)
 			if tq.jobTimeout > 0 {
 				jobCancel()
@@ -515,26 +556,10 @@ func (tq *TaskQueue) worker(id int) {
 					jobCtx, jobCancel = context.WithDeadline(tq.ctx, *saved.DeadlineAt)
 				}
 			}
+			// Publish cancellation state atomically with the database claim.
+			// KillJob uses this lock to preserve the claim-to-owner barrier.
 			runningJob := &RunningJob{
-				Cancel:      jobCancel,
-				Process:     nil, // Will be set by registerProcess callback
-				QueueItemID: task.QueueItemID,
-				ExecutionID: task.ExecutionID,
-			}
-			tq.jobsMutex.Lock()
-			if _, deleting := tq.deletingJobs[jobID]; deleting {
-				tq.releaseScheduledTask(task)
-				tq.jobsMutex.Unlock()
-				jobCancel()
-				logger.Info("Skipping queued task while job deletion is reserved", "worker_id", id, "job_id", jobID)
-				continue
-			}
-			if _, alreadyRunning := tq.runningJobs[jobID]; alreadyRunning {
-				tq.releaseScheduledTask(task)
-				tq.jobsMutex.Unlock()
-				jobCancel()
-				logger.Info("Skipping queued task because the audio still has running ownership", "worker_id", id, "job_id", jobID, "queue_item_id", task.QueueItemID)
-				continue
+				Cancel: jobCancel, QueueItemID: task.QueueItemID, ExecutionID: task.ExecutionID,
 			}
 			claimed, err := tq.claimTask(context.Background(), task, job)
 			if claimed && err == nil {
@@ -736,6 +761,7 @@ func (tq *TaskQueue) finalizeAndAdvance(jobID, queueItemID string, status models
 
 	if tq.runningJobs[jobID] == owner {
 		delete(tq.runningJobs, jobID)
+		tq.notifyWorkerCapacityLocked()
 	}
 	if tq.runQueueRepo != nil {
 		if _, err := tq.promoteNext(context.Background(), jobID, true); err != nil {
@@ -932,14 +958,15 @@ func (tq *TaskQueue) GetQueueStats() map[string]interface{} {
 
 	tq.jobsMutex.RLock()
 	runningJobsCount := len(tq.runningJobs)
+	workerCount := tq.workerCount
 	tq.jobsMutex.RUnlock()
 
 	return map[string]interface{}{
 		"queue_size":      len(tq.jobChannel),
 		"queue_capacity":  cap(tq.jobChannel),
-		"current_workers": tq.workerCount,
-		"min_workers":     tq.workerCount,
-		"max_workers":     tq.workerCount,
+		"current_workers": workerCount,
+		"min_workers":     workerCount,
+		"max_workers":     workerCount,
 		"auto_scale":      false,
 		"running_jobs":    runningJobsCount,
 		"pending_jobs":    pendingCount,

@@ -229,6 +229,9 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			queue := admin.Group("/queue")
 			{
 				queue.GET("/stats", handler.GetQueueStats)
+				queue.GET("/activity", handler.GetQueueActivity)
+				queue.GET("/settings", middleware.JWTOnlyMiddleware(authService), handler.GetQueueSettings)
+				queue.PUT("/settings", middleware.JWTOnlyMiddleware(authService), handler.UpdateQueueSettings)
 			}
 		}
 

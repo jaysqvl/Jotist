@@ -63,6 +63,7 @@ type CheckpointProvenance struct {
 }
 type StageSpec struct {
 	RecordingID, ExecutionID, NodeKey, Kind, SchemaVersion, CompatibilityKey string
+	StageNumber, StageTotal                                                  int
 	OwnerGeneration                                                          int64
 	DurationSeconds                                                          float64
 	RecoverableBoundary                                                      bool
@@ -130,6 +131,9 @@ var recoverySHA = regexp.MustCompile(`^[a-f0-9]{64}$`)
 var recoveryLabel = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.:/+\-]{0,199}$`)
 
 func validateStageSpec(spec StageSpec) error {
+	if spec.StageNumber < 0 || spec.StageTotal < 0 || spec.StageNumber > spec.StageTotal || (spec.StageNumber == 0) != (spec.StageTotal == 0) {
+		return errors.New("invalid stage position")
+	}
 	if spec.RecordingID == "" || spec.ExecutionID == "" || !recoveryLabel.MatchString(spec.NodeKey) || !recoveryLabel.MatchString(spec.SchemaVersion) || !recoverySHA.MatchString(spec.CompatibilityKey) || spec.OwnerGeneration < 1 || math.IsNaN(spec.DurationSeconds) || math.IsInf(spec.DurationSeconds, 0) || spec.DurationSeconds < 0 {
 		return errors.New("invalid stage identity or duration")
 	}
@@ -201,7 +205,7 @@ func (r *RecoveryRepository) EnsureStage(ctx context.Context, spec StageSpec) (*
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
-		stage = models.RecoveryStage{ID: uuid.NewString(), RecordingID: spec.RecordingID, ExecutionID: spec.ExecutionID, NodeKey: spec.NodeKey, Kind: spec.Kind, SchemaVersion: spec.SchemaVersion, CompatibilityKey: spec.CompatibilityKey, ProvenanceJSON: string(provenance), DurationSeconds: spec.DurationSeconds, RecoverableBoundary: spec.RecoverableBoundary, State: models.RecoveryPending, OwnerGeneration: spec.OwnerGeneration}
+		stage = models.RecoveryStage{ID: uuid.NewString(), RecordingID: spec.RecordingID, ExecutionID: spec.ExecutionID, NodeKey: spec.NodeKey, Kind: spec.Kind, StageNumber: spec.StageNumber, StageTotal: spec.StageTotal, SchemaVersion: spec.SchemaVersion, CompatibilityKey: spec.CompatibilityKey, ProvenanceJSON: string(provenance), DurationSeconds: spec.DurationSeconds, RecoverableBoundary: spec.RecoverableBoundary, State: models.RecoveryPending, OwnerGeneration: spec.OwnerGeneration}
 		return tx.Create(&stage).Error
 	})
 	return &stage, err

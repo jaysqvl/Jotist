@@ -26,6 +26,7 @@ type recoveryStageContext struct {
 	nodePrefix                 string
 	upstream                   []repository.CheckpointInput
 	descriptor                 *interfaces.StageDescriptor
+	stageKinds                 []string
 }
 
 func runRecoverableStage[T any](ctx context.Context, recovery recoveryStageContext, kind, node string, adapter interfaces.ModelAdapter, input interfaces.AudioInput, params map[string]interface{}, procCtx interfaces.ProcessingContext, run func(map[string]interface{}) (T, error)) (T, map[string]string, error) {
@@ -170,7 +171,14 @@ func runRecoverableStage[T any](ctx context.Context, recovery recoveryStageConte
 		}
 		return digestJSON(values)
 	}
-	stage, err := recovery.store.EnsureStage(ctx, repository.StageSpec{RecordingID: recovery.execution.TranscriptionJobID, ExecutionID: recovery.execution.ID, NodeKey: node, Kind: kind, SchemaVersion: schema, CompatibilityKey: compatibilityFor(provenance), OwnerGeneration: recovery.execution.OwnerGeneration, DurationSeconds: input.Duration.Seconds(), RecoverableBoundary: true, Provenance: provenance})
+	stageNumber, stageTotal := 0, 0
+	for index, plannedKind := range recovery.stageKinds {
+		if plannedKind == kind {
+			stageNumber, stageTotal = index+1, len(recovery.stageKinds)
+			break
+		}
+	}
+	stage, err := recovery.store.EnsureStage(ctx, repository.StageSpec{RecordingID: recovery.execution.TranscriptionJobID, ExecutionID: recovery.execution.ID, NodeKey: node, Kind: kind, StageNumber: stageNumber, StageTotal: stageTotal, SchemaVersion: schema, CompatibilityKey: compatibilityFor(provenance), OwnerGeneration: recovery.execution.OwnerGeneration, DurationSeconds: input.Duration.Seconds(), RecoverableBoundary: true, Provenance: provenance})
 	if err != nil {
 		return zero, nil, fmt.Errorf("cannot establish %s checkpoint identity: %w", node, err)
 	}

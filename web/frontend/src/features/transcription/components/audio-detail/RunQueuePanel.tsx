@@ -1,35 +1,24 @@
-import { useRef } from "react";
-import {
-    ArrowDown,
-    ArrowUp,
-    Clock3,
-    Layers3,
-    ListOrdered,
-    Loader2,
-    Plus,
-    Square,
-    Trash2,
-    X,
-} from "lucide-react";
+import { useId, useState } from "react";
+import { Link } from "react-router-dom";
+import { ChevronDown, Clock3, ListOrdered, Loader2, Plus, RefreshCw, Square, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
+    AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+    AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import type { ExecutionRun } from "@/features/transcription/hooks/useAudioDetail";
 import type { TranscriptionQueueItem } from "@/features/transcription/hooks/transcriptionQueue";
-import type { WhisperXParams } from "@/features/transcription/types";
 import { transcriptionModelLabel } from "@/features/transcription/hooks/modelCapabilities";
+import {
+    activityStateLabel, activityStageProgress, isCurrentQueueHead, occupiedWorkerRecordings, queuedActivityRuns,
+    type QueueActivity, type QueueActivityEntry, type QueueWaitTarget,
+} from "../../hooks/queueActivity";
+import { useQueueActivity } from "../../hooks/useQueueActivity";
 
 interface RunQueuePanelProps {
+    recordingId: string;
+    recordingTitle: string;
     items: TranscriptionQueueItem[];
     activeItem?: TranscriptionQueueItem | null;
     currentRun?: ExecutionRun;
@@ -43,382 +32,143 @@ interface RunQueuePanelProps {
     announcement?: string;
     onAddRun: () => void;
     onRemoveRun: (runId: string) => void;
-    onMoveRun: (runId: string, direction: "up" | "down") => void | Promise<void>;
     onClearQueue: () => void;
     onStopRun: () => void;
-    onRetry: () => void;
+    onRetry: () => void | Promise<unknown>;
 }
+
+type QueueRow = Pick<QueueActivityEntry,
+    "recording_id" | "recording_title" | "model_family" | "model" | "state" |
+    "profile_name" | "queue_item_id" | "execution_id" | "run_number" | "stage" | "stage_number" | "stage_total" | "stage_scope"
+> & { has_worker?: boolean; waiting_on?: QueueWaitTarget[]; wait_reason?: 'worker' | 'earlier_run' };
 
 export function RunQueuePanel({
-    items,
-    activeItem,
-    currentRun,
-    currentStatus = "processing",
-    runInProgress,
-    loading = false,
-    refreshing = false,
-    error,
-    queueBusy = false,
-    busyItemId,
-    announcement,
-    onAddRun,
-    onRemoveRun,
-    onMoveRun,
-    onClearQueue,
-    onStopRun,
-    onRetry,
+    recordingId, recordingTitle, items, activeItem, currentRun,
+    currentStatus = "processing", runInProgress, loading = false, refreshing = false,
+    error, queueBusy = false, busyItemId, announcement,
+    onAddRun, onRemoveRun, onClearQueue, onStopRun, onRetry,
 }: RunQueuePanelProps) {
-    if (!runInProgress && items.length === 0 && !loading && !error) return (
-        <section aria-label="Job queue" className="flex items-center justify-between gap-3 rounded-[var(--radius-card)] border border-[var(--border-subtle)] px-3 py-2">
-            <span className="flex items-center gap-2 text-xs text-[var(--text-secondary)]"><ListOrdered className="h-4 w-4" />Queue empty</span>
-            <span className="sr-only" aria-live="polite">{announcement}</span>
-            <Button variant="outline" size="sm" onClick={onAddRun} disabled={queueBusy} className="gap-1.5 rounded-full"><Plus className="h-3.5 w-3.5" />Add run</Button>
-        </section>
-    );
-    return (
-        <section className="glass-card overflow-hidden rounded-[var(--radius-card)] border border-[var(--border-subtle)] shadow-[var(--shadow-card)]">
-            <span className="sr-only" aria-live="polite">
-                {items.length === 1 ? "1 run is waiting in the queue." : `${items.length} runs are waiting in the queue.`}
-            </span>
-            <span className="sr-only" aria-live="polite">{announcement}</span>
-            <div className="border-b border-[var(--border-subtle)] p-4 sm:p-5">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <h2 className="flex items-center gap-2 text-base font-bold text-[var(--text-primary)]">
-                                <ListOrdered className="h-4 w-4 text-[var(--brand-solid)]" />
-                                Job Queue
-                            </h2>
-                            <span className="rounded-full bg-[var(--brand-light)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--brand-solid)]">
-                                Sequential
-                            </span>
-                            {refreshing && !loading && (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--text-tertiary)] motion-reduce:animate-none" aria-label="Refreshing queue" />
-                            )}
-                        </div>
-                        <p className="mt-1 max-w-2xl text-sm text-[var(--text-secondary)]">
-                            Line up different model configurations for this audio file. Runs are saved on the server and processed one at a time.
-                        </p>
-                    </div>
+    const [showAll, setShowAll] = useState(false);
+    const listId = useId();
+    const query = useQueueActivity();
+    const currentExecution = currentRun && ["pending", "processing", "running", "waiting", "waiting_for_resource"].includes(currentRun.status || "")
+        && (!activeItem || activeItem.execution_id === currentRun.id) ? currentRun : undefined;
+    const parameters = activeItem?.parameters ?? currentExecution?.actual_parameters;
+    const localEntry: QueueActivityEntry = {
+        recording_id: recordingId,
+        recording_title: recordingTitle,
+        state: runInProgress ? currentStatus === "pending" ? "waiting_worker" : "checking" : "queued",
+        has_worker: false,
+        queue_item_id: activeItem?.id,
+        queued_at: activeItem?.queued_at,
+        execution_id: activeItem?.execution_id ?? currentExecution?.id,
+        run_number: currentExecution?.run_number,
+        model_family: parameters?.model_family ?? "",
+        model: parameters?.model ?? "",
+        profile_name: activeItem?.profile_name ?? currentExecution?.profile_name,
+        queued_runs: items.length,
+        queued_jobs: items.map((item) => ({
+            queue_item_id: item.id, queued_at: item.queued_at,
+            model_family: item.parameters.model_family ?? "", model: item.parameters.model ?? "",
+            profile_name: item.profile_name,
+        })),
+    };
+    const localActivity: QueueActivity = {
+        generated_at: "", workers: 0, busy_workers: 0, waiting_recordings: 0,
+        queued_runs: items.length, recordings: runInProgress || items.length ? [localEntry] : [],
+    };
+    const activity = query.data ?? localActivity;
+    const activeRuns = activity.recordings.filter((entry) => entry.has_worker || entry.state === "checking");
+    const queuedRuns = queuedActivityRuns(activity);
+    const visibleQueuedRuns = showAll ? queuedRuns : queuedRuns.slice(0, 2);
+    const thisRecording = activity.recordings.find((entry) => entry.recording_id === recordingId);
+    const blockers = !query.isError && thisRecording?.state === "waiting_worker"
+        ? occupiedWorkerRecordings(activity, recordingId) : [];
+    const controlsDisabled = queueBusy || refreshing || !!error || query.isError;
+    const ownItems = new Map(items.map((item) => [item.id, item]));
 
-                    <div className="flex shrink-0 flex-nowrap items-center gap-2">
-                        {items.length > 0 && (
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        disabled={queueBusy}
-                                        className="gap-2 rounded-full text-[var(--text-secondary)] hover:text-red-600 dark:hover:text-red-300"
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                        Clear queue
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent className="glass-card bg-[var(--bg-main)]/95 border-[var(--border-subtle)]">
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle className="text-[var(--text-primary)]">Clear waiting runs?</AlertDialogTitle>
-                                        <AlertDialogDescription className="text-[var(--text-secondary)]">
-                                            Cancel all {items.length} waiting {items.length === 1 ? "run" : "runs"}? The active run will continue, and cancelled runs cannot be restored.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>Keep runs</AlertDialogCancel>
-                                        <AlertDialogAction
-                                            onClick={onClearQueue}
-                                            disabled={queueBusy}
-                                            className="bg-red-600 text-white hover:bg-red-700"
-                                        >
-                                            Cancel waiting runs
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                        )}
-                        <Button
-                            size="sm"
-                            onClick={onAddRun}
-                            disabled={queueBusy}
-                            className="gap-2 rounded-full border-0 !text-white shadow-lg shadow-brand-500/15 hover:opacity-90"
-                            style={{ background: "var(--brand-gradient)" }}
-                        >
-                            <Plus className="h-4 w-4" />
-                            Add run
-                        </Button>
-                    </div>
-                </div>
-
-                <div className="mt-4 flex gap-2 rounded-xl border border-[var(--brand-solid)]/20 bg-[var(--brand-light)]/35 px-3 py-2 text-xs leading-5 text-[var(--text-secondary)]">
-                    <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--brand-solid)]" />
-                    <p>
-                        {runInProgress
-                            ? currentStatus === "pending"
-                                ? "Cancelling the pending run advances the queue immediately. Waiting runs can be reordered or cancelled before they start."
-                                : "Stopping the active run starts the next waiting run automatically after the worker finishes cleanup. Waiting runs can be reordered or cancelled before they start."
-                            : "The first run starts as soon as a worker is available. Additional waiting runs can be reordered or cancelled before they start."}
-                    </p>
-                </div>
-            </div>
-
-            <div className="p-4 sm:p-5">
-                {error && (
-                    <div className="mb-3 flex flex-col gap-2 rounded-xl border border-red-500/25 bg-red-500/10 p-3 text-sm text-red-700 sm:flex-row sm:items-center sm:justify-between dark:text-red-300" role="alert">
-                        <span>{error}</span>
-                        <Button variant="outline" size="sm" onClick={onRetry} className="self-start rounded-full sm:self-auto">
-                            Try again
-                        </Button>
-                    </div>
-                )}
-
-                {runInProgress && (
-                    <CurrentRunRow
-                        activeItem={activeItem}
-                        run={currentRun}
-                        status={currentStatus}
-                        hasNext={items.length > 0}
-                        onStopRun={onStopRun}
-                    />
-                )}
-
-                {runInProgress && items.length > 0 && (
-                    <div className="ml-[19px] h-5 border-l border-dashed border-[var(--border-subtle)]" aria-hidden="true" />
-                )}
-
-                {loading ? (
-                    <div className="flex items-center justify-center gap-2 px-4 py-8 text-sm text-[var(--text-secondary)]">
-                        <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
-                        Loading queue…
-                    </div>
-                ) : items.length > 0 ? (
-                    <ol className="space-y-2" aria-label="Queued transcription runs">
-                        {items.map((item, index) => (
-                            <QueueItemRow
-                                key={item.id}
-                                item={item}
-                                index={index}
-                                itemCount={items.length}
-                                isNext={index === 0}
-                                hasActiveJob={runInProgress}
-                                disabled={queueBusy}
-                                busy={busyItemId === item.id}
-                                onMoveRun={onMoveRun}
-                                onRemoveRun={onRemoveRun}
-                            />
-                        ))}
-                    </ol>
-                ) : (
-                    <EmptyQueue runInProgress={runInProgress} onAddRun={onAddRun} disabled={queueBusy} />
-                )}
-            </div>
-        </section>
-    );
-}
-
-function CurrentRunRow({
-    activeItem,
-    run,
-    status,
-    hasNext,
-    onStopRun,
-}: {
-    activeItem?: TranscriptionQueueItem | null;
-    run?: ExecutionRun;
-    status: "pending" | "processing";
-    hasNext: boolean;
-    onStopRun: () => void;
-}) {
-    const params = activeItem?.parameters || run?.actual_parameters;
-    const isPending = status === "pending";
-
-    return (
-        <div className="flex flex-col gap-3 rounded-xl border border-[var(--brand-solid)]/25 bg-[var(--brand-light)]/40 p-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex min-w-0 items-start gap-3">
-                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--brand-solid)] text-white shadow-sm">
-                    {isPending ? <Clock3 className="h-4 w-4" /> : <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />}
-                </span>
-                <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-[var(--brand-solid)]">
-                            {isPending ? "Waiting for worker" : "Running now"}
-                        </span>
-                        {run && <span className="text-xs text-[var(--text-tertiary)]">Run {run.run_number}</span>}
-                        {activeItem?.profile_name && <span className="text-xs text-[var(--text-tertiary)]">Profile · {activeItem.profile_name}</span>}
-                    </div>
-                    <p className="truncate text-sm font-semibold text-[var(--text-primary)]">
-                        {params ? modelLabel(params) : "Active transcription"}
-                    </p>
-                    <p className="text-xs text-[var(--text-secondary)]">
-                        {isPending
-                            ? (hasNext ? "The next waiting run starts after this run completes or is cancelled." : "Add another model while this job waits for a worker.")
-                            : (hasNext ? "Stopping this run advances the queue after worker cleanup." : "Add another model while this run finishes.")}
-                    </p>
-                </div>
-            </div>
-
-            <Button
-                variant="outline"
-                size="sm"
-                onClick={onStopRun}
-                className="gap-2 self-start rounded-full border-red-500/30 bg-red-500/10 text-red-600 hover:bg-red-500/15 hover:text-red-700 sm:self-auto dark:text-red-300 dark:hover:text-red-200"
-            >
-                <Square className="h-3.5 w-3.5 fill-current" />
-                {isPending ? "Cancel job" : "Stop run"}
-            </Button>
-        </div>
-    );
-}
-
-function QueueItemRow({
-    item,
-    index,
-    itemCount,
-    isNext,
-    hasActiveJob,
-    disabled,
-    busy,
-    onMoveRun,
-    onRemoveRun,
-}: {
-    item: TranscriptionQueueItem;
-    index: number;
-    itemCount: number;
-    isNext: boolean;
-    hasActiveJob: boolean;
-    disabled: boolean;
-    busy: boolean;
-    onMoveRun: (runId: string, direction: "up" | "down") => void | Promise<void>;
-    onRemoveRun: (runId: string) => void;
-}) {
-    const params = item.parameters;
-    const controlsRef = useRef<HTMLDivElement>(null);
-
-    const moveRun = async (direction: "up" | "down") => {
-        try {
-            await onMoveRun(item.id, direction);
-        } catch {
-            // The parent owns mutation error reporting; focus still needs restoring.
-        }
-        requestAnimationFrame(() => {
-            const fallbackDirection = direction === "up" ? "down" : "up";
-            controlsRef.current?.querySelector<HTMLButtonElement>(`button[data-queue-direction="${fallbackDirection}"]`)?.focus();
-        });
+    const renderRow = (row: QueueRow, kind: "active" | "queued") => {
+        const ownItem = row.recording_id === recordingId && row.queue_item_id ? ownItems.get(row.queue_item_id) : undefined;
+        const isCurrentHead = runInProgress && isCurrentQueueHead(row, recordingId, activeItem?.id, currentExecution?.id);
+        return <RunRow
+            key={row.queue_item_id ?? `${row.recording_id}:active`}
+            row={row} kind={kind} currentRecordingId={recordingId}
+            localItem={ownItem}
+            disabled={controlsDisabled} busy={busyItemId === row.queue_item_id}
+            canStop={isCurrentHead} onStopRun={onStopRun} onRemoveRun={onRemoveRun}
+        />;
     };
 
-    return (
-        <li className="group flex flex-col gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-main)]/45 p-3 transition-colors hover:border-[var(--brand-solid)]/25 sm:flex-row sm:items-center">
-            <div className="flex min-w-0 flex-1 items-start gap-3">
-                <span
-                    className={cn(
-                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border font-mono text-xs font-bold",
-                        isNext
-                            ? "border-[var(--brand-solid)]/30 bg-[var(--brand-light)] text-[var(--brand-solid)]"
-                            : "border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-secondary)]"
-                    )}
-                    aria-hidden="true"
-                >
-                    {index + 1}
-                </span>
-                <div className="min-w-0">
-                    {item.profile_name && (
-                        <p className="mb-0.5 truncate text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
-                            Profile · {item.profile_name}
-                        </p>
-                    )}
-                    <div className="flex flex-wrap items-center gap-2">
-                        <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{modelLabel(params)}</p>
-                        {isNext && (
-                            <span className="rounded-full bg-[var(--brand-light)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--brand-solid)]">
-                                {hasActiveJob ? "Up next" : "Next"}
-                            </span>
-                        )}
-                    </div>
-                    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[var(--text-secondary)]">
-                        <span>{deviceLabel(params.device)}</span>
-                        <span>{languageLabel(params.language)}</span>
-                        <span>{params.diarize ? "Diarization on" : "Diarization off"}</span>
-                        {params.batch_size ? <span>Batch {params.batch_size}</span> : null}
-                    </div>
-                </div>
+    return <section id="recording-queue" aria-label="Run queue" className="glass-card overflow-hidden rounded-[var(--radius-card)] border border-[var(--border-subtle)] shadow-[var(--shadow-card)]">
+        <span className="sr-only" aria-live="polite">{announcement}</span>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-subtle)] px-4 py-3">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <h2 className="flex items-center gap-2 text-sm font-bold text-[var(--text-primary)]"><ListOrdered className="h-4 w-4 text-[var(--brand-solid)]" />Run queue</h2>
+                {query.data && <span className="text-xs text-[var(--text-secondary)]">{activity.busy_workers} active · {queuedRuns.length} queued</span>}
             </div>
-
-            <div ref={controlsRef} className="flex items-center gap-1 self-end sm:self-auto">
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => void moveRun("up")}
-                    disabled={disabled || index === 0}
-                    data-queue-direction="up"
-                    aria-label={`Move queued run ${index + 1} up`}
-                    title="Move up"
-                    className="h-8 w-8 rounded-full text-[var(--text-secondary)]"
-                >
-                    <ArrowUp className="h-4 w-4" />
-                </Button>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => void moveRun("down")}
-                    disabled={disabled || index === itemCount - 1}
-                    data-queue-direction="down"
-                    aria-label={`Move queued run ${index + 1} down`}
-                    title="Move down"
-                    className="h-8 w-8 rounded-full text-[var(--text-secondary)]"
-                >
-                    <ArrowDown className="h-4 w-4" />
-                </Button>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => onRemoveRun(item.id)}
-                    disabled={disabled}
-                    aria-label={`Cancel queued run ${index + 1}`}
-                    title="Cancel queued run"
-                    className="h-8 w-8 rounded-full text-[var(--text-secondary)] hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-300"
-                >
-                    {busy ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <X className="h-4 w-4" />}
-                </Button>
+            <div className="flex shrink-0 items-center gap-1">
+                {items.length > 0 && <AlertDialog>
+                    <AlertDialogTrigger asChild><Button variant="ghost" size="icon" disabled={controlsDisabled} className="h-8 w-8 rounded-full text-[var(--text-secondary)]" aria-label={`Clear queued runs for ${recordingTitle}`} title="Clear this recording’s queued runs"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader><AlertDialogTitle>Clear this recording’s queued runs?</AlertDialogTitle>
+                            <AlertDialogDescription>Cancel {items.length} queued {items.length === 1 ? "run" : "runs"} for “{recordingTitle}”? Its active run will continue. Cancelled runs cannot be restored.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter><AlertDialogCancel>Keep runs</AlertDialogCancel><AlertDialogAction onClick={onClearQueue} disabled={controlsDisabled} className="bg-red-600 text-white hover:bg-red-700">Cancel queued runs</AlertDialogAction></AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>}
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-[var(--text-secondary)]" aria-label="Refresh run queue" disabled={query.isFetching || refreshing} onClick={() => void Promise.all([query.refetch(), onRetry()])}><RefreshCw className={cn("h-4 w-4", (query.isFetching || refreshing) && "animate-spin motion-reduce:animate-none")} /></Button>
+                <Button size="sm" onClick={onAddRun} disabled={controlsDisabled} className="gap-1.5 rounded-full border-0 !text-white" style={{ background: "var(--brand-gradient)" }} title={`Add a run for ${recordingTitle}`}><Plus className="h-4 w-4" />Add run</Button>
             </div>
-        </li>
-    );
-}
-
-function EmptyQueue({
-    runInProgress,
-    onAddRun,
-    disabled,
-}: {
-    runInProgress: boolean;
-    onAddRun: () => void;
-    disabled: boolean;
-}) {
-    return (
-        <div className={cn("flex flex-col items-center justify-center px-4 py-7 text-center", runInProgress && "pt-6")}>
-            <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-[var(--bg-main)] text-[var(--text-tertiary)]">
-                <Layers3 className="h-5 w-5" />
-            </span>
-            <p className="text-sm font-semibold text-[var(--text-primary)]">No runs waiting</p>
-            <p className="mt-1 max-w-md text-xs leading-5 text-[var(--text-secondary)]">
-                Add a saved profile or custom model setup. It will persist here and start when this audio file reaches the front of the worker queue.
-            </p>
-            <Button variant="outline" size="sm" onClick={onAddRun} disabled={disabled} className="mt-3 gap-2 rounded-full border-[var(--border-subtle)] bg-[var(--bg-card)]">
-                <Plus className="h-4 w-4" />
-                Add first run
-            </Button>
         </div>
-    );
+        {blockers.length > 0 && <p className="border-b border-[var(--border-subtle)] bg-[var(--brand-light)]/35 px-4 py-2 text-sm text-[var(--text-primary)]">
+            <Clock3 className="mr-1.5 inline h-4 w-4 align-text-bottom text-[var(--brand-solid)]" />
+            <span className="font-semibold text-[var(--brand-solid)]">Waiting on: </span>
+            {blockers.slice(0, 2).map((entry, index) => <span key={entry.recording_id}>
+                {index > 0 && " and "}<Link to={runHref(entry)} className="font-semibold underline underline-offset-2">{entry.recording_title}</Link>
+            </span>)}{blockers.length > 2 && ` and ${blockers.length - 2} more recordings`}
+        </p>}
+        {error && <div role="alert" className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 text-sm text-[var(--error-solid)]"><span>{error}</span><Button variant="outline" size="sm" onClick={onRetry}>Try again</Button></div>}
+        {query.isError && <p role="alert" className="px-4 py-2 text-xs text-[var(--error-solid)]">{query.data ? "Live queue updates are unavailable. Showing the last known runs." : "Shared queue status is unavailable. Showing this recording’s runs."}</p>}
+        {(loading || query.isPending) && <p role="status" className="flex items-center gap-2 px-4 py-2 text-xs text-[var(--text-secondary)]"><Loader2 className="h-3 w-3 animate-spin motion-reduce:animate-none" />Refreshing queue…</p>}
+        {activeRuns.length > 0 && <ul aria-label="Active runs" className="divide-y divide-[var(--border-subtle)] border-b border-[var(--border-subtle)]">{activeRuns.map((row) => renderRow(row, "active"))}</ul>}
+        {queuedRuns.length > 0 ? <>
+            <div className="px-4 pt-3 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">{showAll ? "Queued runs" : "Latest queued runs"}</div>
+            <ul id={listId} aria-label="Queued runs" className="divide-y divide-[var(--border-subtle)]">{visibleQueuedRuns.map((row) => renderRow(row, "queued"))}</ul>
+            {queuedRuns.length > 2 && <div className="border-t border-[var(--border-subtle)] px-3 py-2"><Button variant="ghost" size="sm" className="gap-2 rounded-full text-[var(--brand-solid)]" aria-controls={listId} aria-expanded={showAll} onClick={() => setShowAll(!showAll)}>{showAll ? "Show latest 2" : `Show all ${queuedRuns.length} queued runs`}<ChevronDown className={cn("h-4 w-4 transition-transform", showAll && "rotate-180")} /></Button></div>}
+        </> : !loading && !query.isPending && <p className="px-4 py-3 text-sm text-[var(--text-secondary)]">{query.data ? "No queued runs." : "No queued runs for this recording."}</p>}
+    </section>;
 }
 
-function modelLabel(params: Partial<WhisperXParams>) {
-    return transcriptionModelLabel(params.model_family, params.model);
+function RunRow({ row, kind, currentRecordingId, localItem, disabled, busy, canStop, onStopRun, onRemoveRun }: {
+    row: QueueRow; kind: "active" | "queued"; currentRecordingId: string;
+    localItem?: TranscriptionQueueItem;
+    disabled: boolean; busy: boolean; canStop: boolean;
+    onStopRun: () => void;
+    onRemoveRun: (runId: string) => void;
+}) {
+    const status = row.state === "queued" ? "Queued" : activityStateLabel({ ...row, has_worker: !!row.has_worker, queued_runs: 0 });
+    const stage = ['resource_wait', 'retry_wait'].includes(row.state) ? activityStageProgress({ ...row, has_worker: !!row.has_worker, queued_runs: 0 }) : undefined;
+    const spinning = row.has_worker && !['resource_wait', 'retry_wait'].includes(row.state);
+    return <li data-queue-kind={kind} className={cn("grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(10rem,1fr)_6rem]", kind === "active" && "bg-[var(--brand-light)]/25")}>
+        <div className="min-w-0">
+            <Link to={runHref(row)} className="block break-words text-sm font-semibold leading-5 text-[var(--text-primary)] hover:underline">{row.recording_id === currentRecordingId && <span className="font-normal text-[var(--text-secondary)]">(This) · </span>}{row.recording_title}</Link>
+        </div>
+        <div className="col-start-1 row-start-2 min-w-0 lg:col-start-auto lg:row-start-auto">
+            <p className="break-words text-sm leading-5 text-[var(--text-primary)]">{transcriptionModelLabel(row.model_family, row.model)}</p>
+            {(row.profile_name || row.run_number) && <p className="break-words text-xs leading-5 text-[var(--text-secondary)]">{row.run_number ? `Run ${row.run_number}${row.profile_name ? " · " : ""}` : ""}{row.profile_name}</p>}
+        </div>
+        <div className="col-start-1 row-start-3 min-w-0 text-xs text-[var(--text-secondary)] lg:col-start-auto lg:row-start-auto">
+            <div className="flex items-center gap-1.5">{spinning ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-[var(--brand-solid)] motion-reduce:animate-none" /> : <Clock3 className="h-3.5 w-3.5 shrink-0" />}<span className={cn("break-words", kind === "active" && "font-medium text-[var(--brand-solid)]")}>{status}</span></div>
+            {stage && <p className="mt-1 break-words">{stage}</p>}
+            {!!row.waiting_on?.length && <p className="mt-1 break-words leading-4">{row.wait_reason === 'earlier_run' ? 'Earlier run for: ' : 'Waiting on: '}{row.waiting_on.slice(0, 2).map((target, index) => <span key={target.recording_id}>{index > 0 && " and "}<Link to={runHref(target)} className="underline underline-offset-2">{target.recording_title}{target.run_number ? <span className="whitespace-nowrap"> · Run {target.run_number}</span> : null}</Link></span>)}{row.waiting_on.length > 2 && ` and ${row.waiting_on.length - 2} more`}</p>}
+        </div>
+        <div className="col-start-2 row-span-3 row-start-1 flex items-center justify-end gap-0.5 lg:col-start-auto lg:row-span-1 lg:row-start-auto">
+            {canStop ? <Button variant="outline" size="sm" onClick={onStopRun} disabled={disabled} className="gap-1.5 rounded-full border-red-500/25 bg-red-500/5 px-2 text-xs text-[var(--error-solid)]"><Square className="h-3 w-3 fill-current" />{row.state === "waiting_worker" ? "Cancel run" : "Stop run"}</Button>
+                : localItem && <Button variant="ghost" size="icon" disabled={disabled} onClick={() => onRemoveRun(localItem.id)} aria-label={`Cancel queued run for ${row.recording_title} using ${transcriptionModelLabel(row.model_family, row.model)}`} title="Cancel queued run" className="h-7 w-7 rounded-full text-[var(--text-secondary)] hover:text-[var(--error-solid)]">{busy ? <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" /> : <X className="h-3.5 w-3.5" />}</Button>}
+        </div>
+    </li>;
 }
 
-function deviceLabel(device?: string) {
-    if (!device || device === "auto") return "Auto device";
-    if (device === "cuda") return "GPU (CUDA)";
-    return device.toUpperCase();
-}
-
-function languageLabel(language?: string) {
-    if (!language || language === "auto") return "Auto language";
-    return language.toUpperCase();
+function runHref(row: Pick<QueueRow, "recording_id" | "execution_id">) {
+    return `/audio/${encodeURIComponent(row.recording_id)}${row.execution_id ? `?run=${encodeURIComponent(row.execution_id)}` : "#recording-queue"}`;
 }

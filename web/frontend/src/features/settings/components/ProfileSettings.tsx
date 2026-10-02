@@ -15,6 +15,7 @@ import { TranscriptionPresetsDialog } from "./TranscriptionPresetsDialog";
 import { createPresetDraft, RECOMMENDED_PRESETS, type TranscriptionPreset } from "@/features/transcription/hooks/profilePresets";
 import { ProfileLearningDialog } from "./ProfileLearningDialog";
 import { ExecutionPolicySettings } from "./ExecutionPolicySettings";
+import { QueueSettings } from "./QueueSettings";
 
 interface TranscriptionProfile {
 	id: string;
@@ -296,6 +297,7 @@ export function ProfileSettings() {
 			)}
 
 			{/* Auto-Transcription Settings */}
+			<QueueSettings />
 			<ExecutionPolicySettings />
 			<div className="bg-[var(--bg-main)]/50 border border-[var(--border-subtle)] rounded-[var(--radius-card)] p-4 sm:p-6 shadow-sm">
 				<div className="mb-4">

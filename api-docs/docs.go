@@ -24,6 +24,95 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/v1/admin/queue/activity": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Sample shared worker ownership, current stages and waiting recordings without private request or transcript content.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Show activity across recording queues",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.QueueActivity"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/queue/settings": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Read recording queue settings",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.QueueSettingsResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Save a server-wide limit. Active executions finish normally when the limit is lowered. QUEUE_WORKERS is an explicit deployment override.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Set recording concurrency",
+                "parameters": [
+                    {
+                        "description": "Recording concurrency",
+                        "name": "settings",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.UpdateQueueSettingsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.QueueSettingsResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/admin/queue/stats": {
             "get": {
                 "security": [
@@ -5889,6 +5978,17 @@ const docTemplate = `{
                 }
             }
         },
+        "api.UpdateQueueSettingsRequest": {
+            "type": "object",
+            "required": [
+                "workers"
+            ],
+            "properties": {
+                "workers": {
+                    "type": "integer"
+                }
+            }
+        },
         "api.UpdateUserSettingsRequest": {
             "type": "object",
             "properties": {
@@ -6480,6 +6580,137 @@ const docTemplate = `{
                 },
                 "updated_at": {
                     "type": "string"
+                }
+            }
+        },
+        "models.QueueActivity": {
+            "type": "object",
+            "properties": {
+                "busy_workers": {
+                    "type": "integer"
+                },
+                "generated_at": {
+                    "type": "string"
+                },
+                "queued_runs": {
+                    "type": "integer"
+                },
+                "recordings": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.QueueActivityEntry"
+                    }
+                },
+                "waiting_recordings": {
+                    "type": "integer"
+                },
+                "workers": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.QueueActivityEntry": {
+            "type": "object",
+            "properties": {
+                "execution_id": {
+                    "type": "string"
+                },
+                "has_worker": {
+                    "type": "boolean"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "model_family": {
+                    "type": "string"
+                },
+                "profile_name": {
+                    "type": "string"
+                },
+                "queue_item_id": {
+                    "type": "string"
+                },
+                "queued_at": {
+                    "type": "string"
+                },
+                "queued_jobs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.QueueActivityQueuedJob"
+                    }
+                },
+                "queued_runs": {
+                    "type": "integer"
+                },
+                "recording_id": {
+                    "type": "string"
+                },
+                "recording_title": {
+                    "type": "string"
+                },
+                "retry_at": {
+                    "type": "string"
+                },
+                "run_number": {
+                    "type": "integer"
+                },
+                "stage": {
+                    "type": "string"
+                },
+                "stage_number": {
+                    "type": "integer"
+                },
+                "stage_scope": {
+                    "type": "string"
+                },
+                "stage_state": {
+                    "type": "string"
+                },
+                "stage_total": {
+                    "type": "integer"
+                },
+                "started_at": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.QueueActivityQueuedJob": {
+            "type": "object",
+            "properties": {
+                "model": {
+                    "type": "string"
+                },
+                "model_family": {
+                    "type": "string"
+                },
+                "profile_name": {
+                    "type": "string"
+                },
+                "queue_item_id": {
+                    "type": "string"
+                },
+                "queued_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.QueueSettingsResponse": {
+            "type": "object",
+            "properties": {
+                "busy_workers": {
+                    "type": "integer"
+                },
+                "environment_override": {
+                    "type": "boolean"
+                },
+                "max_workers": {
+                    "type": "integer"
+                },
+                "workers": {
+                    "type": "integer"
                 }
             }
         },

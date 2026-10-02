@@ -486,12 +486,15 @@ The server reads environment variables and an optional `.env` file in its workin
 | `JWT_SECRET`, `JWT_SECRET_FILE` | Existing signing secret or persistent secret file | Generated at `data/jwt_secret` when unset |
 | `HF_TOKEN` | Optional Hugging Face access token | Empty |
 | `OPENAI_API_KEY` | Optional cloud provider key | Empty |
+| `QUEUE_WORKERS` | Explicit recording concurrency override; locks the Settings control | Saved Settings limit, otherwise `1` |
 | `ALLOWED_ORIGINS` | Comma-separated browser origins | Local development origins |
 | `TRUSTED_PROXIES` | Trusted proxy IPs/CIDRs for forwarded headers | None |
 | `SECURE_COOKIES` | Cookie transport mode | `auto` |
 | `PUID`, `PGID` | Container runtime UID/GID | `1000`, `1000` |
 
 The existing upload, authentication, media concurrency, timeout, and runtime environment settings remain supported. Keep your current values when migrating. Gated models may require both a token and acceptance of their model terms.
+
+Recording runs share one worker by default. Set **Simultaneous recordings** in **Settings → Transcription → Processing queue** to change the limit across recordings. One is recommended for a single GPU. Changes are saved across restarts; lowering the limit lets active runs finish before starting more work. Each recording keeps its own run order. The run queue shows active work and the two latest queued runs across recordings. Every row names its recording, model and what it is waiting on. **Show all queued runs** expands the same list. Newest-first display does not change each recording’s processing order. New runs record the active stage number against their enabled execution boundaries; older runs without that metadata show the stage name.
 
 ## Server binary and CLI
 

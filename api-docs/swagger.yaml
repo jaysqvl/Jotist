@@ -590,6 +590,13 @@ definitions:
       job_id:
         type: string
     type: object
+  api.UpdateQueueSettingsRequest:
+    properties:
+      workers:
+        type: integer
+    required:
+    - workers
+    type: object
   api.UpdateUserSettingsRequest:
     properties:
       auto_transcription_enabled:
@@ -985,6 +992,92 @@ definitions:
         type: string
       updated_at:
         type: string
+    type: object
+  models.QueueActivity:
+    properties:
+      busy_workers:
+        type: integer
+      generated_at:
+        type: string
+      queued_runs:
+        type: integer
+      recordings:
+        items:
+          $ref: '#/definitions/models.QueueActivityEntry'
+        type: array
+      waiting_recordings:
+        type: integer
+      workers:
+        type: integer
+    type: object
+  models.QueueActivityEntry:
+    properties:
+      execution_id:
+        type: string
+      has_worker:
+        type: boolean
+      model:
+        type: string
+      model_family:
+        type: string
+      profile_name:
+        type: string
+      queue_item_id:
+        type: string
+      queued_at:
+        type: string
+      queued_jobs:
+        items:
+          $ref: '#/definitions/models.QueueActivityQueuedJob'
+        type: array
+      queued_runs:
+        type: integer
+      recording_id:
+        type: string
+      recording_title:
+        type: string
+      retry_at:
+        type: string
+      run_number:
+        type: integer
+      stage:
+        type: string
+      stage_number:
+        type: integer
+      stage_scope:
+        type: string
+      stage_state:
+        type: string
+      stage_total:
+        type: integer
+      started_at:
+        type: string
+      state:
+        type: string
+    type: object
+  models.QueueActivityQueuedJob:
+    properties:
+      model:
+        type: string
+      model_family:
+        type: string
+      profile_name:
+        type: string
+      queue_item_id:
+        type: string
+      queued_at:
+        type: string
+    type: object
+  models.QueueSettingsResponse:
+    properties:
+      busy_workers:
+        type: integer
+      environment_override:
+        type: boolean
+      max_workers:
+        type: integer
+      workers:
+        type: integer
     type: object
   models.RunActivity:
     properties:
@@ -1575,6 +1668,61 @@ info:
   title: Jotist API
   version: "1.0"
 paths:
+  /api/v1/admin/queue/activity:
+    get:
+      description: Sample shared worker ownership, current stages and waiting recordings
+        without private request or transcript content.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.QueueActivity'
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Show activity across recording queues
+      tags:
+      - admin
+  /api/v1/admin/queue/settings:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.QueueSettingsResponse'
+      security:
+      - BearerAuth: []
+      summary: Read recording queue settings
+      tags:
+      - admin
+    put:
+      consumes:
+      - application/json
+      description: Save a server-wide limit. Active executions finish normally when
+        the limit is lowered. QUEUE_WORKERS is an explicit deployment override.
+      parameters:
+      - description: Recording concurrency
+        in: body
+        name: settings
+        required: true
+        schema:
+          $ref: '#/definitions/api.UpdateQueueSettingsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.QueueSettingsResponse'
+      security:
+      - BearerAuth: []
+      summary: Set recording concurrency
+      tags:
+      - admin
   /api/v1/admin/queue/stats:
     get:
       description: Get current queue statistics

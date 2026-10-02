@@ -359,6 +359,7 @@ func (u *UnifiedTranscriptionService) processSingleTrackJob(ctx context.Context,
 	}
 
 	// Perform transcription using the preprocessed audio
+	recovery.stageKinds = u.plannedStageKinds(job.Parameters, transcriptionModelID, diarizationModelID)
 	if transcriptionModelID != "" {
 		logger.Info("Running transcription", "model_id", transcriptionModelID)
 		transcriptionAdapter, err := u.registry.GetTranscriptionAdapter(transcriptionModelID)
