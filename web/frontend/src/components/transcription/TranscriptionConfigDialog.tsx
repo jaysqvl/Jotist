@@ -19,7 +19,7 @@ import { ModelPicker, ModelMetricSummary } from "./ModelPicker";
 import { transcriptionMetrics, diarizationMetrics, diarizationEvidenceCheckpoint } from "@/features/transcription/hooks/modelComparisonMetrics";
 import { diarizationChoices } from "@/features/transcription/hooks/diarizationChoices";
 import { devicePolicyDescription } from "@/features/transcription/hooks/recoveryPolicy";
-import { DEFAULT_EXECUTION_POLICY, executionPolicyErrors, sharedRecoveryMode, type ExecutionPolicy } from "@/features/transcription/hooks/executionPolicy";
+import { DEFAULT_EXECUTION_POLICY, globalExecutionPolicy, executionPolicyErrors, sharedRecoveryMode, type ExecutionPolicy } from "@/features/transcription/hooks/executionPolicy";
 import { offeredModelLanguages } from "@/features/transcription/hooks/modelLanguages";
 import { adaptivePolicyErrors, adaptiveStageChoices, alignmentMemoryForConfiguration } from "@/features/transcription/hooks/adaptivePolicy";
 import type { WhisperXParams } from "@/features/transcription/types";
@@ -203,7 +203,7 @@ const PARAM_DESCRIPTIONS = {
     nvidia_precision: "float16 usually saves VRAM on NVIDIA GPUs. bfloat16 can work on newer GPUs; float32 uses much more VRAM and is mainly for CPU/debugging.",
     nvidia_use_chunking: "Native mode keeps full-file context but can OOM on long audio. Enable chunking for long files or 12GB GPUs when Canary fails.",
     nvidia_prompt: "Canary-Qwen prompt. Keep the audio locator implicit and use short instructions like names, style, or vocabulary.",
-    max_new_tokens: "For Canary-Qwen, 0 uses a duration-based Auto budget, retries a truncated chunk with more tokens, then splits it if needed. A nonzero value is an exact fixed cap and fails rather than saving partial text.",
+    max_new_tokens: "For Canary-Qwen, 0 uses a duration-based Auto budget. Automatic recovery can retry with more tokens; Strong or Aggressive can also split a truncated chunk. A nonzero value is an exact fixed cap and fails rather than saving partial text.",
 };
 
 // ============================================================================
@@ -252,7 +252,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
     const [savedContext, setSavedContext] = useState({ context: "", terms: "" });
     const [contextDefaultsError, setContextDefaultsError] = useState("");
     const [sharedExecutionPolicy, setSharedExecutionPolicy] = useState<ExecutionPolicy | null>(null);
-    const displayParams = params.execution_policy_source === "global" ? { ...params, recovery_mode: sharedRecoveryMode(sharedExecutionPolicy ?? DEFAULT_EXECUTION_POLICY) } : params;
+    const displayParams = params.execution_policy_source !== "override" ? { ...params, recovery_mode: sharedRecoveryMode(sharedExecutionPolicy ?? DEFAULT_EXECUTION_POLICY) } : params;
     const selectedCapability = findModelCapability(modelCapabilities, params.model_family, params.model);
     const selectedContextSupport = contextSupport(selectedCapability);
     const isDynamicFamily = !LEGACY_MODEL_FAMILIES.some((family) => family.value === params.model_family);
@@ -268,8 +268,8 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
         && [params.language, params.task === "translate" ? params.nvidia_target_language : undefined]
             .some((language) => language && language !== "auto" && !knownLanguages.includes(language));
     const adaptiveStages = adaptiveStageChoices(params, modelCapabilities);
-    const adaptiveErrors = cloudSelected || params.execution_policy_source === "global" ? [] : [
-        ...adaptivePolicyErrors(params, adaptiveStages),
+    const adaptiveErrors = cloudSelected ? [] : [
+        ...adaptivePolicyErrors(displayParams, adaptiveStages),
         ...(params.execution_policy ? executionPolicyErrors(params.execution_policy) : []),
     ];
 
@@ -298,7 +298,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
             if (results[1].status === "fulfilled") {
                 setSavedContext({ context: results[1].value.transcription_context ?? "", terms: results[1].value.transcription_context_terms ?? "" });
                 setHasSavedHFToken(results[1].value.has_hf_token === true);
-                setSharedExecutionPolicy(results[1].value.execution_policy ?? DEFAULT_EXECUTION_POLICY);
+                setSharedExecutionPolicy(globalExecutionPolicy(results[1].value.execution_policy));
             }
             else setContextDefaultsError("Could not preview saved defaults. Inherited values will still be resolved when queued.");
             setCatalogLoading(false);
@@ -313,7 +313,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
             const baseParams = {
                 ...DEFAULT_PARAMS, ...initialParams,
                 recovery_mode: initialParams ? initialParams.recovery_mode ?? "" : undefined,
-                execution_policy_source: initialParams ? initialParams.execution_policy_source : "global" as const,
+                execution_policy_source: initialParams?.execution_policy_source === "override" ? "override" as const : "global" as const,
                 reuse_checkpoints: initialParams?.reuse_checkpoints,
                 diarization_device: initialParams ? initialParams.diarization_device ?? "" : "same",
             };
@@ -528,10 +528,9 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                     )}
                     {!cloudSelected && <RecoveryPolicyFields params={params} stages={adaptiveStages} validationErrors={adaptiveErrors} sharedPolicy={sharedExecutionPolicy}
                         onSourceChange={(shared) => setParams((previous) => shared
-                            ? { ...previous, execution_policy_source: "global", execution_policy: undefined, recovery_mode: undefined, adaptive_policy: undefined, reuse_checkpoints: undefined }
+                            ? { ...previous, execution_policy_source: "global", execution_policy: undefined, recovery_mode: undefined, adaptive_policy: previous.adaptive_policy ? { ...previous.adaptive_policy, learn: false } : undefined, reuse_checkpoints: undefined }
                             : { ...previous, execution_policy_source: "override", execution_policy: { ...(sharedExecutionPolicy ?? DEFAULT_EXECUTION_POLICY) }, recovery_mode: sharedRecoveryMode(sharedExecutionPolicy ?? DEFAULT_EXECUTION_POLICY) })}
-                        onExecutionChange={(policy) => setParams((previous) => ({ ...previous, execution_policy_source: "override", execution_policy: policy, recovery_mode: policy.automatic_recovery ? previous.recovery_mode && previous.recovery_mode !== "fixed" ? previous.recovery_mode : sharedRecoveryMode(policy) : "fixed" }))}
-                        onModeChange={(value) => setParams((previous) => ({ ...previous, recovery_mode: value, execution_policy_source: value ? "override" : undefined, execution_policy: value ? { ...(previous.execution_policy ?? sharedExecutionPolicy ?? DEFAULT_EXECUTION_POLICY), automatic_recovery: value !== "fixed" } : undefined }))}
+                        onExecutionChange={(policy) => setParams((previous) => ({ ...previous, execution_policy_source: "override", execution_policy: policy, recovery_mode: policy.recovery_strength ? sharedRecoveryMode(policy) : previous.recovery_mode }))}
                         onReuseChange={(value) => updateParam("reuse_checkpoints", value)} onPolicyChange={(value) => updateParam("adaptive_policy", value)} />}
 
                     <details className="min-w-0 rounded-xl border border-[var(--border-subtle)]">

@@ -6388,6 +6388,9 @@ const docTemplate = `{
                 "allow_cpu": {
                     "type": "boolean"
                 },
+                "allow_output_changes": {
+                    "type": "boolean"
+                },
                 "allow_shorter_windows": {
                     "type": "boolean"
                 },
@@ -6457,6 +6460,9 @@ const docTemplate = `{
                 },
                 "max_retries": {
                     "type": "integer"
+                },
+                "recovery_strength": {
+                    "type": "string"
                 },
                 "reduce_batch_size": {
                     "type": "boolean"
@@ -6915,6 +6921,9 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "timing_samples": {
+                    "type": "integer"
+                },
+                "worker_retries": {
                     "type": "integer"
                 }
             }

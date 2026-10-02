@@ -226,7 +226,9 @@ class TransformersBackend:
                     ensure_generation_complete(output[0], budget, self.model.generation_config.eos_token_id)
                 except GenerationTokenLimitError as exc:
                     if auto and budget < retry_limit:
-                        continue
+                        recovery = self.config.get("_recovery_budget")
+                        if recovery is None or recovery.take("decoder_budget_retry"):
+                            continue
                     if auto:
                         raise CohereAutoTokenLimitError(budget) from exc
                     raise

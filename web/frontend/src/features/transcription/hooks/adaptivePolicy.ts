@@ -1,5 +1,5 @@
 import { alignmentMemoryEstimate, findModelCapability, gpuMemoryEstimate, transcriptionPrecision, type TranscriptionModelCapability } from "./modelCapabilities.ts";
-import type { RecoveryMode } from "./recoveryPolicy.ts";
+import { permitsCPURecovery, permitsWindowRecovery, type RecoveryMode } from "./recoveryPolicy.ts";
 import type { AdaptivePlanSettings } from "./adaptiveLearning.ts";
 
 export type AdaptiveStageKind = "recognition" | "alignment" | "diarization";
@@ -10,6 +10,7 @@ export interface AdaptiveStagePolicy {
     cpu_precision: string;
     min_batch_size: number;
     allow_shorter_windows: boolean;
+    allow_output_changes?: boolean;
     window_candidates: number[];
     min_window_seconds: number;
     overlap_seconds: number;
@@ -48,7 +49,7 @@ export interface AdaptiveStageChoice { kind: AdaptiveStageKind; label: string; d
 
 export const ADAPTIVE_STAGE_LABELS: Record<AdaptiveStageKind, string> = { recognition: "Recognition", alignment: "Timestamp alignment", diarization: "Speaker diarization" };
 export function adaptiveLevel(mode?: RecoveryMode): number {
-    return ({ stage_management: 1, batch_management: 2, cpu_fallback: 3, shorter_windows: 4 } as Record<string, number>)[mode || ""] || 0;
+    return ({ standard: 2, strong: 4, aggressive: 4, stage_management: 1, batch_management: 2, cpu_fallback: 3, shorter_windows: 4 } as Record<string, number>)[mode || ""] || 0;
 }
 export function canonicalStageKind(kind: string): AdaptiveStageKind | undefined {
     return ({ recognize: "recognition", recognition: "recognition", combined: "recognition", align: "alignment", alignment: "alignment", diarize: "diarization", diarization: "diarization" } as Record<string, AdaptiveStageKind>)[kind];
@@ -87,6 +88,15 @@ export function stagePolicy(policy: AdaptiveExecutionPolicy | null | undefined, 
     return { device_locked: true, allow_cpu: false, cpu_precision: "float32", min_batch_size: 1, allow_shorter_windows: false, min_window_seconds: 0, overlap_seconds: 0, ...saved, window_candidates: [...(saved?.window_candidates || [])] };
 }
 
+export function effectiveStagePolicy(policy: AdaptiveExecutionPolicy | null | undefined, stage: AdaptiveStageChoice, mode?: RecoveryMode): AdaptiveStagePolicy {
+    if (policy?.stages?.[stage.kind] || !["standard", "strong", "aggressive"].includes(mode || "")) return stagePolicy(policy, stage.kind);
+    const windows = permitsWindowRecovery(mode) ? qualifiedWindows(stage.descriptor).slice(0, 2) : [];
+    const cpu = permitsCPURecovery(mode) && stage.descriptor?.device_precisions.cpu?.includes("float32") === true;
+    return { ...stagePolicy(null, stage.kind), device_locked: !permitsCPURecovery(mode), allow_cpu: cpu,
+        allow_shorter_windows: windows.length > 0, allow_output_changes: permitsWindowRecovery(mode), window_candidates: windows,
+        min_window_seconds: windows.at(-1) ?? 0, overlap_seconds: windows.length ? stage.descriptor?.window_policy?.minimum_overlap ?? 0 : 0 };
+}
+
 // Display the initial alignment settings separately from permitted recovery
 // actions. Memory estimates never qualify a device or a fallback candidate.
 export function alignmentMemoryForConfiguration(params: AdaptiveSelection & { device: string; compute_type: string; nvidia_precision?: string }, models: TranscriptionModelCapability[]) {
@@ -94,11 +104,11 @@ export function alignmentMemoryForConfiguration(params: AdaptiveSelection & { de
     const memory = capability ? alignmentMemoryEstimate(capability) : undefined;
     if (!memory) return undefined;
     const alignment = adaptiveStageChoices(params, models).find((choice) => choice.kind === "alignment");
-    const rule = stagePolicy(params.adaptive_policy, "alignment");
+    const rule = alignment ? effectiveStagePolicy(params.adaptive_policy, alignment, params.recovery_mode) : stagePolicy(params.adaptive_policy, "alignment");
     const fixed = alignment?.descriptor ? rule.fixed : undefined;
     const device = fixed?.device || (memory.devicePolicy === "cpu" ? "cpu" : params.device);
     const gpu = gpuMemoryEstimate(memory, fixed?.precision || transcriptionPrecision(params));
-    const cpuFallbackPrecision = adaptiveLevel(params.recovery_mode) >= 3 && !rule.device_locked && rule.allow_cpu
+    const cpuFallbackPrecision = permitsCPURecovery(params.recovery_mode) && !rule.device_locked && rule.allow_cpu
         && alignment?.descriptor?.device_precisions.cpu?.includes(rule.cpu_precision) ? rule.cpu_precision : undefined;
     return { memory, enabled: !!alignment, device, precision: device === "cpu" ? memory.cpuPrecision : gpu.precision, gpuRAM: gpu.value, cpuFallbackPrecision, fixed: !!fixed };
 }
@@ -127,11 +137,11 @@ export function adaptivePolicyErrors(params: Pick<AdaptiveSelection, "recovery_m
     for (const { kind, label, descriptor } of choices) {
         const policy = stagePolicy(params.adaptive_policy, kind);
         if (!Number.isSafeInteger(policy.min_batch_size) || policy.min_batch_size < 1) errors.push(`${label}: minimum batch size must be a positive integer.`);
-        if (level >= 3 && policy.allow_cpu) {
+        if (permitsCPURecovery(params.recovery_mode) && policy.allow_cpu) {
             if (policy.device_locked) errors.push(`${label}: unlock the stage device before allowing CPU fallback.`);
             if (!descriptor?.device_precisions.cpu?.includes(policy.cpu_precision)) errors.push(`${label}: CPU fallback requires a precision explicitly supported by this adapter.`);
         }
-        if (level >= 4 && policy.allow_shorter_windows) {
+        if (permitsWindowRecovery(params.recovery_mode) && policy.allow_shorter_windows) {
             const candidates = qualifiedWindows(descriptor);
             if (!policy.window_candidates.length || policy.window_candidates.length > 2 || new Set(policy.window_candidates).size !== policy.window_candidates.length || policy.window_candidates.some((value) => !candidates.includes(value))) errors.push(`${label}: choose one or two distinct adapter-qualified windows.`);
             if (!Number.isSafeInteger(policy.min_window_seconds) || policy.min_window_seconds < 1 || policy.window_candidates.some((value) => value < policy.min_window_seconds)) errors.push(`${label}: the minimum window must be positive and no larger than any selected window.`);

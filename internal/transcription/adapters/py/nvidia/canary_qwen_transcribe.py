@@ -159,7 +159,7 @@ def split_chunk(chunk: dict, temp_dir: str) -> List[dict]:
     return pieces
 
 
-def generate_complete_chunk(model, chunk: dict, prompt_text: str, temp_dir: str, stats: dict, depth: int = 0, first_limit: int = 0):
+def generate_complete_chunk(model, chunk: dict, prompt_text: str, temp_dir: str, stats: dict, depth: int = 0, first_limit: int = 0, recovery=None):
     duration = chunk["end"] - chunk["start"]
     limit = first_limit or auto_token_budget(duration)
     tried = set()
@@ -173,18 +173,20 @@ def generate_complete_chunk(model, chunk: dict, prompt_text: str, temp_dir: str,
         next_limit = min(AUTO_MAX_NEW_TOKENS, max(limit + 256, limit * 2))
         if next_limit == limit:
             break
+        if recovery is not None and not recovery.take("decoder_budget_retry"):
+            break
         stats["token_retries"] += 1
         limit = next_limit
 
-    if depth < AUTO_MAX_SPLIT_DEPTH and duration >= 10:
+    if depth < AUTO_MAX_SPLIT_DEPTH and duration >= 10 and (recovery is None or recovery.take("token_window_split", changes_output=True)):
         children = split_chunk(chunk, temp_dir)
         if children:
             stats["token_splits"] += 1
             completed = []
             for child in children:
-                completed.extend(generate_complete_chunk(model, child, prompt_text, temp_dir, stats, depth + 1))
+                completed.extend(generate_complete_chunk(model, child, prompt_text, temp_dir, stats, depth + 1, recovery=recovery))
             return completed
-    raise RuntimeError("Automatic token recovery was exhausted without an end marker; choose a shorter chunk duration or a different model")
+    raise ValueError("Automatic token recovery was exhausted without an end marker; choose a shorter chunk duration or a different model")
 
 
 def build_prompt(model, prompt: str, context: str = "") -> str:
@@ -213,6 +215,7 @@ def transcribe_audio(
     context: str = "",
 ):
     print("Loading NVIDIA Canary-Qwen model: nvidia/canary-qwen-2.5b")
+    recovery = _runtime_helper.RecoveryBudget.from_environment()
     torch_device = resolve_device(device)
     if device == "auto" and torch_device.type == "cpu":
         precision = "float32"
@@ -257,10 +260,12 @@ def transcribe_audio(
                     completed = [(chunk, decode_answer(model, answer))]
                     if not generation_completed(answer, model.text_eos_id):
                         if max_new_tokens > 0:
-                            raise RuntimeError("Generation reached its configured token limit without an end marker; increase max_new_tokens or shorten the audio window")
+                            raise ValueError("Generation reached its configured token limit without an end marker; increase max_new_tokens or shorten the audio window")
+                        if not recovery.take("decoder_budget_retry"):
+                            raise ValueError("Generation reached its Auto token limit; the saved recovery policy permits no further decoder retries")
                         stats["token_retries"] += 1
                         retry_limit = min(AUTO_MAX_NEW_TOKENS, max(generation_limit + 256, generation_limit * 2))
-                        completed = generate_complete_chunk(model, chunk, prompt_text, temp_dir, stats, first_limit=retry_limit)
+                        completed = generate_complete_chunk(model, chunk, prompt_text, temp_dir, stats, first_limit=retry_limit, recovery=recovery)
                     for completed_chunk, text in completed:
                         full_text.append(text)
                         if timestamps:

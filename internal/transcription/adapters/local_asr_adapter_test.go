@@ -77,7 +77,7 @@ func TestLocalASRFirstUsePreparesAndRefreshesRuntime(t *testing.T) {
 	if err := os.WriteFile(inputPath, []byte("fixture"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	result, err := a.Transcribe(ctx, interfaces.AudioInput{FilePath: inputPath, Format: "wav", Size: 7}, nil, interfaces.ProcessingContext{TempDirectory: t.TempDir()})
+	result, err := a.Transcribe(ctx, interfaces.AudioInput{FilePath: inputPath, Format: "wav", Size: 7}, nil, interfaces.ProcessingContext{TempDirectory: t.TempDir(), OutputDirectory: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -460,7 +460,7 @@ sleep 30
 	defer cancel()
 	result := make(chan error, 1)
 	go func() {
-		_, err := adapter.Transcribe(ctx, interfaces.AudioInput{FilePath: input, Format: "wav", Size: 7}, nil, interfaces.ProcessingContext{TempDirectory: directory})
+		_, err := adapter.Transcribe(ctx, interfaces.AudioInput{FilePath: input, Format: "wav", Size: 7}, nil, interfaces.ProcessingContext{TempDirectory: directory, OutputDirectory: t.TempDir()})
 		result <- err
 	}()
 	deadline := time.Now().Add(3 * time.Second)

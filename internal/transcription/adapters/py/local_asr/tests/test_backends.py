@@ -235,3 +235,16 @@ def test_cohere_explicit_budget_is_exact_and_never_retried(libraries):
         backend.transcribe(np.ones(30*16000,dtype=np.float32))
     assert failure.value.token_limit==400
     assert budgets==[400]
+
+
+def test_cohere_auto_decoder_retry_cannot_bypass_a_disabled_policy(libraries):
+    recovery = types.SimpleNamespace(take=lambda action: False)
+    backend = TransformersBackend("publisher/model", "cpu", "float32", {"engine": "cohere", "language": "en", "_recovery_budget": recovery})
+    budgets = []
+    def generate(**kwargs):
+        budgets.append(kwargs["max_new_tokens"])
+        return np.full((1, kwargs["max_new_tokens"]), 10)
+    backend.model.generate = generate
+    with pytest.raises(RecognitionError):
+        backend.transcribe(np.ones(30 * 16000, dtype=np.float32))
+    assert budgets == [768]

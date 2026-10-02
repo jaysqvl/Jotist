@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	"github.com/jaysqvl/Jotist/internal/models"
 	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSharedExecutionPolicyBoundsAutomaticStageRetries(t *testing.T) {
@@ -25,7 +25,7 @@ func TestSharedExecutionPolicyBoundsAutomaticStageRetries(t *testing.T) {
 			desc, rule, _ := adaptivePolicyFixture()
 			rule.AllowCPU, rule.AllowShorterWindows = false, false
 			setAdaptiveExecutionPolicy(t, f, &r, map[string]models.AdaptiveStagePolicy{"recognition": rule})
-			r.execution.ActualParameters.ExecutionPolicy = &models.ExecutionPolicy{AutomaticRecovery: tc.enabled, MaxRetries: tc.retries}
+			r.execution.ActualParameters.ExecutionPolicy = &models.ExecutionPolicy{AutomaticRecovery: tc.enabled, MaxRetries: tc.retries, ReduceBatchSize: true}
 			adapter := newAdaptiveExecutionAdapter(t, "recognition", desc)
 			params := stageTestParams()
 			params["device"], params["precision"], params["batch_size"], params["chunk_duration"] = "cuda", "float16", 8, 60

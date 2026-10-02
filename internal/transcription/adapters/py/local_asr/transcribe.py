@@ -162,6 +162,8 @@ def pending_native_audio(chunk, segment, audio, sample_rate):
 
 def execute(config):
     config["_diagnostic_phase"] = "runtime_initialization"
+    budget = _runtime_helper.RecoveryBudget.from_environment()
+    config["_recovery_budget"] = budget
     import numpy as np
     import soundfile as sf
     import torch
@@ -214,7 +216,7 @@ def execute(config):
             boundary = None
             if not int(config.get("max_new_tokens", 0)) and not split_from_cutoff:
                 boundary = auto_token_split_point(audio, sr, start, end)
-            if boundary is not None:
+            if boundary is not None and budget.take("token_window_split", changes_output=True):
                 # Preserve sample coverage and align each recovered part on its
                 # own audio. Only the overflowing Auto window loses context.
                 bounds[index:index + 1] = [(start, boundary, True), (boundary, end, True)]
@@ -230,7 +232,7 @@ def execute(config):
             boundary = None
             if isinstance(exc, TimestampBoundsError) and not config.get("native_speakers") and not split_from_cutoff:
                 boundary = auto_token_split_point(audio, sr, start, end)
-            if boundary is not None:
+            if boundary is not None and budget.take("native_timing_split", changes_output=True):
                 bounds[index:index + 1] = [(start, boundary, True), (boundary, end, True)]
                 native_timing_retries += 1
                 print(f"Native timing window {index + 1} failed validation; retrying two shorter windows", flush=True)
@@ -269,6 +271,8 @@ def execute(config):
                 if not has_alignable_text(segment.get("text")):
                     raise RecognitionError("Untimed native output has no alignable text.")
                 validate_alignment_language(chunk.get("language") or config.get("language", "en"))
+                if not budget.take("native_timing_repair", changes_output=True):
+                    raise RecognitionError("Native timing repair is not permitted by the saved recovery policy or its remaining retry budget.")
         if full_word_alignment:
             for chunk in chunks:
                 if chunk.get("text", "").strip() and not chunk.get("word_segments") and has_alignable_text(chunk.get("text")):

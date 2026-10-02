@@ -289,9 +289,13 @@ func (c *CanaryQwenAdapter) Transcribe(ctx context.Context, input interfaces.Aud
 		"PYTHONUNBUFFERED=1",
 		"PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True")
 	cmd.Env = withRequestedDevice(cmd.Env, c.GetStringParameter(params, "device"))
+	cmd.Env = withWorkerRecoveryPolicy(cmd.Env, params)
 
 	logFile, err := os.OpenFile(filepath.Join(procCtx.OutputDirectory, "transcription.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
+		if params["worker_recovery_policy"] != nil {
+			return nil, fmt.Errorf("cannot open worker recovery evidence: %w", err)
+		}
 		logger.Warn("Failed to create log file", "error", err)
 	} else {
 		defer logFile.Close()

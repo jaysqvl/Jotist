@@ -14,7 +14,7 @@ import { useAuth } from "@/features/auth/hooks/useAuth";
 import { sortProfilesByName } from "@/lib/profiles";
 import { CheckpointReuseField } from "./transcription/RecoveryPolicyFields";
 import { recoveryModeLabel, type RunSubmissionOptions } from "@/features/transcription/hooks/recoveryPolicy";
-import { DEFAULT_EXECUTION_POLICY, executionPolicySummary, previewCheckpointReuse, type ExecutionPolicy } from "@/features/transcription/hooks/executionPolicy";
+import { globalExecutionPolicy, executionPolicySummary, previewCheckpointReuse, type ExecutionPolicy } from "@/features/transcription/hooks/executionPolicy";
 import { normalizeModelCapabilities, type TranscriptionModelCapability } from "@/features/transcription/hooks/modelCapabilities";
 import { profilePickerStorageKey, readProfilePickerPreferences, restoreProfileSelection, saveProfilePickerPreferences, type ProfilePickerPreferences, type SavedTranscriptionProfile } from "@/features/transcription/hooks/profilePicker";
 import { ProfilePicker } from "./transcription/ProfilePicker";
@@ -56,6 +56,7 @@ export function TranscribeDDialog({
   const [reuseOverride, setReuseOverride] = useState<boolean | undefined>();
   const [sharedPolicy, setSharedPolicy] = useState<ExecutionPolicy | null>(null);
   const selectedProfile = profiles.find((profile) => profile.id === preferences.profileId);
+  const effectiveReuse = reuseOverride ?? (selectedProfile ? previewCheckpointReuse(selectedProfile.parameters, sharedPolicy ?? undefined) : true);
   const updatePreferences = useCallback((patch: Partial<ProfilePickerPreferences>) => {
     setPreferences((previous) => {
       const next = { ...previous, ...patch };
@@ -116,7 +117,7 @@ export function TranscribeDDialog({
     const controller = new AbortController();
     setSharedPolicy(null);
     void fetch("/api/v1/user/settings", { headers: getAuthHeaders(), signal: controller.signal })
-      .then(async (response) => { if (response.ok) { const data = await response.json(); if (!controller.signal.aborted) setSharedPolicy(data.execution_policy ?? DEFAULT_EXECUTION_POLICY); } })
+      .then(async (response) => { if (response.ok) { const data = await response.json(); if (!controller.signal.aborted) setSharedPolicy(globalExecutionPolicy(data.execution_policy)); } })
       .catch(() => {});
     return () => controller.abort();
   }, [open, getAuthHeaders]);
@@ -170,12 +171,12 @@ export function TranscribeDDialog({
             )}
           </div>
           {selectedProfile && <div className="space-y-3">
-            <p className="text-xs text-[var(--text-secondary)]">{selectedProfile.parameters.execution_policy_source === "global"
-              ? `Shared execution defaults${sharedPolicy ? ` · ${executionPolicySummary(sharedPolicy)}` : " · resolved when queued"}`
-              : `Saved recovery override · ${recoveryModeLabel(selectedProfile.parameters)}`}</p>
+            <p className="text-xs text-[var(--text-secondary)]">{selectedProfile.parameters.execution_policy_source !== "override"
+              ? `Global automatic recovery${sharedPolicy ? ` · ${executionPolicySummary(sharedPolicy)}` : " · resolved when queued"}`
+              : `Saved recovery override · ${selectedProfile.parameters.execution_policy ? executionPolicySummary(selectedProfile.parameters.execution_policy, selectedProfile.parameters.recovery_mode) : recoveryModeLabel(selectedProfile.parameters)}`}</p>
             <details className="rounded-xl border border-[var(--border-subtle)]">
-              <summary className="cursor-pointer px-3 py-3 text-sm font-medium">Run overrides</summary>
-              <div className="px-3 pb-3"><CheckpointReuseField value={reuseOverride ?? previewCheckpointReuse(selectedProfile.parameters, sharedPolicy ?? undefined)} onChange={setReuseOverride} /></div>
+              <summary className="cursor-pointer px-3 py-3 text-sm font-medium">Run overrides <span className="ml-2 text-xs font-normal text-[var(--text-secondary)]">Reuse {effectiveReuse ? "on" : "off"}</span></summary>
+              <div className="px-3 pb-3"><CheckpointReuseField value={effectiveReuse} onChange={setReuseOverride} /></div>
             </details>
           </div>}
         </div>

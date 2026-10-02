@@ -35,12 +35,13 @@ export function TranscriptionPresetsDialog({ open, onOpenChange, onSelect, onAdd
                     <DialogTitle>Quick Add Presets</DialogTitle>
                     <DialogDescription>Select presets to add as saved profiles, or edit one before adding. Existing names are skipped.</DialogDescription>
                 </DialogHeader>
-                <p className="text-xs leading-5 text-[var(--text-secondary)]">Hardware reference: Ryzen 7 5700G, 64 GB installed RAM with 32 GB available for models, and RTX 3060 with 12 GB VRAM. Memory use depends on recording length and settings; these presets do not guarantee fit. All presets inherit your saved context and Hugging Face access.</p>
+                <p className="text-xs leading-5 text-[var(--text-secondary)]">All presets use your global recovery and completed-stage reuse settings, plus your saved context and model access. Automatic recovery and reuse are on by default. Memory use depends on the models, recording and hardware.</p>
                 <div className="min-h-0 space-y-6 overflow-y-auto pr-1">
-                    {(["existing", "recommended"] as const).map((origin) => (
+                    {(["recommended", "alternative"] as const).map((origin) => (
                         <section key={origin} aria-labelledby={`presets-${origin}`}>
-                            <h3 id={`presets-${origin}`} className="mb-3 text-sm font-semibold text-[var(--text-primary)]">{origin === "existing" ? "Your existing configurations" : "English meeting starting points"}</h3>
-                            {origin === "recommended" && <p className="mb-3 text-xs text-[var(--text-secondary)]">English transcription, batch size 1 and explicit devices. Precision follows each runtime. These starters still require full-recording runtime qualification.</p>}
+                            <details open={origin === "recommended"}>
+                            <summary className="mb-3 cursor-pointer text-sm font-semibold text-[var(--text-primary)]"><span id={`presets-${origin}`}>{origin === "recommended" ? "GPU starting points" : "CPU and hybrid alternatives"}</span></summary>
+                            <p className="mb-3 text-xs text-[var(--text-secondary)]">{origin === "recommended" ? "Transcription starts on GPU and speakers follow its device. English and batch size 1; precision follows each runtime. Edit a preset to choose another language or customize it." : "Choose CPU transcription or a mix of GPU transcription and CPU speakers. English and batch size 1, with explicit devices."}</p>
                             <div className="grid gap-3 sm:grid-cols-2">
                                 {TRANSCRIPTION_PRESETS.filter((preset) => preset.origin === origin).map((preset) => {
                                     const alreadyAdded = presetAlreadyAdded(preset, existingNames);
@@ -58,6 +59,7 @@ export function TranscriptionPresetsDialog({ open, onOpenChange, onSelect, onAdd
                                     </article>;
                                 })}
                             </div>
+                            </details>
                         </section>
                     ))}
                 </div>

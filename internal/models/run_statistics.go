@@ -77,6 +77,7 @@ type RunStageStatistics struct {
 	Succeeded     int      `json:"succeeded"`
 	Failed        int      `json:"failed"`
 	Retries       int      `json:"retries"`
+	WorkerRetries int      `json:"worker_retries,omitempty"`
 	TimingSamples int      `json:"timing_samples"`
 	MedianSeconds *float64 `json:"median_seconds"`
 }

@@ -312,6 +312,14 @@ class RuntimeControls(unittest.TestCase):
         self.assertEqual(result[0][1], "complete transcript")
         self.assertEqual(stats, {"max_token_budget_used": 1472, "token_retries": 1, "token_splits": 0})
 
+        # The same worker loop must stop before its second model call when the
+        # coordinator's saved policy permits no remaining recovery actions.
+        model.limits = []
+        denied = SimpleNamespace(take=lambda *args, **kwargs: False)
+        with self.assertRaises(ValueError):
+            generate(model, {"path": "chunk.wav", "start": 0.0, "end": 40.0}, "prompt", "/tmp", {"max_token_budget_used": 0, "token_retries": 0, "token_splits": 0}, recovery=denied)
+        self.assertEqual(model.limits, [736])
+
     def test_whisperx_stage_failure_is_structured_and_safe(self):
         module = load_module("whisperx/whisperx_stage.py")
         failure = module.safe_failure(ValueError("private transcript text"), "alignment", "cpu")

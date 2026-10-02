@@ -55,7 +55,11 @@ Checkpoint persistence is independent of adaptation. Fixed-mode jobs also save t
 
 Not every backend exposes all intermediate results. The UI must show its actual recoverable boundaries. An integrated recognizer/diarizer may initially have one combined checkpoint; it must not claim separately recoverable text until the adapter supports it.
 
-### 3.2 Adaptive levels
+### 3.2 Current recovery controls and historical levels
+
+The implemented controls use one global Automatic recovery switch and Standard, Strong or Aggressive permissions, with explicit profile/run overrides. Stage separation and model unloading are baseline behavior. Standard permits eligible same-settings retries and qualified batch reductions; Strong additionally permits qualified context changes and timing repairs; Aggressive tries supported CPU fallback after GPU options. Worker-internal actions share the saved stage retry budget and backoff. Missing policy sources on older profiles inherit globals for new admissions, while historical executions and queued snapshots remain immutable. See [the implementation contract](../recoverable-transcription.md#automatic-recovery-scheduling-and-limits).
+
+The numbered levels below describe the historical design and remain readable for older execution plans. They are not current UI choices.
 
 Levels are cumulative permission ceilings, not a requirement to exercise every option. A stage can finish using the original configuration at any level. Exceeding a ceiling produces a recoverable failure with the completed checkpoints retained.
 

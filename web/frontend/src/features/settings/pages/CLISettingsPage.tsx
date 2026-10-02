@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { Layout } from '@/components/Layout'
+import { cliInstallCommand } from '../hooks/cliInstall'
 
 export function CLISettings() {
-    const origin = window.location.origin
-    const installCmd = `curl -sL "${origin}/install.sh" | bash -s -- "${origin}"`
+    const installCmd = cliInstallCommand(window.location.origin)
     const [copied, setCopied] = useState(false)
 
     const copyToClipboard = () => {

@@ -1,6 +1,6 @@
 # Recoverable transcription: current implementation and operations
 
-Implementation status: 2026-09-27. This guide describes recoverable transcription and Levels 1–4 in the working tree, following the [technical design](design/adaptive-transcription-pipeline.md). Real Canary CPU/GPU qualification is documented separately in [the qualification report](canary-stage-qualification.md). Production deployment remains separate.
+Implementation status: 2026-10-02. This guide describes recoverable transcription and unified automatic recovery in the working tree, following the [technical design](design/adaptive-transcription-pipeline.md). Real Canary CPU/GPU qualification is documented separately in [the qualification report](canary-stage-qualification.md). Production deployment remains separate.
 
 ## What is recoverable today
 
@@ -23,18 +23,36 @@ Canary preserves its native recognition chunking, timestamp prompt and numerical
 
 Executions and stages have distinct identities. An attempt commits only while its exact execution generation remains authorized, uncancelled and within its saved deadline. Cancellation fences stale writers before their processes stop. A generation change alone does not authorize overlapping attempts: the previous attempt must have stopped and been terminalized.
 
-## Modes, scheduling and limits
+## Automatic recovery, scheduling and limits
+
+Settings → Transcription has one global Automatic recovery switch and a strength:
+
+| Strength | Permitted actions |
+| --- | --- |
+| Standard | Retry an eligible failed stage with the same settings; reduce only adapter-qualified batches. Keep the selected device and audio context. |
+| Strong | Standard, plus qualified shorter stage windows and supported model-internal window splits or native timing repairs. These may change context and output. |
+| Aggressive | Strong, then an eligible CPU fallback after permitted GPU candidates are exhausted. Use a declared supported CPU precision (FP32 by default); saved device locks still win. |
+
+Stage separation, model unloading, GPU admission and saving completed stages are normal execution behavior wherever supported. Turning recovery off stops automatic retries; it does not disable those boundaries.
+
+New runs inherit global settings unless their profile or request explicitly selects an override. Older profiles without a policy source also inherit when a **new** run is admitted, without rewriting the profile or original execution rows. Queued runs and manual resumes retain their saved policy. Each profile/run override uses the same switch and strengths; optional stage constraints may narrow the permissions.
+
+The configurable retry budget is shared by durable stage retries **and** decoder/window/timing recovery inside a model worker. Backoff doubles up to the saved maximum, and cancellation stops the supervised worker group. The default budgets are three for Standard, five for Strong and six for Aggressive; a customized limit remains explicit. Exact nonzero token limits remain exact. Auto token-budget expansion can retry in Standard; changing the audio context or repairing native timing requires Strong/Aggressive and any saved stage grant. Worker actions are stored as bounded counters and safe action names, including on failed attempts. Run diagnostics distinguish stage retries from worker recovery and do not infer recovery merely from an enabled setting. Worker output changes are not learned as successful full-context capacity observations.
+
+Recovery evidence must be saved before another automatic attempt. If an interrupted invocation has no saved worker evidence, a manual resume can run once with automatic retries disabled; it cannot replenish an unknown retry budget. Historical plans without a saved strength retain their older worker behavior.
+
+The following modes remain compatible with immutable historical plans; the UI no longer asks users to choose numbered levels:
 
 | `recovery_mode` | Automatic behavior |
 | --- | --- |
 | `fixed` | Checkpoints, strict reuse and shared GPU admission. No automatic device, precision, batch or window change. |
 | `stage_management` | The same behavior plus one eligible cleanup retry following structured CUDA memory/runtime failure, using the same settings. |
-| `batch_management` | Level 2 adds up to two adapter-qualified smaller batches within the configured minimum. |
-| `cpu_fallback` | Level 3 adds one CPU attempt for each explicitly allowed, unlocked stage, with a selected supported CPU precision. |
-| `shorter_windows` | Level 4 adds up to two explicitly selected, qualified windows with validated overlap/stitching, after permitted full-window capacity attempts are exhausted. |
-| Empty or omitted | Preserves legacy Auto behavior, including its eligible CUDA-to-CPU FP32 retry. This is not the new fixed policy. |
+| `batch_management` | Adds up to two adapter-qualified smaller batches within the configured minimum. |
+| `cpu_fallback` | Adds one CPU attempt for each explicitly allowed, unlocked stage, with a selected supported CPU precision. |
+| `shorter_windows` | Adds up to two explicitly selected, qualified windows with validated overlap/stitching, after permitted full-window capacity attempts are exhausted. |
+| Empty or omitted in an existing execution | Preserves that execution's legacy Auto behavior, including its eligible CUDA-to-CPU FP32 retry. New admissions resolve global settings. |
 
-For explicit plans, Auto resolves against the saved GPU inventory and preserves the requested starting precision. CPU fallback requires Level 3 or 4 plus per-stage permission and explicit precision; a device lock prevents it. Fixed mode executes saved concrete overrides without further adaptation. Unsupported CPU precision is rejected rather than silently converted. Models, language, prompts, vocabulary, decoding, VAD and speaker settings are not adaptive controls. Legacy Auto retains its existing GPU-to-CPU FP32 behavior; a Canary recognition fallback also keeps subsequent legacy alignment on CPU.
+For explicit plans, Auto resolves against the saved GPU inventory and preserves the requested starting precision. CPU fallback requires Aggressive recovery, or an eligible historical mode, plus any saved stage constraints; a device lock prevents it. Fixed mode executes saved concrete overrides without further adaptation. Unsupported CPU precision is rejected rather than silently converted. Models, language, prompts, vocabulary, decoding, VAD and speaker settings are not adaptive controls. Legacy Auto retains its existing GPU-to-CPU FP32 behavior; a Canary recognition fallback also keeps subsequent legacy alignment on CPU.
 
 Generation completion follows an explicit contract for every adapter that exposes `max_new_tokens`:
 
@@ -43,7 +61,7 @@ Generation completion follows an explicit contract for every adapter that expose
 - Canary-Qwen Auto uses audio duration to choose 512–2048 tokens per chunk. A missing EOS marker triggers a larger retry and then bounded recursive splitting of only the affected chunk. A nonzero value is an exact cap and fails closed on truncation.
 - VibeVoice BitNet uses its generous 16,384-token context budget and requires the patched native end marker before accepting output.
 
-These generation rules are separate from the durable stage ladder. No adapter currently checkpoints each recognition window or chunk, so a recognition failure reruns that recognition stage. A decoder that exhausts its bounded recovery fails instead of publishing partial text.
+These generation rules use the same saved policy and remaining stage retry budget for new runs. No adapter currently checkpoints each recognition window or chunk, so a recognition failure reruns that recognition stage. A decoder that exhausts its bounded recovery fails instead of publishing partial text.
 
 The server registration test asserts the exact production ASR and diarization adapter IDs. Every registered adapter must publish a resilience contract, every declared stage must be recoverable and versioned, and every adapter exposing `max_new_tokens` must publish a generation-completion policy. Adding, removing or replacing a registered model without updating and satisfying that matrix fails the test suite.
 
@@ -52,7 +70,7 @@ The current scheduler admits one Jotist GPU operation at a time, conservatively 
 Limits are currently code-defined:
 
 - GPU admission waits at most ten minutes, bounded by the enclosing context.
-- The deterministic maximum ladder is initial → cleanup → two smaller batches → CPU → two shorter windows. Unsupported, locked or unpermitted candidates are skipped. The saved budget spans resumes.
+- The new maximum ladder is initial → cleanup → two smaller batches → two shorter GPU windows → CPU. Standard stops before window changes; Strong stops before CPU. Historical saved modes keep their earlier CPU-before-window order. Unsupported, locked or unpermitted candidates are skipped. Worker recoveries consume the same configurable retry budget, and the durable seven-attempt ceiling spans resumes.
 - Only structured CUDA OOM/runtime evidence authorizes GPU recovery; batch/window reductions require a capacity failure. CPU window reduction requires structured host allocator OOM. Dependency, model access, input, cancellation and deadline errors do not qualify.
 - Confirmed external GPU contention does not justify reducing model context or learning a clean capacity result. Docker/NVML PID ownership uncertainty is recorded separately, permits the eligible recovery ladder, and prevents promotion.
 - Each stage has a saved seven-attempt ceiling, including attempts across explicit resumes. A resume does not reset the count. Waiting attempts can consume an attempt number.

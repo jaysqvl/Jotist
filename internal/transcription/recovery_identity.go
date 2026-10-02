@@ -52,7 +52,7 @@ func fileDigest(ctx context.Context, path string) (string, error) {
 
 func privateSettingsHash(params map[string]interface{}) string {
 	settings := copyStageParameters(params)
-	for _, key := range []string{"hf_token", "api_key", "token", "callback_url", "model_dir", "output_dir", "log_path"} {
+	for _, key := range []string{"hf_token", "api_key", "token", "callback_url", "model_dir", "output_dir", "log_path", "worker_recovery_policy"} {
 		delete(settings, key)
 	}
 	return digestJSON(settings)

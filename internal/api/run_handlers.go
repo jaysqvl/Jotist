@@ -417,7 +417,7 @@ func runRuntimeMetadata(transcript *string) map[string]string {
 			result[key] = value
 		}
 	}
-	for _, key := range []string{"auto_token_split_windows", "native_timing_retry_windows", "output_repair_count", "token_retries"} {
+	for _, key := range []string{"auto_token_split_windows", "native_timing_retry_windows", "output_repair_count", "token_retries", "token_splits"} {
 		var value string
 		if json.Unmarshal(payload.Metadata[key], &value) == nil {
 			if count, err := strconv.Atoi(value); err == nil && count >= 0 && count <= 100000 {

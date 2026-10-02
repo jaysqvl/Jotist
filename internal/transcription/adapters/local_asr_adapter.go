@@ -371,7 +371,7 @@ func (a *LocalASRAdapter) buildRequest(input interfaces.AudioInput, params map[s
 	if a.GetStringParameter(params, "device") == "cpu" {
 		env = withEnvironmentValue(env, "CUDA_VISIBLE_DEVICES", "")
 	}
-	return []string{"run", "--no-sync", "--project", a.envPath, "python", filepath.Join(a.envPath, "transcribe.py"), "--config", configPath}, env, nil
+	return []string{"run", "--no-sync", "--project", a.envPath, "python", filepath.Join(a.envPath, "transcribe.py"), "--config", configPath}, withWorkerRecoveryPolicy(env, params), nil
 }
 
 func (a *LocalASRAdapter) Transcribe(ctx context.Context, input interfaces.AudioInput, params map[string]interface{}, procCtx interfaces.ProcessingContext) (_ *interfaces.TranscriptResult, resultErr error) {
@@ -409,6 +409,12 @@ func (a *LocalASRAdapter) Transcribe(ctx context.Context, input interfaces.Audio
 	appendLocalASRDiagnostic(procCtx.OutputDirectory, phase, nil, nil)
 	cmd := processutil.CommandContext(ctx, "uv", args...)
 	cmd.Env = env
+	log, err := os.OpenFile(filepath.Join(procCtx.OutputDirectory, "transcription.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		return nil, localASRDiagnostic("worker_launch_failed", err)
+	}
+	defer log.Close()
+	cmd.Stdout = &recoveryEvidenceWriter{destination: log}
 	// The runner emits only progress counters and sanitised error classes. Keep
 	// third-party stderr out of user logs; Python writes a safe error.json itself.
 	if err := processutil.Run(ctx, cmd); err != nil {

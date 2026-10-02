@@ -8,17 +8,25 @@ import (
 )
 
 type runRecoverySummary struct {
-	EvidenceAvailable bool     `json:"evidence_available"`
-	RetryCount        int      `json:"retry_count"`
-	CPUFallback       bool     `json:"cpu_fallback"`
-	Reasons           []string `json:"reasons"`
+	EvidenceAvailable     bool           `json:"evidence_available"`
+	RetryCount            int            `json:"retry_count"`
+	WorkerRetryCount      int            `json:"worker_retry_count"`
+	WorkerRecoveryActions map[string]int `json:"worker_recovery_actions,omitempty"`
+	CPUFallback           bool           `json:"cpu_fallback"`
+	Reasons               []string       `json:"reasons"`
 }
 
 func summarizeRunAttempts(attempts []models.RecoveryAttempt) runRecoverySummary {
-	result := runRecoverySummary{EvidenceAvailable: true, Reasons: []string{}}
+	result := runRecoverySummary{EvidenceAvailable: true, Reasons: []string{}, WorkerRecoveryActions: map[string]int{}}
 	stageCounts, gpuStages := map[string]int{}, map[string]bool{}
 	reasons := map[string]bool{}
 	for _, attempt := range attempts {
+		if attempt.Measurements != nil {
+			result.WorkerRetryCount += attempt.Measurements.WorkerRetryCount
+			for action, count := range attempt.Measurements.WorkerRecoveryActions {
+				result.WorkerRecoveryActions[action] += count
+			}
+		}
 		if stageCounts[attempt.StageID] > 0 {
 			result.RetryCount++
 		}

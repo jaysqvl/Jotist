@@ -41,7 +41,7 @@ func TestLocalASRStructuredGPUErrorAndTemporaryCleanup(t *testing.T) {
 				t.Fatal(err)
 			}
 			temp := t.TempDir()
-			_, err = a.Transcribe(context.Background(), interfaces.AudioInput{FilePath: input, Format: "wav", Size: 7}, map[string]interface{}{"device": "auto", "precision": "float16"}, interfaces.ProcessingContext{TempDirectory: temp})
+			_, err = a.Transcribe(context.Background(), interfaces.AudioInput{FilePath: input, Format: "wav", Size: 7}, map[string]interface{}{"device": "auto", "precision": "float16"}, interfaces.ProcessingContext{TempDirectory: temp, OutputDirectory: t.TempDir()})
 			if err == nil {
 				t.Fatal("worker failure was accepted")
 			}

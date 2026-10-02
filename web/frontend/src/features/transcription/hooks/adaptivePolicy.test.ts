@@ -1,10 +1,24 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { adaptiveLevel, adaptivePolicyErrors, adaptiveStageChoices, alignmentMemoryForConfiguration, declaredAdaptiveStages, qualifiedWindows, stagePolicy, updateStagePolicy, type AdaptiveStageDescriptor } from "./adaptivePolicy.ts";
+import { adaptiveLevel, adaptivePolicyErrors, adaptiveStageChoices, alignmentMemoryForConfiguration, declaredAdaptiveStages, effectiveStagePolicy, qualifiedWindows, stagePolicy, updateStagePolicy, type AdaptiveStageDescriptor } from "./adaptivePolicy.ts";
 import type { TranscriptionModelCapability } from "./modelCapabilities.ts";
 
 const descriptor: AdaptiveStageDescriptor = { kind: "recognition", recoverable: true, device_precisions: { cpu: ["float32"], cuda: ["float16", "float32"] }, qualified_batches: [1, 2, 4], window_policy: { unit: "seconds", candidates: [30, 20, 10], minimum_overlap: 2, stitching_version: "overlap-v1" } };
 const model = (id: string, family: string, stages: AdaptiveStageDescriptor[] = []): TranscriptionModelCapability => ({ model_id: id, model_family: family, display_name: id, description: "", features: { timestamps: true, word_level: true }, metadata: { adaptive_stages: JSON.stringify(stages) } });
+
+test("Strong changes context without granting CPU; Aggressive uses only supported CPU precision", () => {
+    const stage = { kind: "recognition" as const, label: "Recognition", descriptor };
+    const strong = effectiveStagePolicy(undefined, stage, "strong");
+    assert.equal(strong.allow_cpu, false);
+    assert.equal(strong.device_locked, true);
+    assert.equal(strong.allow_output_changes, true);
+    assert.deepEqual(strong.window_candidates, [30, 20]);
+    const aggressive = effectiveStagePolicy(undefined, stage, "aggressive");
+    assert.equal(aggressive.allow_cpu, true);
+    assert.equal(aggressive.cpu_precision, "float32");
+    const locked = updateStagePolicy(undefined, "recognition", { device_locked: true });
+    assert.equal(effectiveStagePolicy(locked, stage, "aggressive").allow_cpu, false);
+});
 
 test("all four recovery levels are available without implicitly granting CPU or window changes", () => {
     assert.deepEqual([adaptiveLevel("fixed"), adaptiveLevel("stage_management"), adaptiveLevel("batch_management"), adaptiveLevel("cpu_fallback"), adaptiveLevel("shorter_windows")], [0, 1, 2, 3, 4]);
