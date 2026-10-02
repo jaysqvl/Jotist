@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.1.0](https://github.com/jaysqvl/Jotist/compare/v2.0.0...v2.1.0) (2026-10-02)
+
+
+- Search saved profiles when adding a run, running again, or transcribing in bulk. Filter by language and sort by published WER, memory estimates, name, or recent updates.
+- Remember the selected profile, language filter, and sort order in your browser for each account. Existing profiles and their saved settings are preserved.
+
+[Full changes](https://github.com/jaysqvl/Jotist/compare/v2.0.0...v2.1.0)
+
 ## [2.0.0](https://github.com/jaysqvl/Jotist/compare/v1.9.0...v2.0.0) (2026-10-02)
 
 - Install and run the CLI as `jotist`. Configuration uses `~/.jotist.yaml` and
