@@ -2,14 +2,14 @@
 
 ## [2.0.0](https://github.com/jaysqvl/Jotist/compare/v1.9.0...v2.0.0) (2026-10-02)
 
-
-### ⚠ BREAKING CHANGES
-
-* remove Scriberr command aliases, environment fallbacks, and automatic legacy configuration discovery. Existing deployments must retain their actual storage and signing secret, migrate database/configuration names, update scripts, and sign in again.
-
-### Features
-
-* make Jotist the canonical installation identity ([3371543](https://github.com/jaysqvl/Jotist/commit/3371543447183c53eb872bcb4fabfe1eea97e110))
+- Install and run the CLI as `jotist`. Configuration uses `~/.jotist.yaml` and
+  `JOTIST_*` variables, and the watcher service is `jotist-watcher`.
+- New containers and archives use `jotist-server` and default to `jotist.db`.
+  Existing installations must retain their data and signing secret, migrate
+  configuration and scripts, and sign in again. There are no Scriberr aliases
+  or automatic fallbacks; follow the [migration guide](https://github.com/jaysqvl/Jotist/blob/v2.0.0/docs/jotist-migration.md).
+- Jotist names now cover installers, CLI downloads, browser storage, webhooks,
+  runtime messages, and source modules.
 
 ## [1.9.0](https://github.com/jaysqvl/Jotist/compare/v1.8.0...v1.9.0) (2026-10-02)
 
