@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.0](https://github.com/jaysqvl/Jotist/compare/v2.1.0...v2.2.0) (2026-10-02)
+
+
+### Features
+
+* unify recovery settings and GPU presets ([#35](https://github.com/jaysqvl/Jotist/issues/35)) ([5cfa6c7](https://github.com/jaysqvl/Jotist/commit/5cfa6c75b288c6e6a004a31b7286c3accef42425))
+
 ## [2.1.0](https://github.com/jaysqvl/Jotist/compare/v2.0.0...v2.1.0) (2026-10-02)
 
 
