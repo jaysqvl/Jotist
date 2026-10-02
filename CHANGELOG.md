@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.9.0](https://github.com/jaysqvl/Jotist/compare/v1.8.0...v1.9.0) (2026-10-02)
+
+
+- Configure automatic recovery globally in Settings, with optional overrides per
+  transcription profile.
+- See jobs across recordings in one queue, including recording names, waiting
+  targets, and numbered stage progress. Expand the two queued rows to see all jobs.
+- Improve mobile recording controls, run selection, and model browsing. Detailed
+  run statistics and diagnostics are available in Settings → Statistics.
+- Use the complete transcription and diarization model selectors, with referenced
+  publisher benchmarks and local timing and GPU memory observations.
+
+The queue now defaults to one simultaneous recording. Change the limit in
+Settings; an existing `QUEUE_WORKERS` environment override still takes precedence.
+Saved recordings, profiles, preferences, and run history are retained. Stage
+numbers are recorded for new runs; older runs without those fields keep their
+stage labels.
+
 ## [1.8.0](https://github.com/jaysqvl/Jotist/compare/v1.7.6...v1.8.0) (2026-09-29)
 
 
