@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0](https://github.com/jaysqvl/Jotist/compare/v1.9.0...v2.0.0) (2026-10-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove Scriberr command aliases, environment fallbacks, and automatic legacy configuration discovery. Existing deployments must retain their actual storage and signing secret, migrate database/configuration names, update scripts, and sign in again.
+
+### Features
+
+* make Jotist the canonical installation identity ([3371543](https://github.com/jaysqvl/Jotist/commit/3371543447183c53eb872bcb4fabfe1eea97e110))
+
 ## [1.9.0](https://github.com/jaysqvl/Jotist/compare/v1.8.0...v1.9.0) (2026-10-02)
 
 
