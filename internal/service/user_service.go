@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"scriberr/internal/auth"
-	"scriberr/internal/models"
-	"scriberr/internal/repository"
+	"github.com/jaysqvl/Jotist/internal/auth"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/repository"
 )
 
 // UserService handles user business logic

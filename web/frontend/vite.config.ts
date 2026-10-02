@@ -22,7 +22,7 @@ export default defineConfig({
         display: 'standalone',
         orientation: 'any',
         start_url: '/',
-        id: 'scriberr-transcription',
+        id: 'jotist-transcription',
         icons: [
           {
             src: 'jotist-icon.png',

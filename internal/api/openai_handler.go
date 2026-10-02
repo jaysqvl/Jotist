@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"scriberr/internal/netpolicy"
+	"github.com/jaysqvl/Jotist/internal/netpolicy"
 
 	"github.com/gin-gonic/gin"
 )

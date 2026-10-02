@@ -76,7 +76,7 @@ func (p *program) run() {
 	log.Printf("Loaded config: ServerURL=%s, WatchFolder=%s, TokenSet=%v", config.ServerURL, config.WatchFolder, config.Token != "")
 
 	if config.WatchFolder == "" {
-		log.Println("No watch folder configured. Please run 'scriberr install [folder]' first.")
+		log.Println("No watch folder configured. Please run 'jotist install [folder]' first.")
 		return
 	}
 
@@ -104,7 +104,7 @@ func getServiceConfig(configPath string) *service.Config {
 	}
 
 	return &service.Config{
-		Name:        "scriberr-watcher",
+		Name:        "jotist-watcher",
 		DisplayName: "Jotist Watcher Service",
 		Description: "Watches a folder and uploads audio files to Jotist.",
 		Executable:  ex,
@@ -174,7 +174,7 @@ func runInstall(cmd *cobra.Command, args []string) {
 			sudoUser := os.Getenv("SUDO_USER")
 			if sudoUser != "" {
 				if u, err := user.Lookup(sudoUser); err == nil {
-					userConfigPath := filepath.Join(u.HomeDir, ".scriberr.yaml")
+					userConfigPath := defaultConfigPath(u.HomeDir)
 					if _, err := os.Stat(userConfigPath); err == nil {
 						// Read user config using a separate viper instance
 						v := viper.New()
@@ -204,17 +204,12 @@ func runInstall(cmd *cobra.Command, args []string) {
 		// Check if already configured
 		config := GetConfig()
 		if config.WatchFolder == "" {
-			log.Fatalf("No watch folder specified. Usage: scriberr install [folder]")
+			log.Fatalf("No watch folder specified. Usage: jotist install [folder]")
 		}
-		// We need to know where the config is to pass it to the service.
-		// Since we didn't save it, we assume it's in the default location or cfgFile.
-		if cfgFile != "" {
-			configPath = cfgFile
-		} else {
-			home, err := os.UserHomeDir()
-			if err == nil {
-				configPath = filepath.Join(home, ".scriberr.yaml")
-			}
+		var err error
+		configPath, err = cliConfigPath()
+		if err != nil {
+			log.Fatalf("Failed to locate config: %v", err)
 		}
 	}
 
@@ -263,8 +258,7 @@ func runUninstall(cmd *cobra.Command, args []string) {
 }
 
 func getLogFilePath() string {
-	// Use /tmp/scriberr-service.log for simplicity and broad access
-	return "/tmp/scriberr-service.log"
+	return filepath.Join(os.TempDir(), "jotist-service.log")
 }
 
 func setupServiceLogging() error {

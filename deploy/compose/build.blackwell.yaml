@@ -1,13 +1,13 @@
-# Jotist. Legacy service and volume names preserve existing deployments.
+# Jotist source build.
 # Local source build for Blackwell evaluation; actual model inference is unqualified.
 # Run from the repository root with --project-directory .; see deploy/README.md.
 services:
-  scriberr:
+  jotist:
     build:
       context: .
       dockerfile: deploy/docker/Dockerfile.blackwell
     image: jotist:local-blackwell
-    container_name: scriberr-blackwell
+    container_name: jotist-blackwell
     ports:
       - "8080:8080"
     deploy:
@@ -19,6 +19,7 @@ services:
               capabilities:
                 - gpu
     environment:
+      - DATABASE_PATH=${DATABASE_PATH:-/app/data/jotist.db}
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - PUID=${PUID:-1000}
@@ -28,6 +29,6 @@ services:
       # CORS: comma-separated list of allowed origins for production
       # - ALLOWED_ORIGINS=https://your-domain.com
     volumes:
-      - ./scriberr_data:/app/data
+      - ./jotist-data:/app/data
       - ./env-data:/app/whisperx-env
     restart: unless-stopped

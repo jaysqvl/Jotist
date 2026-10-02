@@ -9,11 +9,11 @@ import (
 	"sync"
 	"time"
 
-	"scriberr/internal/config"
-	"scriberr/internal/database"
-	"scriberr/internal/models"
-	"scriberr/internal/processutil"
-	"scriberr/internal/resource"
+	"github.com/jaysqvl/Jotist/internal/config"
+	"github.com/jaysqvl/Jotist/internal/database"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/processutil"
+	"github.com/jaysqvl/Jotist/internal/resource"
 
 	"github.com/gin-gonic/gin"
 )

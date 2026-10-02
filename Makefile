@@ -12,15 +12,15 @@ frontend: ## Build the application frontend
 embed: ## Copy an already built frontend into the Go embed directory
 	./scripts/build.sh --embed-only
 
-build: ## Build the frontend and server into bin/jotist
+build: ## Build the frontend and server into bin/jotist-server
 	./scripts/build.sh
 
-build-cli: ## Build compatible scriberr CLI downloads
+build-cli: ## Build Jotist CLI downloads
 	mkdir -p bin/cli
-	GOOS=linux GOARCH=amd64 go build -o bin/cli/scriberr-linux-amd64 ./cmd/scriberr-cli
-	GOOS=darwin GOARCH=amd64 go build -o bin/cli/scriberr-darwin-amd64 ./cmd/scriberr-cli
-	GOOS=darwin GOARCH=arm64 go build -o bin/cli/scriberr-darwin-arm64 ./cmd/scriberr-cli
-	GOOS=windows GOARCH=amd64 go build -o bin/cli/scriberr-windows-amd64.exe ./cmd/scriberr-cli
+	GOOS=linux GOARCH=amd64 go build -o bin/cli/jotist-linux-amd64 ./cmd/jotist-cli
+	GOOS=darwin GOARCH=amd64 go build -o bin/cli/jotist-darwin-amd64 ./cmd/jotist-cli
+	GOOS=darwin GOARCH=arm64 go build -o bin/cli/jotist-darwin-arm64 ./cmd/jotist-cli
+	GOOS=windows GOARCH=amd64 go build -o bin/cli/jotist-windows-amd64.exe ./cmd/jotist-cli
 
 vet: ## Run the Go analysis used by CI (requires make embed or make build first)
 	go vet ./api-docs ./cmd/... ./internal/... ./pkg/... ./tests

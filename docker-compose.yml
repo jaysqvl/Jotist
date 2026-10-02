@@ -1,14 +1,14 @@
 # Jotist CPU image. See deploy/README.md for GPU and source-build configurations.
-# Legacy service and volume names preserve existing deployments.
 services:
-  scriberr:
-    image: ghcr.io/jaysqvl/jotist:1.7.2
+  jotist:
+    image: ghcr.io/jaysqvl/jotist:latest
     ports:
       - "8080:8080"
     volumes:
-      - scriberr_data:/app/data
+      - jotist_data:/app/data
       - env_data:/app/whisperx-env
     environment:
+      - DATABASE_PATH=${DATABASE_PATH:-/app/data/jotist.db}
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       # Security: already set in container, but can be overridden
@@ -18,5 +18,5 @@ services:
     restart: unless-stopped
 
 volumes:
-  scriberr_data: {}
+  jotist_data: {}
   env_data: {}

@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"gorm.io/gorm"
-	"scriberr/internal/models"
-	"scriberr/internal/repository"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/repository"
 )
 
 type ExecutionRecoveryProcessor interface {

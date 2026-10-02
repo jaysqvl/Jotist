@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"scriberr/internal/models"
-	"scriberr/internal/transcription"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/transcription"
 )
 
 func TestExecutionDefaultsPersistAndFenceNewRunSnapshots(t *testing.T) {

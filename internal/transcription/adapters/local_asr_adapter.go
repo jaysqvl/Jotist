@@ -16,8 +16,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"scriberr/internal/processutil"
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/processutil"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 )
 
 //go:embed py/local_asr/*.py py/local_asr/*.json py/local_asr/pyproject.toml

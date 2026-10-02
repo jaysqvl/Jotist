@@ -63,10 +63,10 @@ def test_context_policies(tmp_path):
     with pytest.raises(RecognitionError):
         transcribe.load_config(path)
     config.pop("context")
-    config["context_terms"] = "PostgreSQL\nScriberr\nPostgreSQL"
+    config["context_terms"] = "PostgreSQL\nJotist\nPostgreSQL"
     config["revision"] = "attacker-controlled-code"
     path.write_text(json.dumps(config))
-    assert vocabulary(config) == ["PostgreSQL", "Scriberr"]
+    assert vocabulary(config) == ["PostgreSQL", "Jotist"]
     config["model_id"] = "Edge0/ARK-ASR-3B"
     config.pop("context_terms")
     path.write_text(json.dumps(config))

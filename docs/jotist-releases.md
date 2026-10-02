@@ -15,7 +15,7 @@ CPU and CUDA share one container repository:
 
 Container tags omit the Git tag's leading `v`. Builds also publish `<version><variant-suffix>-<12-character-commit>` and report a digest in the Actions summary. Use `ghcr.io/jaysqvl/jotist@sha256:...` for reproducible deployment. Confirm every selected image job finished before pulling the release.
 
-For Blackwell evaluation, use the source-build configurations in [container deployment](../deploy/README.md). The named-volume and bind-mount variants preserve their existing storage mappings. Both are explicitly unqualified for actual Blackwell model inference; neither recommends the old RC1 image. Automatic stable publication does not update `latest-blackwell`.
+For Blackwell evaluation, use the source-build configurations in [container deployment](../deploy/README.md). Their new-install data names follow Jotist defaults; map existing physical storage explicitly before upgrading. Both are explicitly unqualified for actual Blackwell model inference; neither recommends the old RC1 image. Automatic stable publication does not update `latest-blackwell`.
 
 ## Preview history and qualification
 

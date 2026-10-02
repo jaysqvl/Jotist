@@ -17,7 +17,7 @@ def test_pyannote_diarize_exists():
 def test_pyannote_diarize_help():
     """Verify pyannote_diarize.py --help works."""
 
-    # Locate project root (Scriberr directory)
+    # Locate project root (Jotist directory)
     # This file is in internal/transcription/adapters/py/pyannote/tests/
     project_root = Path(__file__).resolve().parents[6]
     env_path = project_root / "data/whisperx-env/pyannote"

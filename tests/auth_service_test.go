@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"scriberr/internal/auth"
-	"scriberr/internal/models"
+	"github.com/jaysqvl/Jotist/internal/auth"
+	"github.com/jaysqvl/Jotist/internal/models"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"

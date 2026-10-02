@@ -52,7 +52,7 @@ interface CachedUploadSession {
     createdAt: number;
 }
 
-const CACHE_PREFIX = "scriberr.resumableUpload.";
+const CACHE_PREFIX = "jotist.resumableUpload.";
 const MAX_RETRIES = 5;
 
 export async function uploadResumable(options: ResumableUploadOptions): Promise<unknown> {

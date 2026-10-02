@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"scriberr/internal/models"
+	"github.com/jaysqvl/Jotist/internal/models"
 
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"

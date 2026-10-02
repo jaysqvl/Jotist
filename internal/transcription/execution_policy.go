@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"scriberr/internal/models"
+	"github.com/jaysqvl/Jotist/internal/models"
 )
 
 func ValidateExecutionPolicy(policy models.ExecutionPolicy) error {

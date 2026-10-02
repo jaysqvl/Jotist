@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 )
 
 // The fake package manager verifies process orchestration only; it neither
@@ -210,7 +210,7 @@ func TestLocalASRCatalogAndContexts(t *testing.T) {
 		if err := a.ValidateParameters(map[string]interface{}{"context": "engineering meeting"}); (err == nil) != (spec.ContextMode == "prose_and_terms") {
 			t.Fatalf("wrong prose support: %s", spec.ID)
 		}
-		if err := a.ValidateParameters(map[string]interface{}{"context_terms": "PostgreSQL\nScriberr"}); (err == nil) != (spec.ContextMode != "none") {
+		if err := a.ValidateParameters(map[string]interface{}{"context_terms": "PostgreSQL\nJotist"}); (err == nil) != (spec.ContextMode != "none") {
 			t.Fatalf("wrong vocabulary support: %s", spec.ID)
 		}
 	}
@@ -441,8 +441,8 @@ while [ "$#" -gt 0 ]; do
 done
 test -n "$config" || exit 21
 job="${config%/*}"
-mkdir "$job/scriberr-local-asr-fixture"
-printf 'converted audio fixture' > "$job/scriberr-local-asr-fixture/audio.wav"
+mkdir "$job/jotist-local-asr-fixture"
+printf 'converted audio fixture' > "$job/jotist-local-asr-fixture/audio.wav"
 printf '%s' "$job" > "$LOCAL_ASR_CONVERSION_READY"
 sleep 30
 `
@@ -474,7 +474,7 @@ sleep 30
 	if len(job) == 0 {
 		t.Fatal("worker never reached audio conversion")
 	}
-	if _, err := os.Stat(filepath.Join(string(job), "scriberr-local-asr-fixture", "audio.wav")); err != nil {
+	if _, err := os.Stat(filepath.Join(string(job), "jotist-local-asr-fixture", "audio.wav")); err != nil {
 		t.Fatal(err)
 	}
 	cancel()

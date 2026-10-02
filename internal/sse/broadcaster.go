@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"scriberr/pkg/logger"
+	"github.com/jaysqvl/Jotist/pkg/logger"
 )
 
 // Event represents a Server-Sent Event

@@ -14,14 +14,14 @@ import (
 	"testing"
 	"time"
 
-	"scriberr/internal/api"
-	"scriberr/internal/models"
-	"scriberr/internal/processing"
-	"scriberr/internal/queue"
-	"scriberr/internal/repository"
-	"scriberr/internal/service"
-	"scriberr/internal/sse"
-	"scriberr/internal/transcription"
+	"github.com/jaysqvl/Jotist/internal/api"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/processing"
+	"github.com/jaysqvl/Jotist/internal/queue"
+	"github.com/jaysqvl/Jotist/internal/repository"
+	"github.com/jaysqvl/Jotist/internal/service"
+	"github.com/jaysqvl/Jotist/internal/sse"
+	"github.com/jaysqvl/Jotist/internal/transcription"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -267,7 +267,7 @@ func (suite *APIHandlerTestSuite) TestHTTPLoginCookieStreamsAuthenticatedAudioRa
 	jsonData, err := json.Marshal(loginData)
 	require.NoError(suite.T(), err)
 
-	loginRequest := httptest.NewRequest(http.MethodPost, "http://scriberr.test/api/v1/auth/login", bytes.NewReader(jsonData))
+	loginRequest := httptest.NewRequest(http.MethodPost, "http://jotist.test/api/v1/auth/login", bytes.NewReader(jsonData))
 	loginRequest.Header.Set("Content-Type", "application/json")
 	loginResponse := httptest.NewRecorder()
 	suite.router.ServeHTTP(loginResponse, loginRequest)
@@ -275,7 +275,7 @@ func (suite *APIHandlerTestSuite) TestHTTPLoginCookieStreamsAuthenticatedAudioRa
 
 	var accessCookie *http.Cookie
 	for _, cookie := range loginResponse.Result().Cookies() {
-		if cookie.Name == "scriberr_access_token" {
+		if cookie.Name == "jotist_access_token" {
 			accessCookie = cookie
 			break
 		}
@@ -327,7 +327,7 @@ func (suite *APIHandlerTestSuite) TestPersistedBearerSessionRepairsAudioCookie()
 
 	var accessCookie *http.Cookie
 	for _, cookie := range detailResponse.Result().Cookies() {
-		if cookie.Name == "scriberr_access_token" {
+		if cookie.Name == "jotist_access_token" {
 			accessCookie = cookie
 			break
 		}
@@ -363,7 +363,7 @@ func (suite *APIHandlerTestSuite) TestRegistrationSetsMediaAccessCookie() {
 	jsonData, err := json.Marshal(registerData)
 	require.NoError(suite.T(), err)
 
-	request := httptest.NewRequest(http.MethodPost, "http://scriberr.test/api/v1/auth/register", bytes.NewReader(jsonData))
+	request := httptest.NewRequest(http.MethodPost, "http://jotist.test/api/v1/auth/register", bytes.NewReader(jsonData))
 	request.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()
 	suite.router.ServeHTTP(response, request)
@@ -371,7 +371,7 @@ func (suite *APIHandlerTestSuite) TestRegistrationSetsMediaAccessCookie() {
 
 	var accessCookie *http.Cookie
 	for _, cookie := range response.Result().Cookies() {
-		if cookie.Name == "scriberr_access_token" {
+		if cookie.Name == "jotist_access_token" {
 			accessCookie = cookie
 			break
 		}
@@ -953,7 +953,7 @@ func (suite *APIHandlerTestSuite) TestPasswordChangeRevokesAccessRefreshAndCLITo
 	assert.Equal(suite.T(), http.StatusOK, login.Code)
 	var refreshCookie *http.Cookie
 	for _, cookie := range login.Result().Cookies() {
-		if cookie.Name == "scriberr_refresh_token" {
+		if cookie.Name == "jotist_refresh_token" {
 			refreshCookie = cookie
 			break
 		}

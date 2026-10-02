@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"scriberr/internal/processutil"
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/processutil"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 )
 
 const (
@@ -148,14 +148,14 @@ func stageFailureCode(ctx context.Context, err error, procCtx interfaces.Process
 		return kind
 	}
 	for _, line := range strings.Split(attemptLogTail(procCtx.OutputDirectory, offset), "\n") {
-		if !strings.HasPrefix(line, "SCRIBERR_HOST_FAILURE=") {
+		if !strings.HasPrefix(line, "JOTIST_HOST_FAILURE=") {
 			continue
 		}
 		var failure struct {
 			Device string `json:"device"`
 			Kind   string `json:"kind"`
 		}
-		if json.Unmarshal([]byte(strings.TrimPrefix(line, "SCRIBERR_HOST_FAILURE=")), &failure) == nil && failure.Device == "cpu" && failure.Kind == "host_out_of_memory" {
+		if json.Unmarshal([]byte(strings.TrimPrefix(line, "JOTIST_HOST_FAILURE=")), &failure) == nil && failure.Device == "cpu" && failure.Kind == "host_out_of_memory" {
 			return failure.Kind
 		}
 	}

@@ -1,8 +1,8 @@
 package interfaces
 
 import (
-	"scriberr/internal/auth"
-	"scriberr/internal/models"
+	"github.com/jaysqvl/Jotist/internal/auth"
+	"github.com/jaysqvl/Jotist/internal/models"
 )
 
 // AuthServiceInterface defines the contract for authentication services.

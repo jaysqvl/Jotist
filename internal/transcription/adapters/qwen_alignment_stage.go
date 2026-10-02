@@ -11,8 +11,8 @@ import (
 	"time"
 	"unicode"
 
-	"scriberr/internal/processutil"
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/processutil"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 )
 
 func runQwenAlignmentWorker(ctx context.Context, environment string, input interfaces.AudioInput, params map[string]interface{}, procCtx interfaces.ProcessingContext, upstream []byte, modelUsed string, metadata map[string]string) ([]byte, error) {

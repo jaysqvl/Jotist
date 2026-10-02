@@ -480,7 +480,7 @@ The server reads environment variables and an optional `.env` file in its workin
 | --- | --- | --- |
 | `HOST`, `PORT` | Listening interface and port | `0.0.0.0`, `8080` |
 | `APP_ENV` | Application environment | `development` |
-| `DATABASE_PATH` | SQLite database; legacy filename retained | `data/scriberr.db` |
+| `DATABASE_PATH` | SQLite database | `data/jotist.db` |
 | `UPLOAD_DIR`, `TRANSCRIPTS_DIR` | Recordings and transcript storage | `data/uploads`, `data/transcripts` |
 | `WHISPERX_ENV` | Managed Python/model runtime storage | `data/whisperx-env` |
 | `JWT_SECRET`, `JWT_SECRET_FILE` | Existing signing secret or persistent secret file | Generated at `data/jwt_secret` when unset |
@@ -498,9 +498,9 @@ Recording runs share one worker by default. Set **Simultaneous recordings** in *
 
 ## Server binary and CLI
 
-Download a platform archive from [Jotist Releases](https://github.com/jaysqvl/Jotist/releases), extract it, and run `jotist`. Model execution also needs the appropriate Python, uv, FFmpeg, and optional accelerator/runtime dependencies; Docker includes the common system dependencies.
+Download a platform archive from [Jotist Releases](https://github.com/jaysqvl/Jotist/releases), extract it, and run the server as `./jotist-server` from its directory. Keep the included `bin/cli` directory beside the server so Settings can serve CLI downloads. Model execution also needs the appropriate Python, uv, FFmpeg, and optional accelerator/runtime dependencies; Docker includes the common system dependencies.
 
-The separate folder-watching CLI still uses the command **`scriberr`** in this compatibility release. Install it from the Jotist application's **Settings → CLI** page. Existing `~/.scriberr.yaml`, `SCRIBERR_*` environment variables, installed watcher service, and saved sessions remain supported. The upstream Homebrew tap installs Scriberr, not Jotist.
+The CLI uses **`jotist`**. Install or update it from the Jotist application's **Settings → CLI** page. It uses `~/.jotist.yaml`, `JOTIST_*` environment variables, and the `jotist-watcher` service. See [CLI controls](docs/cli-controls.md) for commands and configuration. Existing installations should follow the [migration guide](docs/jotist-migration.md) before switching to the Jotist defaults.
 
 ## Development
 
@@ -511,10 +511,10 @@ cd web/frontend
 npm ci
 cd ../..
 make build
-./bin/jotist
+./bin/jotist-server
 ```
 
-The Go module name remains `scriberr` to avoid an unrelated import rewrite. `make dev` runs Vite and the backend, using Air when it is already installed. `make docs` regenerates API documentation; `make build-cli` produces the compatible CLI downloads. See [Contributing](CONTRIBUTING.md) for the development checks and [source ownership](docs/architecture.md) for where changes belong.
+The Go module is `github.com/jaysqvl/Jotist`. `make dev` runs Vite and the backend, using Air when it is already installed. `make docs` regenerates API documentation; `make build-cli` produces the Jotist CLI downloads. See [Contributing](CONTRIBUTING.md) for the development checks and [source ownership](docs/architecture.md) for where changes belong.
 
 See [local speech validation](docs/local-speech-validation.md), [recoverable transcription](docs/recoverable-transcription.md), and the [release guide](docs/jotist-releases.md) for implementation and validation details. A listed model or passing unit test is not a promise of successful inference on every machine.
 

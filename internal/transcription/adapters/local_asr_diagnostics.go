@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 )
 
 var localASRDiagnostics = func() map[string]string {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"scriberr/internal/models"
+	"github.com/jaysqvl/Jotist/internal/models"
 )
 
 type runRecoverySummary struct {

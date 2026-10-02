@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
-	"scriberr/internal/models"
+	"github.com/jaysqvl/Jotist/internal/models"
 )
 
 func (r *RecoveryRepository) SetAttemptWaiting(ctx context.Context, id string, generation int64, waiting bool) error {

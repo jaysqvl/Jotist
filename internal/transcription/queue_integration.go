@@ -5,8 +5,8 @@ import (
 	"os/exec"
 	"sort"
 
-	"scriberr/internal/repository"
-	"scriberr/pkg/logger"
+	"github.com/jaysqvl/Jotist/internal/repository"
+	"github.com/jaysqvl/Jotist/pkg/logger"
 )
 
 // UnifiedJobProcessor implements the existing JobProcessor interface using the new unified service

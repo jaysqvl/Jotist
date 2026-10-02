@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 
-	"scriberr/internal/models"
+	"github.com/jaysqvl/Jotist/internal/models"
 )
 
 func (suite *APIHandlerTestSuite) TestQueueRunResolvesProfileSecretsServerSideAndRedactsResponse() {

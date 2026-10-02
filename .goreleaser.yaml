@@ -13,12 +13,13 @@ before:
     # Install dependencies, then use the shared embedding command.
     - sh -c "cd web/frontend && npm ci && npm run build"
     - make embed
+    - make build-cli
 
 # Build configuration
 builds:
   - id: jotist
     main: ./cmd/server
-    binary: jotist
+    binary: jotist-server
     env:
       - CGO_ENABLED=0
     goos:
@@ -31,9 +32,9 @@ builds:
     # Build flags
     ldflags:
       - -s -w
-      - -X scriberr/internal/version.Version={{ .Version }}
-      - -X scriberr/internal/version.Commit={{ .Commit }}
-      - -X scriberr/internal/version.Date={{ .Date }}
+      - -X github.com/jaysqvl/Jotist/internal/version.Version={{ .Version }}
+      - -X github.com/jaysqvl/Jotist/internal/version.Commit={{ .Commit }}
+      - -X github.com/jaysqvl/Jotist/internal/version.Date={{ .Date }}
 
 # Archive configuration
 archives:
@@ -57,6 +58,9 @@ archives:
       - LICENSE
       - ATTRIBUTION.md
       - THIRD_PARTY_NOTICES.md
+      - src: bin/cli/jotist-*
+        dst: bin/cli
+        strip_parent: true
 
 # Checksum configuration
 checksum:
@@ -97,7 +101,7 @@ release:
   header: |
     ## Jotist {{ .Tag }}
 
-    Self-hosted audio transcription, maintained by Jay Esquivel and derived from Scriberr.
+    Self-hosted audio transcription, maintained by Jay Esquivel.
 
     Prereleases are preview builds. Use their exact version or digest; they do not update stable latest image tags.
 

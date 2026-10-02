@@ -5,7 +5,7 @@ import (
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-	"scriberr/internal/models"
+	"github.com/jaysqvl/Jotist/internal/models"
 	"testing"
 	"time"
 )

@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 )
 
 const Version = 1

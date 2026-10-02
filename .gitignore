@@ -40,6 +40,8 @@ CLAUDE.md
 AGENTS.md
 # .env.example
 scriberr-data
+jotist-data
+jotist_data
 whisperx-env
 
 # internal/web
@@ -76,6 +78,7 @@ dhl.txt
 __pycache__/
 
 /jotist
+/jotist-server
 /bin/
 /startup_log.txt
 /internal/web/frontend/

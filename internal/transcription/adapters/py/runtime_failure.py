@@ -60,10 +60,10 @@ def gpu_execution(device):
         yield
     except Exception as exc:
         if host_failure_kind(exc, device):
-            print("SCRIBERR_HOST_FAILURE=" + json.dumps({"device": "cpu", "kind": "host_out_of_memory"}), flush=True)
+            print("JOTIST_HOST_FAILURE=" + json.dumps({"device": "cpu", "kind": "host_out_of_memory"}), flush=True)
         kind = gpu_failure_kind(exc, device)
         if kind:
-            print("SCRIBERR_GPU_FAILURE=" + json.dumps({"device": "cuda", "kind": kind}), flush=True)
+            print("JOTIST_GPU_FAILURE=" + json.dumps({"device": "cuda", "kind": kind}), flush=True)
         raise
     else:
         progress()

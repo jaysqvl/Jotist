@@ -208,7 +208,7 @@ jobs:
             DATE=${{ steps.metadata.outputs.date }}
           labels: |
             org.opencontainers.image.title=Jotist
-            org.opencontainers.image.description=Self-hosted audio transcription, derived from Scriberr
+            org.opencontainers.image.description=Jotist self-hosted audio transcription
             org.opencontainers.image.licenses=MIT
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ needs.resolve.outputs.sha }}

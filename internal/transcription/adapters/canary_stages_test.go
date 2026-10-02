@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 )
 
 func TestCanaryAlignmentResolvesNativeBatchAndOwnFP32Precision(t *testing.T) {

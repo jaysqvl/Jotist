@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"scriberr/internal/models"
-	"scriberr/internal/repository"
-	"scriberr/internal/transcription"
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/repository"
+	"github.com/jaysqvl/Jotist/internal/transcription"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"

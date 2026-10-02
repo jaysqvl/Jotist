@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-	"scriberr/internal/models"
+	"github.com/jaysqvl/Jotist/internal/models"
 )
 
 // These numeric writes cannot publish output or change execution state. A

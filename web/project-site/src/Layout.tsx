@@ -87,7 +87,7 @@ export function Layout({ children }: LayoutProps) {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-6">
                     <div className="flex items-center gap-2">
                         <span className="text-sm text-gray-500">
-                            Jotist · Built on <a href="https://github.com/rishikanthc/Scriberr" className="underline underline-offset-2">Scriberr</a> by Rishikanth and contributors.
+                            Jotist · Maintained by Jay Esquivel.
                         </span>
                     </div>
                     <div className="flex items-center gap-6">

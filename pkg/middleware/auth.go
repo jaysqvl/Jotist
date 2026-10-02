@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"scriberr/internal/auth"
-	"scriberr/internal/database"
-	"scriberr/internal/models"
+	"github.com/jaysqvl/Jotist/internal/auth"
+	"github.com/jaysqvl/Jotist/internal/database"
+	"github.com/jaysqvl/Jotist/internal/models"
 
 	"github.com/gin-gonic/gin"
 )
@@ -41,7 +41,7 @@ func AuthMiddleware(authService *auth.AuthService) gin.HandlerFunc {
 
 		// Fallback to cookie if no header
 		if token == "" {
-			if cookie, err := c.Cookie("scriberr_access_token"); err == nil {
+			if cookie, err := c.Cookie("jotist_access_token"); err == nil {
 				token = cookie
 			}
 		}

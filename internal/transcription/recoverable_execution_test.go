@@ -13,11 +13,11 @@ import (
 	"testing"
 	"time"
 
-	executionctx "scriberr/internal/execution"
-	"scriberr/internal/models"
-	"scriberr/internal/repository"
-	"scriberr/internal/transcription/interfaces"
-	"scriberr/internal/transcription/registry"
+	executionctx "github.com/jaysqvl/Jotist/internal/execution"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/repository"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/transcription/registry"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"

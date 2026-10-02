@@ -20,7 +20,7 @@ def test_parakeet_transcription_output():
     # Construct command
     # uv run --project data/whisperx-env/parakeet python internal/transcription/adapters/py/nvidia/parakeet_transcribe.py ...
 
-    # Locate project root (Scriberr directory)
+    # Locate project root (Jotist directory)
     # This file is in internal/transcription/adapters/py/nvidia/tests/
     project_root = Path(__file__).resolve().parents[6]
     env_path = project_root / "data/whisperx-env/parakeet"

@@ -3,7 +3,7 @@ package transcription
 import (
 	"encoding/json"
 
-	"scriberr/internal/transcription/adapters"
+	"github.com/jaysqvl/Jotist/internal/transcription/adapters"
 )
 
 // Memory ranges are decimal GB planning allowances, not measured peaks or

@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
-	"scriberr/internal/models"
-	"scriberr/internal/transcription"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/transcription"
 )
 
 // Only new-run admission resolves shared preferences. Resume restores the saved

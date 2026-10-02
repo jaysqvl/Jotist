@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"scriberr/internal/repository"
+	"github.com/jaysqvl/Jotist/internal/repository"
 )
 
 // GetQueueActivity is the authenticated, read-only view of all recording work.

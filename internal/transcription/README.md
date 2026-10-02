@@ -1,6 +1,6 @@
 # Extensible Model Interface Architecture
 
-This directory contains the new extensible model interface architecture for Scriberr's transcription and diarization capabilities.
+This directory contains the new extensible model interface architecture for Jotist's transcription and diarization capabilities.
 
 ## Overview
 
@@ -53,8 +53,8 @@ package adapters
 
 import (
     "context"
-    "scriberr/internal/transcription/interfaces"
-    "scriberr/internal/transcription/registry"
+    "jotist/internal/transcription/interfaces"
+    "jotist/internal/transcription/registry"
 )
 
 type NewModelAdapter struct {
@@ -107,7 +107,7 @@ func init() {
 
 ```go
 // Import in main.go or wherever adapters are initialized
-import _ "scriberr/internal/transcription/adapters" // Auto-registers all adapters
+import _ "jotist/internal/transcription/adapters" // Auto-registers all adapters
 ```
 
 ### 3. Use the Model

@@ -15,7 +15,7 @@ export function refreshToken(): Promise<string | null> {
 }
 
 async function requestRefresh(startingToken: string | null): Promise<string | null> {
-    const originalFetch = window.__scriberr_original_fetch || window.fetch;
+    const originalFetch = window.__jotist_original_fetch || window.fetch;
 
     try {
         const response = await originalFetch('/api/v1/auth/refresh', { method: 'POST' });

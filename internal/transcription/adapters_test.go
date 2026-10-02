@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"scriberr/internal/models"
-	"scriberr/internal/transcription/adapters"
-	"scriberr/internal/transcription/interfaces"
-	"scriberr/internal/transcription/registry"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/transcription/adapters"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/transcription/registry"
 
 	"github.com/stretchr/testify/mock"
 )

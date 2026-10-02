@@ -3,7 +3,7 @@ package adapters
 import (
 	"encoding/json"
 
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 )
 
 // Existing adapters expose only the process boundary they actually own. Device

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"scriberr/internal/models"
+	"github.com/jaysqvl/Jotist/internal/models"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -22,7 +22,7 @@ func TestSendWebhook(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			assert.Equal(t, "POST", r.Method)
 			assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
-			assert.Equal(t, "Scriberr-Webhook/1.0", r.Header.Get("User-Agent"))
+			assert.Equal(t, "Jotist-Webhook/1.0", r.Header.Get("User-Agent"))
 
 			var payload WebhookPayload
 			err := json.NewDecoder(r.Body).Decode(&payload)
@@ -55,7 +55,7 @@ func TestSendWebhook(t *testing.T) {
 		// Mock server that fails twice then succeeds
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			attempts++
-			assert.Equal(t, "scriberr-execution-run-retry", r.Header.Get("Idempotency-Key"))
+			assert.Equal(t, "jotist-execution-run-retry", r.Header.Get("Idempotency-Key"))
 			if attempts < 3 {
 				w.WriteHeader(http.StatusInternalServerError)
 				return

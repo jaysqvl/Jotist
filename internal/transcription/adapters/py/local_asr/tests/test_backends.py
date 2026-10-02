@@ -151,7 +151,7 @@ def test_publisher_backend_contracts(libraries,engine):
         model_id="OpenMOSS-Team/MOSS-Transcribe-preview-2B"
         cfg["revision"]="c98175cb20e48bd9be4e95f6c85f2af18899f780"
     if engine in {"granite","granite_plus","moss"}:
-        cfg["context_terms"]="PostgreSQL\nScriberr"
+        cfg["context_terms"]="PostgreSQL\nJotist"
     if engine=="granite_plus": decoded[0]="hello [T:80]"
     if engine=="moss":
         cfg["context"]="release meeting"
@@ -175,12 +175,12 @@ def test_publisher_backend_contracts(libraries,engine):
         assert [77] in generation["bad_words_ids"] and [99] not in generation["bad_words_ids"]
     if engine in {"granite","granite_plus"}:
         prompt=next(c for c in calls if c[0]=="template")[1][-1]["content"]
-        assert "Keywords: PostgreSQL, Scriberr" in prompt
+        assert "Keywords: PostgreSQL, Jotist" in prompt
     if engine=="granite_plus":
         assert result["word_segments"]==[{"word":"hello","start":0.0,"end":0.8}]
     if engine=="moss":
         prompt=next(c for c in calls if c[0]=="processor_template")[1][0]["content"][1]["text"]
-        assert "PostgreSQL, Scriberr" in prompt and "release meeting" in prompt
+        assert "PostgreSQL, Jotist" in prompt and "release meeting" in prompt
         assert result["segments"][0]["speaker"]=="S02"
 
 

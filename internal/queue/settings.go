@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"scriberr/internal/models"
-	"scriberr/internal/repository"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/repository"
 )
 
 var ErrWorkerOverride = errors.New("recording concurrency is controlled by QUEUE_WORKERS")

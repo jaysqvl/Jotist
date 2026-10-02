@@ -20,7 +20,7 @@ For a server with the frontend embedded:
 
 ```bash
 make build
-./bin/jotist
+./bin/jotist-server
 ```
 
 Build outputs belong in `bin/`, `tmp/`, and the ignored frontend `dist/`
@@ -63,9 +63,10 @@ Docker build context. Use `make build` instead of the former root `build.sh`.
 ## Review and release
 
 Keep changes scoped, include the behavior and checks in the PR description,
-and preserve existing CLI configuration and data paths. The command and Go
-module name `scriberr` remain compatibility contracts even though the product
-is Jotist. See [source ownership](docs/architecture.md) before adding another
+and use Jotist names for commands, configuration, services, and new storage.
+The CLI command is `jotist`; the Go module is `github.com/jaysqvl/Jotist`.
+Document explicit migration steps when changing persisted identities.
+See [source ownership](docs/architecture.md) before adding another
 implementation or generated copy.
 
 Publishing uses the reviewed source and the existing

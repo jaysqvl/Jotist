@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"scriberr/internal/models"
-	"scriberr/internal/queue"
-	"scriberr/internal/repository"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/queue"
+	"github.com/jaysqvl/Jotist/internal/repository"
 )
 
 func TestQueueActivityReadOnlyResponseAndUnavailableScheduler(t *testing.T) {

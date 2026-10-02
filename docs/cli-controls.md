@@ -1,21 +1,27 @@
 # Jotist CLI controls
 
-The compatible executable name remains `scriberr`; login, `~/.scriberr.yaml`,
-`SCRIBERR_*`, and existing watcher services keep working. Download a fresh CLI
-from the updated server's Settings page to obtain the commands below.
+The executable is `jotist`. Install or update it from the server's Settings page.
+
+Configuration is saved to `~/.jotist.yaml`. `--config FILE` selects another
+file explicitly.
+`JOTIST_SERVER_URL`, `JOTIST_TOKEN`, and `JOTIST_WATCH_FOLDER` override saved
+configuration. The background service is `jotist-watcher`; logs are written to
+`jotist-service.log` in the system temporary directory. Upload session state is
+stored under `jotist` in the user's configuration directory. When upgrading an
+existing installation, follow the [migration guide](jotist-migration.md).
 
 ```sh
-scriberr login --server http://192.168.10.253:8084
-scriberr models
-scriberr profiles list
-scriberr jobs list
-scriberr jobs status JOB_ID
-scriberr runs list JOB_ID
-scriberr runs recovery JOB_ID RUN_ID
-scriberr runs logs JOB_ID RUN_ID
-scriberr runs transcript JOB_ID RUN_ID
-scriberr runs resume JOB_ID RUN_ID
-scriberr jobs cancel JOB_ID
+jotist login --server http://192.168.10.253:8084
+jotist models
+jotist profiles list
+jotist jobs list
+jotist jobs status JOB_ID
+jotist runs list JOB_ID
+jotist runs recovery JOB_ID RUN_ID
+jotist runs logs JOB_ID RUN_ID
+jotist runs transcript JOB_ID RUN_ID
+jotist runs resume JOB_ID RUN_ID
+jotist jobs cancel JOB_ID
 ```
 
 Commands print JSON and return a nonzero exit status for server errors. Recovery
@@ -31,9 +37,9 @@ Queue a saved profile with a private JSON request file:
 ```
 
 ```sh
-scriberr queue add JOB_ID --body request.json
-scriberr queue list JOB_ID
-scriberr queue cancel JOB_ID QUEUE_ITEM_ID
+jotist queue add JOB_ID --body request.json
+jotist queue list JOB_ID
+jotist queue cancel JOB_ID QUEUE_ITEM_ID
 ```
 
 For explicit model/device/recovery settings, the request accepts the API's
@@ -66,7 +72,7 @@ default, and an empty string clears it. Reading settings never reveals the token
 Profile learning controls are available as `profiles policy`, `reset-adaptive`,
 `freeze-adaptive`, and `restore-revision`, with a profile ID. Write commands accept
 the corresponding API JSON body, including revision checks. All remaining routes
-are accessible with `scriberr api METHOD /api/v1/PATH --body FILE`; requests and
+are accessible with `jotist api METHOD /api/v1/PATH --body FILE`; requests and
 credentials stay on the configured server and redirects are rejected.
 
 These commands operate the server's local workers. The model catalog also retains

@@ -3,7 +3,7 @@ package transcription
 import (
 	"testing"
 
-	"scriberr/internal/models"
+	"github.com/jaysqvl/Jotist/internal/models"
 )
 
 func TestConvertToParakeetParamsIncludesNvidiaControls(t *testing.T) {

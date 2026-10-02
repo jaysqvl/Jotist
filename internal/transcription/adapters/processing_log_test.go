@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"scriberr/internal/transcription/interfaces"
-	"scriberr/pkg/logger"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/pkg/logger"
 )
 
 func TestFailedModelProcessingDoesNotLogCompletion(t *testing.T) {

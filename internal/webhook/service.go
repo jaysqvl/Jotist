@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"time"
 
-	"scriberr/internal/models"
-	"scriberr/internal/netpolicy"
-	"scriberr/pkg/logger"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/netpolicy"
+	"github.com/jaysqvl/Jotist/pkg/logger"
 )
 
 // WebhookPayload represents the data sent to the callback URL
@@ -84,11 +84,11 @@ func (s *Service) SendWebhook(ctx context.Context, url string, payload WebhookPa
 			return fmt.Errorf("failed to create webhook request: %w", err)
 		}
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("User-Agent", "Scriberr-Webhook/1.0")
+		req.Header.Set("User-Agent", "Jotist-Webhook/1.0")
 		// All delivery retries for one durable execution use the same identity.
 		// Receivers can deduplicate a request whose successful response was lost.
 		if executionID, ok := payload.Metadata["execution_id"].(string); ok && executionID != "" {
-			req.Header.Set("Idempotency-Key", "scriberr-execution-"+executionID)
+			req.Header.Set("Idempotency-Key", "jotist-execution-"+executionID)
 		}
 
 		resp, err := s.client.Do(req)

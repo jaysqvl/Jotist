@@ -12,10 +12,10 @@ import (
 	"sync"
 	"time"
 
-	"scriberr/internal/execution"
-	"scriberr/internal/models"
-	"scriberr/internal/repository"
-	"scriberr/pkg/logger"
+	"github.com/jaysqvl/Jotist/internal/execution"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/repository"
+	"github.com/jaysqvl/Jotist/pkg/logger"
 
 	"gorm.io/gorm"
 )

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 )
 
 func TestRecoveryPolicyModesAndCleanupRetry(t *testing.T) {

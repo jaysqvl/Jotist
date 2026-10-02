@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"scriberr/internal/models"
-	"scriberr/internal/queue"
-	"scriberr/internal/repository"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/queue"
+	"github.com/jaysqvl/Jotist/internal/repository"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

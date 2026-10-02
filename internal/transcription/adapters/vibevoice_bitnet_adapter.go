@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"scriberr/internal/processutil"
-	"scriberr/internal/transcription/interfaces"
-	"scriberr/pkg/downloader"
+	"github.com/jaysqvl/Jotist/internal/processutil"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/pkg/downloader"
 )
 
 const vibeBitNetSourceRevision = "94cddff7216df8069cbf1b9095714b8327ffeedc"
@@ -76,12 +76,12 @@ func patchVibeBitNetCLI(source string) (string, error) {
 	if start < 0 || end <= start {
 		return "", fmt.Errorf("pinned VibeASR.cpp output contract was not found")
 	}
-	replacement := `        // Scriberr: retain model output and never publish a truncated transcript.
+	replacement := `        // Jotist: retain model output and never publish a truncated transcript.
         if (new_token != EOG_IM_END && new_token != EOG_ENDOFTEXT) {
-            fprintf(stderr, "Scriberr: token/context budget exhausted or decoding failed.\n");
+            fprintf(stderr, "Jotist: token/context budget exhausted or decoding failed.\n");
             return 2;
         }
-        const char * result_path = std::getenv("SCRIBERR_RESULT_PATH");
+        const char * result_path = std::getenv("JOTIST_RESULT_PATH");
         if (!result_path) return 2;
         FILE * result_file = std::fopen(result_path, "w");
         if (!result_file) return 2;
@@ -117,7 +117,7 @@ func (v *VibeVoiceBitNetAdapter) PrepareEnvironment(ctx context.Context) error {
 	}
 	sourceDir := filepath.Join(v.envPath, "source")
 	marker := filepath.Join(v.envPath, "runtime-version")
-	expectedVersion := vibeBitNetSourceRevision + ":scriberr-output-v1"
+	expectedVersion := vibeBitNetSourceRevision + ":jotist-output-v1"
 	version, _ := os.ReadFile(marker)
 	_, binaryErr := os.Stat(v.binaryPath())
 	if string(version) != expectedVersion || binaryErr != nil {
@@ -262,7 +262,7 @@ func (v *VibeVoiceBitNetAdapter) Transcribe(ctx context.Context, input interface
 		}
 		outputPath := filepath.Join(directory, fmt.Sprintf("result-%05d.txt", index))
 		cmd := processutil.CommandContext(ctx, v.binaryPath(), v.buildArgs(chunkPath, params)...)
-		cmd.Env = withEnvironmentValue(os.Environ(), "SCRIBERR_RESULT_PATH", outputPath)
+		cmd.Env = withEnvironmentValue(os.Environ(), "JOTIST_RESULT_PATH", outputPath)
 		cmd.Stdout, cmd.Stderr = log, log
 		if err := processutil.Run(ctx, cmd); err != nil {
 			return nil, fmt.Errorf("VibeVoice BitNet inference failed: %w; check transcription log and context/token budgets", err)

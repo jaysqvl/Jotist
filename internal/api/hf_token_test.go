@@ -13,8 +13,8 @@ import (
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-	"scriberr/internal/models"
-	"scriberr/internal/repository"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/repository"
 )
 
 func hfTokenTestHandler(t *testing.T) (*Handler, *gorm.DB, models.User) {

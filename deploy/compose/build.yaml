@@ -1,20 +1,21 @@
-# Jotist. Legacy service and volume names preserve existing deployments.
+# Jotist source build.
 
 services:
-  scriberr:
+  jotist:
     build:
       context: .
       dockerfile: deploy/docker/Dockerfile.cpu
     image: jotist:local
-    container_name: scriberr
+    container_name: jotist
     ports:
       - "8080:8080"
     environment:
+      - DATABASE_PATH=${DATABASE_PATH:-/app/data/jotist.db}
       # Security: already set in container, but can be overridden
       - APP_ENV=production
       # CORS: comma-separated list of allowed origins for production
       # - ALLOWED_ORIGINS=https://your-domain.com
     volumes:
-      - ./scriberr-data:/app/data
+      - ./jotist-data:/app/data
       - ./env-data:/app/whisperx-env
     restart: unless-stopped

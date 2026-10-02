@@ -1,6 +1,6 @@
 declare global {
     interface Window {
-        __scriberr_original_fetch?: typeof window.fetch;
+        __jotist_original_fetch?: typeof window.fetch;
     }
 }
 

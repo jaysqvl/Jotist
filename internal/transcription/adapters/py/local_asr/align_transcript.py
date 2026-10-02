@@ -31,7 +31,7 @@ def align_existing(audio_path, transcript, device="cpu", precision="float32", la
         raise RecognitionError("Audio input file is missing.")
     # CLI callers supply the Go-owned job directory so forced termination
     # cannot strand a converted recording outside the caller's cleanup scope.
-    with tempfile.TemporaryDirectory(prefix="scriberr-alignment-", dir=temp_parent) as tmp:
+    with tempfile.TemporaryDirectory(prefix="jotist-alignment-", dir=temp_parent) as tmp:
         wav = str(Path(tmp) / "audio.wav")
         converted = subprocess.run(
             ["ffmpeg", "-nostdin", "-v", "error", "-i", str(audio_path), "-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_f32le", wav],

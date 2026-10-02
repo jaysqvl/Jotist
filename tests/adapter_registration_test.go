@@ -4,9 +4,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"scriberr/internal/config"
-	"scriberr/internal/transcription/adapters"
-	"scriberr/internal/transcription/registry"
+	"github.com/jaysqvl/Jotist/internal/config"
+	"github.com/jaysqvl/Jotist/internal/transcription/adapters"
+	"github.com/jaysqvl/Jotist/internal/transcription/registry"
 )
 
 // NOTE: These tests verify the dependency injection pattern where adapters accept envPath parameters.

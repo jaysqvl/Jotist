@@ -3,7 +3,7 @@ package transcription
 import (
 	"context"
 	"github.com/stretchr/testify/require"
-	"scriberr/internal/models"
+	"github.com/jaysqvl/Jotist/internal/models"
 	"strings"
 	"testing"
 	"time"

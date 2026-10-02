@@ -8,7 +8,7 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "scriberr",
+	Use:   "jotist",
 	Short: "Jotist CLI",
 	Long:  `Upload recordings, watch folders, and manage Jotist models, profiles, queued runs and recovery.`,
 }
@@ -25,5 +25,5 @@ var cfgFile string
 
 func init() {
 	cobra.OnInitialize(InitConfig)
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.scriberr.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.jotist.yaml)")
 }

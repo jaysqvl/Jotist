@@ -13,15 +13,15 @@ import (
 
 	"gorm.io/gorm"
 
-	"scriberr/internal/models"
-	"scriberr/internal/processutil"
-	"scriberr/internal/repository"
-	"scriberr/internal/sse"
-	"scriberr/internal/transcription/interfaces"
-	"scriberr/internal/transcription/pipeline"
-	"scriberr/internal/transcription/registry"
-	"scriberr/internal/webhook"
-	"scriberr/pkg/logger"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/processutil"
+	"github.com/jaysqvl/Jotist/internal/repository"
+	"github.com/jaysqvl/Jotist/internal/sse"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/transcription/pipeline"
+	"github.com/jaysqvl/Jotist/internal/transcription/registry"
+	"github.com/jaysqvl/Jotist/internal/webhook"
+	"github.com/jaysqvl/Jotist/pkg/logger"
 )
 
 const (

@@ -27,17 +27,17 @@ func (h *Handler) DownloadCLIBinary(c *gin.Context) {
 	switch osName {
 	case "linux":
 		if arch == ArchAMD64 {
-			filename = "scriberr-linux-amd64"
+			filename = "jotist-linux-amd64"
 		}
 	case "darwin":
 		if arch == ArchAMD64 {
-			filename = "scriberr-darwin-amd64"
+			filename = "jotist-darwin-amd64"
 		} else if arch == "arm64" {
-			filename = "scriberr-darwin-arm64"
+			filename = "jotist-darwin-arm64"
 		}
 	case "windows":
 		if arch == ArchAMD64 {
-			filename = "scriberr-windows-amd64.exe"
+			filename = "jotist-windows-amd64.exe"
 		}
 	}
 
@@ -67,9 +67,9 @@ const installScript = `#!/bin/bash
 
 set -euo pipefail
 
-SERVER_URL="${1:-${SCRIBERR_SERVER_URL:-http://localhost:8080}}"
-INSTALL_DIR="/usr/local/bin"
-BINARY_NAME="scriberr"
+SERVER_URL="${1:-${JOTIST_SERVER_URL:-http://localhost:8080}}"
+INSTALL_DIR="${JOTIST_INSTALL_DIR:-/usr/local/bin}"
+BINARY_NAME="jotist"
 
 case "$SERVER_URL" in
     http://*|https://*) ;;
@@ -79,7 +79,7 @@ case "$SERVER_URL" in
         ;;
 esac
 
-TMP_BINARY="$(mktemp "${TMPDIR:-/tmp}/scriberr.XXXXXX")"
+TMP_BINARY="$(mktemp "${TMPDIR:-/tmp}/jotist.XXXXXX")"
 trap 'rm -f "$TMP_BINARY"' EXIT
 
 # Detect OS and Arch

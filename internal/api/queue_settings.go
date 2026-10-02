@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"scriberr/internal/models"
-	"scriberr/internal/queue"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/queue"
 )
 
 type UpdateQueueSettingsRequest struct {

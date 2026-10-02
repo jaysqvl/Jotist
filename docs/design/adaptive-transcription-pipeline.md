@@ -6,7 +6,7 @@ This document proposes a recoverable pipeline and optional, progressively broade
 
 ## 1. Decision summary
 
-Scriberr should always save durable checkpoints at supported stage boundaries. Adaptation is independently optional. The user chooses the maximum kinds of execution changes Scriberr may make; the system never exceeds that permission level to finish a job.
+Jotist should always save durable checkpoints at supported stage boundaries. Adaptation is independently optional. The user chooses the maximum kinds of execution changes Jotist may make; the system never exceeds that permission level to finish a job.
 
 The priorities, in order, are:
 
@@ -251,13 +251,13 @@ Final publication conditionally commits the exact execution result and queue out
 
 ### 7.1 Shared GPU admission
 
-Every GPU consumer owned by Scriberr must acquire the same per-GPU lease: queued jobs, quick transcription, multi-track children, comparison runs, direct API execution, and GPU allocations during model initialization. Identify devices by stable hardware identity, not only ordinal `0`.
+Every GPU consumer owned by Jotist must acquire the same per-GPU lease: queued jobs, quick transcription, multi-track children, comparison runs, direct API execution, and GPU allocations during model initialization. Identify devices by stable hardware identity, not only ordinal `0`.
 
 Start with one admitted GPU stage at a time. Profile parallelism is a preference bounded by the shared scheduler and operator maximum. Later concurrency increases require validated combined stage peaks, headroom, and the same quality policy; two profiles cannot independently assume exclusive VRAM. CPU work and I/O may overlap when dependencies permit.
 
-Use device-level free memory and per-process/stage peaks, including non-PyTorch allocations where measurable. Label measurement scope; unknown peaks are not zero. External applications are outside Scriberr's lock. Detect their contention and wait within a bounded budget rather than claiming global exclusivity.
+Use device-level free memory and per-process/stage peaks, including non-PyTorch allocations where measurable. Label measurement scope; unknown peaks are not zero. External applications are outside Jotist's lock. Detect their contention and wait within a bounded budget rather than claiming global exclusivity.
 
-For multiple Scriberr server processes, the lease must be shared and fenced. A process-local semaphore is sufficient only for an explicitly single-server deployment; unsupported multi-server configurations must not advertise coordinated adaptation.
+For multiple Jotist server processes, the lease must be shared and fenced. A process-local semaphore is sufficient only for an explicitly single-server deployment; unsupported multi-server configurations must not advertise coordinated adaptation.
 
 ### 7.2 Retry order
 

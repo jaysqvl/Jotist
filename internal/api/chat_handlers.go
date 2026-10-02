@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"scriberr/internal/llm"
-	"scriberr/internal/models"
+	"github.com/jaysqvl/Jotist/internal/llm"
+	"github.com/jaysqvl/Jotist/internal/models"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 )
 
 const localASRAlignerRevision = "c07281df297b9905d24a508279258cccf987a064"

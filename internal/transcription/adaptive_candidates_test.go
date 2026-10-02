@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"testing"
 
-	"scriberr/internal/models"
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 )
 
 func adaptivePolicyFixture() (interfaces.StageDescriptor, models.AdaptiveStagePolicy, models.AdaptiveStageSettings) {

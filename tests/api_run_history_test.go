@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"scriberr/internal/models"
+	"github.com/jaysqvl/Jotist/internal/models"
 
 	"github.com/stretchr/testify/assert"
 )

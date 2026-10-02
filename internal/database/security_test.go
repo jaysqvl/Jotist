@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"scriberr/internal/models"
+	"github.com/jaysqvl/Jotist/internal/models"
 
 	"github.com/glebarez/sqlite"
 	"github.com/google/uuid"
@@ -29,7 +29,7 @@ func (legacyRefreshToken) TableName() string {
 }
 
 func TestInitializeScrubsHistoricalExecutionCredentials(t *testing.T) {
-	databasePath := filepath.Join(t.TempDir(), "scriberr.db")
+	databasePath := filepath.Join(t.TempDir(), "jotist.db")
 	require.NoError(t, Initialize(databasePath))
 	t.Cleanup(func() { _ = Close() })
 
@@ -56,7 +56,7 @@ func TestInitializeScrubsHistoricalExecutionCredentials(t *testing.T) {
 }
 
 func TestInitializeMigratesLegacyRefreshTokenFamilies(t *testing.T) {
-	databasePath := filepath.Join(t.TempDir(), "scriberr.db")
+	databasePath := filepath.Join(t.TempDir(), "jotist.db")
 	legacyDB, err := gorm.Open(sqlite.Open(databasePath), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, legacyDB.AutoMigrate(&legacyRefreshToken{}))

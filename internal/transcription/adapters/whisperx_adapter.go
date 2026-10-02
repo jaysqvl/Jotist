@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"scriberr/internal/processutil"
-	"scriberr/internal/transcription/interfaces"
-	"scriberr/pkg/logger"
+	"github.com/jaysqvl/Jotist/internal/processutil"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/pkg/logger"
 )
 
 // Explicit source globs retain Python's underscore-prefixed modules without

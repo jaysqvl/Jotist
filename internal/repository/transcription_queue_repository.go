@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"scriberr/internal/models"
+	"github.com/jaysqvl/Jotist/internal/models"
 
 	"gorm.io/gorm"
 )

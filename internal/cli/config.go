@@ -27,21 +27,46 @@ func InitConfig() {
 			fmt.Println(err)
 			// Don't exit, just don't load config from home
 		} else {
-			// Search config in home directory with name ".scriberr" (without extension).
-			viper.AddConfigPath(home)
-			viper.SetConfigType("yaml")
-			viper.SetConfigName(".scriberr")
+			viper.SetConfigFile(defaultConfigPath(home))
 		}
 	}
 
-	viper.SetEnvPrefix("SCRIBERR")
+	viper.SetEnvPrefix("JOTIST")
+	for _, key := range []string{"server_url", "token", "watch_folder"} {
+		_ = viper.BindEnv(key)
+	}
 	viper.AutomaticEnv()
 
 	// Try to read config, ignore error if not found
 	_ = viper.ReadInConfig()
 }
 
-// SaveConfig saves the configuration to ~/.scriberr.yaml and returns the path
+// defaultConfigPath finds Jotist configuration or selects YAML for a new install.
+func defaultConfigPath(home string) string {
+	for _, extension := range viper.SupportedExts {
+		path := filepath.Join(home, ".jotist."+extension)
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			return path
+		}
+	}
+	return filepath.Join(home, ".jotist.yaml")
+}
+
+func cliConfigPath() (string, error) {
+	if cfgFile != "" {
+		return filepath.Abs(cfgFile)
+	}
+	if path := viper.ConfigFileUsed(); path != "" {
+		return filepath.Abs(path)
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return defaultConfigPath(home), nil
+}
+
+// SaveConfig saves to the selected file, using ~/.jotist.yaml for new installs.
 func SaveConfig(serverURL, token, watchFolder string) (string, error) {
 	if serverURL != "" {
 		viper.Set("server_url", serverURL)
@@ -53,11 +78,10 @@ func SaveConfig(serverURL, token, watchFolder string) (string, error) {
 		viper.Set("watch_folder", watchFolder)
 	}
 
-	home, err := os.UserHomeDir()
+	configPath, err := cliConfigPath()
 	if err != nil {
 		return "", err
 	}
-	configPath := filepath.Join(home, ".scriberr.yaml")
 
 	// Tighten an existing file before writing so a crash cannot leave a fresh
 	// bearer token in a previously world-readable config.

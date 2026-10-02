@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net/http"
 
-	"scriberr/internal/models"
-	"scriberr/internal/repository"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/repository"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"

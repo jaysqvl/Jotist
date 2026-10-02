@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"scriberr/internal/config"
+	"github.com/jaysqvl/Jotist/internal/config"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -37,7 +37,7 @@ func TestCookieSecureMode(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodPost, "http://scriberr.test/api/v1/auth/login", nil)
+			req := httptest.NewRequest(http.MethodPost, "http://jotist.test/api/v1/auth/login", nil)
 			req.RemoteAddr = tt.remoteAddr
 			if tt.tls {
 				req.TLS = &tls.ConnectionState{}

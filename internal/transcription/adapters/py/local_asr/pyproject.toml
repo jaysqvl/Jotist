@@ -1,5 +1,5 @@
 [project]
-name = "scriberr-local-asr"
+name = "jotist-local-asr"
 version = "0.1.0"
 description = "Isolated modern Transformers speech recognition and forced alignment"
 requires-python = ">=3.11,<3.13"

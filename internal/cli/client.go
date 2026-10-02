@@ -43,10 +43,10 @@ type cachedUploadSession struct {
 func UploadFile(filePath string) error {
 	config := GetConfig()
 	if config.ServerURL == "" {
-		return fmt.Errorf("server URL not configured. Please run 'scriberr login' or 'scriberr install'")
+		return fmt.Errorf("server URL not configured. Please run 'jotist login' or 'jotist install'")
 	}
 	if config.Token == "" {
-		return fmt.Errorf("not logged in (token missing). Please run 'scriberr login'")
+		return fmt.Errorf("not logged in (token missing). Please run 'jotist login'")
 	}
 
 	info, err := os.Stat(filePath)
@@ -264,7 +264,7 @@ func cliUploadCachePath() (string, error) {
 		}
 		dir = home
 	}
-	path := filepath.Join(dir, "scriberr")
+	path := filepath.Join(dir, "jotist")
 	if err := os.MkdirAll(path, 0700); err != nil {
 		return "", err
 	}

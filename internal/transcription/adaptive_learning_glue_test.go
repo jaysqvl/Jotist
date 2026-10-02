@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"scriberr/internal/models"
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 
 	"github.com/stretchr/testify/require"
 )

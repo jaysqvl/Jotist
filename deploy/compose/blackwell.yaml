@@ -1,10 +1,10 @@
-# Jotist. Legacy service and volume names preserve existing deployments.
+# Jotist source build.
 # Local CUDA 13 source build for Blackwell / RTX 50-series evaluation.
 # Actual Blackwell model inference remains unqualified; no stable image is recommended.
-# This file retains its existing named volumes. Build explicitly with --build.
+# Uses named volumes. Build explicitly with --build.
 # Run from the repository root with --project-directory .; see deploy/README.md.
 services:
-  scriberr:
+  jotist:
     build:
       context: .
       dockerfile: deploy/docker/Dockerfile.blackwell
@@ -13,7 +13,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - scriberr_data:/app/data
+      - jotist_data:/app/data
       - env_data:/app/whisperx-env
     restart: unless-stopped
     deploy:
@@ -25,6 +25,7 @@ services:
               capabilities:
                 - gpu
     environment:
+      - DATABASE_PATH=${DATABASE_PATH:-/app/data/jotist.db}
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - PUID=${PUID:-1000}
@@ -35,5 +36,5 @@ services:
       # - ALLOWED_ORIGINS=https://your-domain.com
 
 volumes:
-  scriberr_data: {}
+  jotist_data: {}
   env_data: {}

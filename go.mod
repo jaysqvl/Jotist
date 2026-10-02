@@ -1,4 +1,4 @@
-module scriberr
+module github.com/jaysqvl/Jotist
 
 go 1.26.6
 

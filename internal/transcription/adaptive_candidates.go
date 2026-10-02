@@ -7,8 +7,8 @@ import (
 	"sort"
 	"strings"
 
-	"scriberr/internal/models"
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 )
 
 func recoveryLevel(mode string) int {

@@ -8,7 +8,10 @@ import (
 )
 
 func TestUploadSessionCacheRepairsPrivatePermissions(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	configDir := t.TempDir()
+	t.Setenv("HOME", configDir)
+	t.Setenv("XDG_CONFIG_HOME", configDir)
+	t.Setenv("APPDATA", configDir)
 	cache := map[string]cachedUploadSession{
 		"fingerprint": {ID: "session", Token: "secret", ChunkSize: 1024, Fingerprint: "fingerprint"},
 	}

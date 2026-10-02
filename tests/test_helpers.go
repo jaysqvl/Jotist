@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"scriberr/internal/auth"
-	"scriberr/internal/config"
-	"scriberr/internal/database"
-	"scriberr/internal/models"
+	"github.com/jaysqvl/Jotist/internal/auth"
+	"github.com/jaysqvl/Jotist/internal/config"
+	"github.com/jaysqvl/Jotist/internal/database"
+	"github.com/jaysqvl/Jotist/internal/models"
 
 	"context"
 	"encoding/json"
@@ -16,7 +16,7 @@ import (
 	"net/http/httptest"
 	"time"
 
-	"scriberr/internal/llm"
+	"github.com/jaysqvl/Jotist/internal/llm"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"

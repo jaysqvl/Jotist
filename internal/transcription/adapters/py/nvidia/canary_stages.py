@@ -464,7 +464,7 @@ def main():
         except RuntimeError:
             # Telemetry must not replace an original CUDA execution error.
             metrics["torch_metrics_unavailable"] = True
-        print("SCRIBERR_STAGE_METRICS=" + json.dumps(metrics), flush=True)
+        print("JOTIST_STAGE_METRICS=" + json.dumps(metrics), flush=True)
 
 
 if __name__ == "__main__":

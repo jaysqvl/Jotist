@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Scriberr local recognition contract; no model download occurs on import."""
+"""Jotist local recognition contract; no model download occurs on import."""
 from __future__ import annotations
 
 import argparse
@@ -25,7 +25,7 @@ from pathlib import Path as _RuntimePath
 _runtime_path = _RuntimePath(__file__).resolve().with_name("runtime_failure.py")
 if not _runtime_path.exists():
     _runtime_path = _RuntimePath(__file__).resolve().parent.parent / "runtime_failure.py"
-_runtime_spec = _runtime_import.spec_from_file_location("scriberr_runtime_failure", _runtime_path)
+_runtime_spec = _runtime_import.spec_from_file_location("jotist_runtime_failure", _runtime_path)
 _runtime_helper = _runtime_import.module_from_spec(_runtime_spec)
 _runtime_spec.loader.exec_module(_runtime_helper)
 gpu_execution = _runtime_helper.gpu_execution
@@ -181,7 +181,7 @@ def execute(config):
     # The Go worker removes this job directory even when SIGKILL prevents
     # Python's context-manager cleanup from running during conversion.
     temp_parent = Path(config["output"]).parent if config.get("output") else None
-    with tempfile.TemporaryDirectory(prefix="scriberr-local-asr-", dir=temp_parent) as tmp:
+    with tempfile.TemporaryDirectory(prefix="jotist-local-asr-", dir=temp_parent) as tmp:
         wav = str(Path(tmp) / "audio.wav")
         converted = subprocess.run(["ffmpeg", "-nostdin", "-v", "error", "-i", str(audio_path), "-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_f32le", wav], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         if converted.returncode:

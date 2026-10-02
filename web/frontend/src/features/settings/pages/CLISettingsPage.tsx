@@ -25,7 +25,7 @@ export function CLISettings() {
                             Installation
                         </h2>
                         <p className="text-carbon-600 dark:text-carbon-300 mb-6">
-                            Run this command in your terminal to install the Jotist CLI. This script detects your OS and architecture. The command remains scriberr for compatibility with existing scripts.
+                            Run this command in your terminal to install the Jotist CLI. This script detects your OS and architecture and installs the jotist command.
                         </p>
 
                         <div className="relative">
@@ -65,7 +65,7 @@ export function CLISettings() {
                             Link the CLI to your account. This will open your browser for approval.
                         </p>
                         <div className="bg-carbon-100 dark:bg-carbon-900 rounded p-3 font-mono text-sm text-carbon-800 dark:text-carbon-200">
-                            scriberr login
+                            jotist login
                         </div>
                     </div>
 
@@ -77,7 +77,7 @@ export function CLISettings() {
                             Start watching a directory for new audio files.
                         </p>
                         <div className="bg-carbon-100 dark:bg-carbon-900 rounded p-3 font-mono text-sm text-carbon-800 dark:text-carbon-200">
-                            scriberr watch ~/Recordings
+                            jotist watch ~/Recordings
                         </div>
                     </div>
 
@@ -89,8 +89,8 @@ export function CLISettings() {
                             Install as a background service to keep watching after restart.
                         </p>
                         <div className="bg-carbon-100 dark:bg-carbon-900 rounded p-3 font-mono text-sm text-carbon-800 dark:text-carbon-200">
-                            sudo scriberr install ~/Recordings<br />
-                            sudo scriberr start
+                            sudo jotist install ~/Recordings<br />
+                            sudo jotist start
                         </div>
                     </div>
                 </div>

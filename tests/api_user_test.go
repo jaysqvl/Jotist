@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"scriberr/internal/api"
-	"scriberr/internal/auth"
-	"scriberr/internal/models"
+	"github.com/jaysqvl/Jotist/internal/api"
+	"github.com/jaysqvl/Jotist/internal/auth"
+	"github.com/jaysqvl/Jotist/internal/models"
 
 	"github.com/stretchr/testify/assert"
 )

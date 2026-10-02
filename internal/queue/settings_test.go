@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"scriberr/internal/models"
-	"scriberr/internal/repository"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/repository"
 )
 
 func TestDefaultOneWorkerSerializesDifferentRecordings(t *testing.T) {

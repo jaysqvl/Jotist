@@ -3,12 +3,12 @@ import { refreshToken, navigateToHome, parseRequestUrl } from './authHelpers.ts'
 import './authTypes.ts';
 
 export function setupAuthInterceptor(): void {
-    if (window.__scriberr_original_fetch) {
+    if (window.__jotist_original_fetch) {
         return;
     }
 
     const originalFetch = window.fetch.bind(window);
-    window.__scriberr_original_fetch = originalFetch;
+    window.__jotist_original_fetch = originalFetch;
 
     const wrappedFetch: typeof window.fetch = async (input, init) => {
         const url = new URL(parseRequestUrl(input), window.location.href);

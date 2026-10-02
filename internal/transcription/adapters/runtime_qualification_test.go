@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"scriberr/internal/processutil"
-	"scriberr/internal/transcription/interfaces"
-	"scriberr/internal/transcription/pipeline"
+	"github.com/jaysqvl/Jotist/internal/processutil"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/transcription/pipeline"
 )
 
 // Opt-in actual inference. CI uses the small public Whisper checkpoint; target
