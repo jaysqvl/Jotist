@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.0](https://github.com/jaysqvl/Jotist/compare/v1.8.0...v1.9.0) (2026-10-02)
+
+
+### Features
+
+* unify execution policy and streamline mobile run diagnostics ([#27](https://github.com/jaysqvl/Jotist/issues/27)) ([d5a73cb](https://github.com/jaysqvl/Jotist/commit/d5a73cbe6ab717718c0f84bda27d4ae87a4069d7))
+
 ## [1.8.0](https://github.com/jaysqvl/Jotist/compare/v1.7.6...v1.8.0) (2026-09-29)
 
 
