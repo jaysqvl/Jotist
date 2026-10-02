@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/jaysqvl/Jotist/compare/v2.0.0...v2.1.0) (2026-10-02)
+
+
+### Features
+
+* add filtering and sorting to saved profile pickers ([#33](https://github.com/jaysqvl/Jotist/issues/33)) ([fd8809f](https://github.com/jaysqvl/Jotist/commit/fd8809f4387b382eac9e8673e1271cc47c323950))
+
 ## [2.0.0](https://github.com/jaysqvl/Jotist/compare/v1.9.0...v2.0.0) (2026-10-02)
 
 - Install and run the CLI as `jotist`. Configuration uses `~/.jotist.yaml` and
