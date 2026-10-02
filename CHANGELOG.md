@@ -3,9 +3,12 @@
 ## [2.2.0](https://github.com/jaysqvl/Jotist/compare/v2.1.0...v2.2.0) (2026-10-02)
 
 
-### Features
+- Choose Standard, Strong, or Aggressive recovery in Settings, with matching optional overrides for profiles and individual runs. Retry limits and delays also govern recovery inside model workers.
+- Automatic recovery and reuse of compatible completed stages are enabled by default. Existing preferences, saved profiles, and queued run settings are preserved.
+- Quick Add offers GPU presets first and inherits global recovery settings. New custom runs also start with global settings instead of carrying over an earlier run's overrides.
+- The CLI installation command connects to the server you are viewing.
 
-* unify recovery settings and GPU presets ([#35](https://github.com/jaysqvl/Jotist/issues/35)) ([5cfa6c7](https://github.com/jaysqvl/Jotist/commit/5cfa6c75b288c6e6a004a31b7286c3accef42425))
+[Full changes](https://github.com/jaysqvl/Jotist/compare/v2.1.0...v2.2.0)
 
 ## [2.1.0](https://github.com/jaysqvl/Jotist/compare/v2.0.0...v2.1.0) (2026-10-02)
 
