@@ -1,6 +1,6 @@
 # Migrating from Scriberr to Jotist
 
-Jotist is an independent repository at [jaysqvl/Jotist](https://github.com/jaysqvl/Jotist). Its first stable release is `v1.7.0`, following the RC1–RC3 previews. This continuation changes the product identity, indigo/cyan styling, release ownership, and includes the preserved local-model and recoverable-execution work. It does not intentionally relocate existing data or replace API contracts.
+Jotist is an independent repository at [jaysqvl/Jotist](https://github.com/jaysqvl/Jotist). Its first stable release was `v1.7.0`, following the RC1–RC3 previews. Current installation defaults use Jotist names throughout the CLI, services, storage, browser state, and source modules. Existing data stays in place until you explicitly migrate it or configure its actual path.
 
 ## Repository transplant
 
@@ -18,29 +18,46 @@ Create an empty independent repository and push the reviewed branch with its his
 
 Git commits and tags do not transfer GitHub issues, pull requests, release attachments, stars, repository settings, or package settings. Retain the old fork until anything worth preserving there has been reviewed. Deleting the old fork is a separate later decision.
 
-## Preserve these identities
+## Move an existing installation to Jotist names
 
 | Existing interface or storage | Migration behavior |
 | --- | --- |
-| Database `scriberr.db` and `DATABASE_PATH` | Keep the same file and configured path |
+| Database `scriberr.db` | New default is `jotist.db`; set `DATABASE_PATH` to the existing file or rename it, including any SQLite sidecars, while the server is stopped |
 | `/app/data` | Keep database, uploads, transcripts, and `jwt_secret` together |
 | `/app/whisperx-env` | Retain the configured model/runtime mount |
-| Compose project/service, Unraid template, and physical volumes | Retain their mapping; update the image in the existing deployment |
-| `JWT_SECRET` / `JWT_SECRET_FILE` | Keep the same secret to preserve sessions |
-| `scriberr_access_token`, `scriberr_refresh_token` cookies | Retained |
-| Existing browser upload/session storage and PWA id | Retained on the same application origin |
-| CLI `scriberr`, `~/.scriberr.yaml`, `SCRIBERR_*`, watcher service | Retained |
-| API routes, webhook identity and idempotency keys | Retained |
-| Container executable `/app/scriberr` | Compatibility symlink to `/app/jotist` |
+| Compose services and volumes | Templates use service `jotist` and volume key `jotist_data`; explicitly map the actual existing volume or data directory before starting |
+| `JWT_SECRET` / `JWT_SECRET_FILE` | Keep the same secret to retain existing signed tokens |
+| Browser authentication | Cookies are `jotist_access_token` and `jotist_refresh_token`; sign in again after upgrading |
+| Browser upload state and PWA | Jotist has its own storage prefixes and PWA id; finish pending uploads before upgrading and reinstall the PWA if needed |
+| CLI command | Install `jotist` from Settings → CLI and update scripts to use it |
+| CLI configuration | Copy `~/.scriberr.yaml` to `~/.jotist.yaml`, keep permissions `0600`, and rename `SCRIBERR_*` variables to `JOTIST_*` |
+| Watcher service | Stop and uninstall the old watcher using the old CLI, then install and start `jotist-watcher` with `jotist install` and `jotist start` |
+| Webhooks | New requests use `Jotist-Webhook/1.0` and `jotist-execution-<execution-id>` idempotency keys; receivers can deduplicate by `metadata.execution_id` |
+| Container executable | `/app/jotist-server` |
+| Go imports | `github.com/jaysqvl/Jotist`; the CLI entrypoint is `cmd/jotist-cli` |
 
-Keeping an existing URL preserves browser-origin storage. Moving to a different hostname or port may require signing in again and does not transfer in-progress browser upload state. A later domain rename can be handled separately.
+Keep uploads, transcripts, profiles, model storage, and the signing secret
+together. Changing names must not select empty storage. For a named-volume
+deployment, explicitly attach the existing physical volume under the new key:
+
+```yaml
+volumes:
+  jotist_data:
+    external: true
+    name: YOUR_EXISTING_DATA_VOLUME
+```
+
+Replace the placeholder with the actual volume name from the existing
+deployment. For bind mounts, keep the exact existing host directory until you
+move its contents while the server is stopped. The new templates' `./jotist-data`
+directory is a new-install default.
 
 ## Preview before replacing the live stack
 
 1. Inspect the actual deployment manager: Unraid DockerMan template, Compose/Portainer stack, or another runtime. Record image and digest, ports, environment names, bind mounts or named volumes, UID/GID, GPU access, proxy routing, health checks, restart behavior, and autostart settings without publishing secrets. For Unraid, preserve the user template, WebUI/icon settings, extra parameters, and autostart ordering so updates and host reboots retain the configuration.
 2. Back up the database, uploads, transcripts, and signing secret using a consistent database backup or a stopped application. Keep the old image digest and deployment definition/template with the backup.
 3. Create a preview with a **separate writable copy** of application data and a separate port. Never run two server versions against the same SQLite file or writable model environment. Large model caches may be copied/reflinked as supported by the host, while writable runtime state remains isolated.
-4. After confirming publication, pull the selected stable CPU (`ghcr.io/jaysqvl/jotist:1.7.0`) or CUDA 12.6 (`ghcr.io/jaysqvl/jotist:1.7.0-cuda`) image, record its digest and OCI revision, and configure the preview with that digest. Blackwell inference remains unqualified and is not part of the default stable publication.
+4. After confirming publication, pull the selected stable CPU (`ghcr.io/jaysqvl/jotist:2.0.0`) or CUDA 12.6 (`ghcr.io/jaysqvl/jotist:2.0.0-cuda`) image, record its digest and OCI revision, and configure the preview with that digest. Blackwell inference remains unqualified and is not part of the default stable publication.
 5. Verify startup and health, sign-in, recording list, existing transcript playback, profile settings, uploads, and the workflow you actually use. Inspect desktop/mobile and light/dark appearance. Model inference must be checked separately on the target hardware.
 
 A healthy container alone does not verify audio playback, migration data, or transcription execution. The preview is also not the production cutover.

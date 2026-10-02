@@ -17,20 +17,20 @@ import (
 	"strings"
 	"time"
 
-	"scriberr/internal/auth"
-	"scriberr/internal/config"
-	"scriberr/internal/database"
-	"scriberr/internal/models"
-	"scriberr/internal/netpolicy"
-	"scriberr/internal/processing"
-	"scriberr/internal/processutil"
-	"scriberr/internal/queue"
-	"scriberr/internal/repository"
-	"scriberr/internal/service"
-	"scriberr/internal/sse"
-	"scriberr/internal/transcription"
-	appversion "scriberr/internal/version"
-	"scriberr/pkg/logger"
+	"github.com/jaysqvl/Jotist/internal/auth"
+	"github.com/jaysqvl/Jotist/internal/config"
+	"github.com/jaysqvl/Jotist/internal/database"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/netpolicy"
+	"github.com/jaysqvl/Jotist/internal/processing"
+	"github.com/jaysqvl/Jotist/internal/processutil"
+	"github.com/jaysqvl/Jotist/internal/queue"
+	"github.com/jaysqvl/Jotist/internal/repository"
+	"github.com/jaysqvl/Jotist/internal/service"
+	"github.com/jaysqvl/Jotist/internal/sse"
+	"github.com/jaysqvl/Jotist/internal/transcription"
+	appversion "github.com/jaysqvl/Jotist/internal/version"
+	"github.com/jaysqvl/Jotist/pkg/logger"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -1545,13 +1545,13 @@ func (h *Handler) Logout(c *gin.Context) {
 		}
 	}
 	// Revoke the refresh token and clear both browser credentials.
-	if cookie, err := c.Cookie("scriberr_refresh_token"); err == nil {
+	if cookie, err := c.Cookie("jotist_refresh_token"); err == nil {
 		if err := h.revokeRefreshToken(c, cookie); err != nil {
 			revocationFailed = true
 		}
 	}
 	http.SetCookie(c.Writer, &http.Cookie{
-		Name:     "scriberr_refresh_token",
+		Name:     "jotist_refresh_token",
 		Value:    "",
 		Path:     "/",
 		Expires:  time.Unix(0, 0),
@@ -1562,7 +1562,7 @@ func (h *Handler) Logout(c *gin.Context) {
 	})
 	// Also clear access token
 	http.SetCookie(c.Writer, &http.Cookie{
-		Name:     "scriberr_access_token",
+		Name:     "jotist_access_token",
 		Value:    "",
 		Path:     "/",
 		Expires:  time.Unix(0, 0),
@@ -1583,7 +1583,7 @@ func accessTokenFromRequest(c *gin.Context) string {
 	if len(parts) == 2 && parts[0] == "Bearer" {
 		return parts[1]
 	}
-	if cookie, err := c.Cookie("scriberr_access_token"); err == nil {
+	if cookie, err := c.Cookie("jotist_access_token"); err == nil {
 		return cookie
 	}
 	return ""
@@ -1702,7 +1702,7 @@ type RefreshTokenResponse struct {
 // @Failure 401 {object} map[string]string
 // @Router /api/v1/auth/refresh [post]
 func (h *Handler) Refresh(c *gin.Context) {
-	cookie, err := c.Cookie("scriberr_refresh_token")
+	cookie, err := c.Cookie("jotist_refresh_token")
 	if err != nil || cookie == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing refresh token"})
 		return
@@ -1752,7 +1752,7 @@ func newRefreshToken(userID uint) (string, models.RefreshToken) {
 
 func (h *Handler) setRefreshTokenCookie(c *gin.Context, tokenValue string, expiresAt time.Time) {
 	http.SetCookie(c.Writer, &http.Cookie{
-		Name:     "scriberr_refresh_token",
+		Name:     "jotist_refresh_token",
 		Value:    tokenValue,
 		Path:     "/",
 		Expires:  expiresAt,

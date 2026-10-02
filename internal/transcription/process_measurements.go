@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"scriberr/internal/models"
+	"github.com/jaysqvl/Jotist/internal/models"
 )
 
 func executionMeasurementDevice(params models.WhisperXParams) string {

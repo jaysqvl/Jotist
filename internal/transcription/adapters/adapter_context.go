@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 )
 
 // contextParameters describes vocabulary guidance, never a replacement transcript.

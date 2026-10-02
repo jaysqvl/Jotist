@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"scriberr/internal/models"
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 )
 
 func TestSharedExecutionPolicyBoundsAutomaticStageRetries(t *testing.T) {

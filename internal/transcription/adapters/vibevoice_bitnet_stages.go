@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 )
 
 func (v *VibeVoiceBitNetAdapter) Stages() []interfaces.StageDescriptor {

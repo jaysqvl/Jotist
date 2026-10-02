@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"scriberr/internal/processutil"
-	"scriberr/internal/transcription/interfaces"
-	"scriberr/pkg/logger"
+	"github.com/jaysqvl/Jotist/internal/processutil"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/pkg/logger"
 )
 
 //go:embed py/pyannote/*

@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"scriberr/internal/netpolicy"
-	"scriberr/internal/transcription/interfaces"
-	"scriberr/pkg/logger"
+	"github.com/jaysqvl/Jotist/internal/netpolicy"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/pkg/logger"
 )
 
 // OpenAIAdapter implements the TranscriptionAdapter interface for OpenAI API

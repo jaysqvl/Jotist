@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 
 	"github.com/stretchr/testify/require"
 )

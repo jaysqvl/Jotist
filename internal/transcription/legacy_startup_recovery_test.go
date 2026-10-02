@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"scriberr/internal/models"
-	"scriberr/internal/repository"
-	"scriberr/internal/serverlock"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/repository"
+	"github.com/jaysqvl/Jotist/internal/serverlock"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"

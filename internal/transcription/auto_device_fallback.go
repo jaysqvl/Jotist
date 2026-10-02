@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"scriberr/internal/models"
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 )
 
 func selectedPyannoteCheckpoint(params models.WhisperXParams) string {
@@ -90,11 +90,11 @@ func appendFallbackLog(directory, stage, kind, outcome string) {
 
 func structuredGPUFailure(log string) string {
 	for _, line := range strings.Split(log, "\n") {
-		if !strings.HasPrefix(line, "SCRIBERR_GPU_FAILURE=") {
+		if !strings.HasPrefix(line, "JOTIST_GPU_FAILURE=") {
 			continue
 		}
 		var failure struct{ Device, Kind string }
-		if json.Unmarshal([]byte(strings.TrimPrefix(line, "SCRIBERR_GPU_FAILURE=")), &failure) == nil && failure.Device == "cuda" && (failure.Kind == "cuda_out_of_memory" || failure.Kind == "cuda_runtime_error") {
+		if json.Unmarshal([]byte(strings.TrimPrefix(line, "JOTIST_GPU_FAILURE=")), &failure) == nil && failure.Device == "cuda" && (failure.Kind == "cuda_out_of_memory" || failure.Kind == "cuda_runtime_error") {
 			return failure.Kind
 		}
 	}

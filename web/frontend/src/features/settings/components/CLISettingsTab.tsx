@@ -38,7 +38,7 @@ export function CLISettingsTab() {
                         Installation
                     </h2>
                     <p className="text-[var(--text-secondary)] mb-6">
-                        Run this command in your terminal to install the Jotist CLI. This script detects your OS and architecture. The command remains scriberr for compatibility with existing scripts.
+                        Run this command in your terminal to install the Jotist CLI. This script detects your OS and architecture and installs the jotist command.
                     </p>
 
                     <div className="relative">
@@ -78,7 +78,7 @@ export function CLISettingsTab() {
                         Link the CLI to your account. This will open your browser for approval.
                     </p>
                     <div className="bg-[var(--bg-card)] rounded p-3 font-mono text-sm text-[var(--text-primary)] border border-[var(--border-subtle)]">
-                        scriberr login
+                        jotist login
                     </div>
                 </div>
 
@@ -90,7 +90,7 @@ export function CLISettingsTab() {
                         Start watching a directory for new audio files.
                     </p>
                     <div className="bg-[var(--bg-card)] rounded p-3 font-mono text-sm text-[var(--text-primary)] border border-[var(--border-subtle)]">
-                        scriberr watch ~/Recordings
+                        jotist watch ~/Recordings
                     </div>
                 </div>
 
@@ -102,8 +102,8 @@ export function CLISettingsTab() {
                         Install as a background service to keep watching after restart.
                     </p>
                     <div className="bg-[var(--bg-card)] rounded p-3 font-mono text-sm text-[var(--text-primary)] border border-[var(--border-subtle)]">
-                        sudo scriberr install ~/Recordings<br />
-                        sudo scriberr start
+                        sudo jotist install ~/Recordings<br />
+                        sudo jotist start
                     </div>
                 </div>
             </div>

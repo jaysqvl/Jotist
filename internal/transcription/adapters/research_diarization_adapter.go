@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"scriberr/internal/processutil"
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/processutil"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 )
 
 // Keep package initializers, but never recursively embed development caches.

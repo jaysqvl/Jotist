@@ -8,7 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"scriberr/internal/repository"
+	"github.com/jaysqvl/Jotist/internal/repository"
 )
 
 // GetRunHistory lists paginated execution identities for Statistics.

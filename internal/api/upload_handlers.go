@@ -17,8 +17,8 @@ import (
 	"strings"
 	"time"
 
-	"scriberr/internal/database"
-	"scriberr/internal/models"
+	"github.com/jaysqvl/Jotist/internal/database"
+	"github.com/jaysqvl/Jotist/internal/models"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -309,7 +309,7 @@ func (h *Handler) UploadChunk(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"accepted": true})
 }
 
-// CompleteUploadSession assembles all files and creates the final Scriberr job.
+// CompleteUploadSession assembles all files and creates the final Jotist job.
 func (h *Handler) CompleteUploadSession(c *gin.Context) {
 	releaseUpload, err := h.resourceAdmission.tryAcquireUpload()
 	if err != nil {

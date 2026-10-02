@@ -12,16 +12,17 @@ import (
 	"strings"
 	"testing"
 
-	"scriberr/internal/api"
-	"scriberr/internal/processing"
-	"scriberr/internal/queue"
-	"scriberr/internal/repository"
-	"scriberr/internal/service"
-	"scriberr/internal/sse"
-	"scriberr/internal/transcription"
+	"github.com/jaysqvl/Jotist/internal/api"
+	"github.com/jaysqvl/Jotist/internal/processing"
+	"github.com/jaysqvl/Jotist/internal/queue"
+	"github.com/jaysqvl/Jotist/internal/repository"
+	"github.com/jaysqvl/Jotist/internal/service"
+	"github.com/jaysqvl/Jotist/internal/sse"
+	"github.com/jaysqvl/Jotist/internal/transcription"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -249,21 +250,28 @@ func mustJSON(value interface{}) string {
 }
 
 func (suite *CLIHandlerTestSuite) TestDownloadCLIBinary() {
-	// Create dummy binary file
+	suite.T().Chdir(suite.T().TempDir())
 	dummyDir := "bin/cli"
-	os.MkdirAll(dummyDir, 0755)
-	dummyFile := filepath.Join(dummyDir, "scriberr-linux-amd64")
-	os.WriteFile(dummyFile, []byte("dummy binary content"), 0755)
-	defer os.RemoveAll(dummyDir)
-
-	// Test GET /api/v1/cli/download
-	req, _ := http.NewRequest("GET", "/api/v1/cli/download?os=linux&arch=amd64", nil)
-	w := httptest.NewRecorder()
-	suite.router.ServeHTTP(w, req)
-
-	assert.Equal(suite.T(), 200, w.Code)
-	assert.Equal(suite.T(), "dummy binary content", w.Body.String())
-	assert.Contains(suite.T(), w.Header().Get("Content-Disposition"), "attachment")
+	require.NoError(suite.T(), os.MkdirAll(dummyDir, 0755))
+	for _, tc := range []struct {
+		os, arch, filename string
+	}{
+		{"linux", "amd64", "jotist-linux-amd64"},
+		{"darwin", "amd64", "jotist-darwin-amd64"},
+		{"darwin", "arm64", "jotist-darwin-arm64"},
+		{"windows", "amd64", "jotist-windows-amd64.exe"},
+	} {
+		suite.Run(tc.os+"/"+tc.arch, func() {
+			dummyFile := filepath.Join(dummyDir, tc.filename)
+			require.NoError(suite.T(), os.WriteFile(dummyFile, []byte("dummy binary content"), 0755))
+			req, _ := http.NewRequest("GET", "/api/v1/cli/download?os="+tc.os+"&arch="+tc.arch, nil)
+			w := httptest.NewRecorder()
+			suite.router.ServeHTTP(w, req)
+			assert.Equal(suite.T(), http.StatusOK, w.Code)
+			assert.Equal(suite.T(), "dummy binary content", w.Body.String())
+			assert.Contains(suite.T(), w.Header().Get("Content-Disposition"), tc.filename)
+		})
+	}
 }
 
 func (suite *CLIHandlerTestSuite) TestDownloadCLIBinaryMissingParams() {

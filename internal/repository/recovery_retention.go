@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"scriberr/internal/models"
+	"github.com/jaysqvl/Jotist/internal/models"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"

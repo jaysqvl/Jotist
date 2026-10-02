@@ -3,8 +3,8 @@ package api
 import (
 	"time"
 
-	"scriberr/internal/auth"
-	"scriberr/internal/config"
+	"github.com/jaysqvl/Jotist/internal/auth"
+	"github.com/jaysqvl/Jotist/internal/config"
 )
 
 func newLoginAttemptLimiter(cfg *config.Config) *auth.LoginAttemptLimiter {

@@ -13,7 +13,7 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 
-	"scriberr/internal/processutil"
+	"github.com/jaysqvl/Jotist/internal/processutil"
 )
 
 var (

@@ -4,8 +4,8 @@ import (
 	"os"
 	"testing"
 
-	"scriberr/internal/database"
-	"scriberr/internal/models"
+	"github.com/jaysqvl/Jotist/internal/database"
+	"github.com/jaysqvl/Jotist/internal/models"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"

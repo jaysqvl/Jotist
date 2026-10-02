@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"scriberr/internal/config"
-	"scriberr/internal/database"
-	"scriberr/internal/models"
-	"scriberr/internal/service"
+	"github.com/jaysqvl/Jotist/internal/config"
+	"github.com/jaysqvl/Jotist/internal/database"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"

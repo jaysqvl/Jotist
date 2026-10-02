@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-const STORAGE_KEY = 'scriberr_swipe_hint_shown';
+const STORAGE_KEY = 'jotist_swipe_hint_shown';
 
 /**
  * Hook to manage the first-visit swipe discovery hint.

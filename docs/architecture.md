@@ -15,14 +15,14 @@ behavior instead of introducing another implementation or generated copy.
 | Python runtimes | `internal/transcription/adapters/py` | Dependency recipes, embedded scripts, and vendored compatibility code |
 | Application frontend | `web/frontend/src` | User workflows and browser state |
 | Embedded frontend | `internal/web/static.go` | Serving the build generated from `web/frontend` |
-| Compatible CLI | `cmd/scriberr-cli`, `internal/cli` | Folder watching and uploads; retain existing command/configuration names |
+| CLI | `cmd/jotist-cli`, `internal/cli` | Folder watching, uploads, and server controls using Jotist command, config, cache, and service names |
 | Project website | `web/project-site` | Public documentation and API reference |
 | Engineering documentation | `docs/*.md`, `docs/design`, qualification JSON | Decisions, operator procedures, and recorded validation evidence |
 
 ## Build and generated files
 
 `Makefile` provides the supported local commands. `scripts/build.sh` owns the
-application frontend build, embedding, and local server output (`bin/jotist`).
+application frontend build, embedding, and local server output (`bin/jotist-server`).
 `make embed` only copies an already built
 frontend and is shared with CI and archive builds. Docker retains its separate
 frontend stage so its dependency cache works independently of Go.

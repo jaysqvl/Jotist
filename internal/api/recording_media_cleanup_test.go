@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 
-	"scriberr/internal/models"
-	"scriberr/internal/service"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/service"
 
 	"github.com/stretchr/testify/require"
 )

@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"scriberr/internal/models"
-	"scriberr/internal/transcription/interfaces"
-	"scriberr/internal/transcription/presentation"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/transcription/presentation"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"

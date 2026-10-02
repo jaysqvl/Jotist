@@ -10,14 +10,14 @@ import (
 	"strings"
 	"testing"
 
-	"scriberr/internal/models"
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 )
 
 func TestAutoGPUFallbackPreservesOptionsAndReportsAttempts(t *testing.T) {
 	for _, stage := range []string{"asr", "diarization"} {
 		t.Run(stage, func(t *testing.T) {
-			params := map[string]interface{}{"device": "auto", "precision": "float16", "compute_type": "int8_float16", "fp16": true, "context": "Scriberr", "model": "checkpoint", "hf_token": "private-token"}
+			params := map[string]interface{}{"device": "auto", "precision": "float16", "compute_type": "int8_float16", "fp16": true, "context": "Jotist", "model": "checkpoint", "hf_token": "private-token"}
 			original := map[string]interface{}{}
 			for k, v := range params {
 				original[k] = v
@@ -32,7 +32,7 @@ func TestAutoGPUFallbackPreservesOptionsAndReportsAttempts(t *testing.T) {
 				if p["device"] != "cpu" || p["precision"] != "float32" || p["compute_type"] != "float32" || p["fp16"] != false {
 					t.Fatalf("unsafe CPU fallback: %v", p)
 				}
-				if p["context"] != "Scriberr" || p["model"] != "checkpoint" || p["hf_token"] != "private-token" {
+				if p["context"] != "Jotist" || p["model"] != "checkpoint" || p["hf_token"] != "private-token" {
 					t.Fatal("fallback lost model inputs")
 				}
 				return "CPU result", nil
@@ -113,10 +113,10 @@ func TestAutoFallbackUsesFreshWorkerEvidenceOnly(t *testing.T) {
 		want         int
 	}{
 		{"stale cuda", "", 1},
-		{"fresh kernel failure", "SCRIBERR_GPU_FAILURE={\"device\":\"cuda\",\"kind\":\"cuda_runtime_error\"}\nRuntimeError: backend does not support this dtype\n", 2},
+		{"fresh kernel failure", "JOTIST_GPU_FAILURE={\"device\":\"cuda\",\"kind\":\"cuda_runtime_error\"}\nRuntimeError: backend does not support this dtype\n", 2},
 		{"fresh legacy OOM", "RuntimeError: CUDA out of memory\n", 2},
-		{"invalid structured category", "SCRIBERR_GPU_FAILURE={\"device\":\"cuda\",\"kind\":\"input_error\"}\n", 1},
-		{"CPU structured failure", "SCRIBERR_GPU_FAILURE={\"device\":\"cpu\",\"kind\":\"cuda_runtime_error\"}\n", 1},
+		{"invalid structured category", "JOTIST_GPU_FAILURE={\"device\":\"cuda\",\"kind\":\"input_error\"}\n", 1},
+		{"CPU structured failure", "JOTIST_GPU_FAILURE={\"device\":\"cpu\",\"kind\":\"cuda_runtime_error\"}\n", 1},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			dir := t.TempDir()

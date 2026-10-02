@@ -1,10 +1,10 @@
 package api
 
 import (
-	"scriberr/internal/auth"
-	"scriberr/internal/web"
-	"scriberr/pkg/logger"
-	"scriberr/pkg/middleware"
+	"github.com/jaysqvl/Jotist/internal/auth"
+	"github.com/jaysqvl/Jotist/internal/web"
+	"github.com/jaysqvl/Jotist/pkg/logger"
+	"github.com/jaysqvl/Jotist/pkg/middleware"
 
 	"github.com/gin-gonic/gin"
 )

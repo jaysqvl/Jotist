@@ -9,11 +9,11 @@ If you see an "out of memory (14)" error from SQLite (specifically `SQLITE_CANTO
 You can fix this by setting the `PUID` and `PGID` in your `docker-compose.yml` to match your host user's UID and GID, or by manually changing the ownership of the mapped folders on your host:
 
 ```bash
-# If you used a named volume (e.g., 'scriberr_scriberr_data'):
-sudo chown -R 1000:1000 /var/lib/docker/volumes/scriberr_scriberr_data/_data
+# If you used a named volume (e.g., 'jotist_jotist_data'):
+sudo chown -R 1000:1000 /var/lib/docker/volumes/jotist_jotist_data/_data
 
-# If you mapped a specific host folder (e.g., ./scriberr_data):
-sudo chown -R 1000:1000 ./scriberr_data
+# If you mapped a specific host folder (e.g., ./jotist_data):
+sudo chown -R 1000:1000 ./jotist_data
 sudo chown -R 1000:1000 ./env_data
 ```
 

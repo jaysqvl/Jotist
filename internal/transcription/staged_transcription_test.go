@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"scriberr/internal/models"
-	"scriberr/internal/repository"
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/repository"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 
 	"github.com/stretchr/testify/require"
 )

@@ -2,7 +2,7 @@ package registry
 
 import (
 	"context"
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 	"sync/atomic"
 	"testing"
 )

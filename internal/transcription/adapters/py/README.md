@@ -1,6 +1,6 @@
 # Python Adapters Testing
 
-This directory contains the Python adapter scripts for various transcription and diarization models used by Scriberr.
+This directory contains the Python adapter scripts for various transcription and diarization models used by Jotist.
 
 ## Running Tests
 
@@ -63,4 +63,4 @@ uv run --with pytest --project data/whisperx-env/pyannote pytest internal/transc
 ### Troubleshooting
 
 *   **Audio file not found**: Ensure `tests/data/AMI-Corpus-IB4002.Mix-Headset-clip.wav` exists.
-*   **Environment not found**: Ensure `data/whisperx-env/parakeet` and the `pyannote` one exist and is a valid virtual environment. This may not be true if scriberr hasn't run yet.
+*   **Environment not found**: Ensure `data/whisperx-env/parakeet` and the `pyannote` one exist and is a valid virtual environment. This may not be true if jotist hasn't run yet.

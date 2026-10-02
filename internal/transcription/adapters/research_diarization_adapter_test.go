@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 )
 
 func TestResearchDiarizationPassesTheSavedBatchToDiariZen(t *testing.T) {

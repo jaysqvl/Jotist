@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"scriberr/internal/processutil"
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/processutil"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 )
 
 // WhisperX already releases each model before loading the next one. These

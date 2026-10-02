@@ -25,6 +25,6 @@ cp -R web/frontend/dist internal/web/dist
 
 if [ "${1:-}" != --embed-only ]; then
   mkdir -p bin
-  go build -o bin/jotist ./cmd/server
-  echo "Built bin/jotist. Run ./bin/jotist to start the server."
+  go build -o bin/jotist-server ./cmd/server
+  echo "Built bin/jotist-server. Run ./bin/jotist-server to start the server."
 fi

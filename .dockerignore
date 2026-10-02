@@ -23,6 +23,7 @@ env-data
 # Build Artifacts and Binaries
 scriberr
 jotist
+jotist-server
 server
 main
 *.exe

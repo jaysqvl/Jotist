@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"scriberr/internal/netpolicy"
+	"github.com/jaysqvl/Jotist/internal/netpolicy"
 )
 
 // OpenAIService handles OpenAI API interactions

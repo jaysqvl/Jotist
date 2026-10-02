@@ -15,16 +15,16 @@ import (
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-	"scriberr/internal/models"
-	"scriberr/internal/repository"
-	"scriberr/internal/transcription/adapters"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/repository"
+	"github.com/jaysqvl/Jotist/internal/transcription/adapters"
 )
 
 func TestContextDefaultsSnapshotAndExplicitEmpty(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&models.AdaptiveProfileRevision{}, &models.User{}, &models.TranscriptionProfile{}))
-	user := models.User{Username: "context-test", Password: "unused", TranscriptionContext: "Engineering review", TranscriptionContextTerms: "PostgreSQL\nScriberr"}
+	user := models.User{Username: "context-test", Password: "unused", TranscriptionContext: "Engineering review", TranscriptionContextTerms: "PostgreSQL\nJotist"}
 	require.NoError(t, db.Create(&user).Error)
 	h := &Handler{userRepo: repository.NewUserRepository(db)}
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
@@ -33,14 +33,14 @@ func TestContextDefaultsSnapshotAndExplicitEmpty(t *testing.T) {
 	params := models.WhisperXParams{}
 	require.NoError(t, h.resolveTranscriptionContext(c, &params))
 	require.Equal(t, "Engineering review", *params.TranscriptionContext)
-	require.Equal(t, "PostgreSQL\nScriberr", *params.TranscriptionContextTerms)
+	require.Equal(t, "PostgreSQL\nJotist", *params.TranscriptionContextTerms)
 	require.NoError(t, db.Model(&user).Update("transcription_context", "New default").Error)
 	require.Equal(t, "Engineering review", *params.TranscriptionContext, "queued parameters must not change with settings")
 	blank := ""
 	cleared := models.WhisperXParams{TranscriptionContext: &blank}
 	require.NoError(t, h.resolveTranscriptionContext(c, &cleared))
 	require.Equal(t, "", *cleared.TranscriptionContext)
-	require.Equal(t, "PostgreSQL\nScriberr", *cleared.TranscriptionContextTerms)
+	require.Equal(t, "PostgreSQL\nJotist", *cleared.TranscriptionContextTerms)
 
 	// Profile storage retains inheritance rather than resolving it when saved.
 	profile := models.TranscriptionProfile{Name: "inherited", Parameters: models.WhisperXParams{TranscriptionContextTerms: &blank}}

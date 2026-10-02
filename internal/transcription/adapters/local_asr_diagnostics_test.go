@@ -3,7 +3,7 @@ package adapters
 import (
 	"errors"
 	"github.com/stretchr/testify/require"
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 	"testing"
 )
 

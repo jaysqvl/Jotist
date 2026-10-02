@@ -4,10 +4,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"scriberr/internal/config"
-	"scriberr/internal/transcription/adapters"
-	"scriberr/internal/transcription/interfaces"
-	"scriberr/internal/transcription/registry"
+	"github.com/jaysqvl/Jotist/internal/config"
+	"github.com/jaysqvl/Jotist/internal/transcription/adapters"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/transcription/registry"
 )
 
 // Keep this check at the production registration boundary. A new model cannot

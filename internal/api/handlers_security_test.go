@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"scriberr/internal/config"
-	"scriberr/internal/models"
-	"scriberr/internal/transcription"
+	"github.com/jaysqvl/Jotist/internal/config"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/transcription"
 
 	"github.com/stretchr/testify/require"
 )

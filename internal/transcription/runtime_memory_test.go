@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"scriberr/internal/transcription/adapters"
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/transcription/adapters"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 
 	"github.com/stretchr/testify/require"
 )

@@ -7,7 +7,7 @@ import (
 )
 
 func TestExclusiveLeaseAndCleanShutdownMarker(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "scriberr.db")
+	path := filepath.Join(t.TempDir(), "jotist.db")
 	first, err := Acquire(path)
 	require.NoError(t, err)
 	require.True(t, first.PreviousShutdownClean)

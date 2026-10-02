@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

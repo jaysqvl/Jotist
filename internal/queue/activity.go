@@ -3,7 +3,7 @@ package queue
 import (
 	"time"
 
-	"scriberr/internal/models"
+	"github.com/jaysqvl/Jotist/internal/models"
 )
 
 // ActivitySnapshot copies identities under the same lock used to claim,

@@ -47,7 +47,7 @@ These generation rules are separate from the durable stage ladder. No adapter cu
 
 The server registration test asserts the exact production ASR and diarization adapter IDs. Every registered adapter must publish a resilience contract, every declared stage must be recoverable and versioned, and every adapter exposing `max_new_tokens` must publish a generation-completion policy. Adding, removing or replacing a registered model without updating and satisfying that matrix fails the test suite.
 
-The current scheduler admits one Scriberr GPU operation at a time, conservatively across all GPU ordinals. Queue workers, quick processing, track children and runtime preparation use that admission path. External applications remain outside this lock. Before launch, low measured headroom causes a bounded wait: the reserve is at least 1 GiB or 15% of capacity. CPU admission also checks host/cgroup headroom when available. Unavailable readings remain unknown and never create a fit guarantee.
+The current scheduler admits one Jotist GPU operation at a time, conservatively across all GPU ordinals. Queue workers, quick processing, track children and runtime preparation use that admission path. External applications remain outside this lock. Before launch, low measured headroom causes a bounded wait: the reserve is at least 1 GiB or 15% of capacity. CPU admission also checks host/cgroup headroom when available. Unavailable readings remain unknown and never create a fit guarantee.
 
 Limits are currently code-defined:
 
@@ -128,7 +128,7 @@ Recognition text and word coverage still pass the existing strict validation.
 Alignment failures now include the affected window number without retaining
 private transcript or library exception text.
 
-The server holds an exclusive `<database path>.server.lock` lease. This supports one Scriberr coordinator per deployment; multiple independent databases do not share GPU admission. File-lock acquisition alone does not prove old inference workers have exited.
+The server holds an exclusive `<database path>.server.lock` lease. This supports one Jotist coordinator per deployment; multiple independent databases do not share GPU admission. File-lock acquisition alone does not prove old inference workers have exited.
 
 On Linux, a verified clean shutdown or a changed boot/PID-namespace/PID-1 boundary supplies the current restart proof. An unclean restart inside the same process/container boundary can leave old workers unverified. In that case inference pauses while the UI remains accessible for inspection. Restart the container so its prior worker processes are terminated; a host-native deployment may require a host restart to establish a changed boundary. Do not remove the lease file to bypass this check. Broader multi-server coordination and independent orphan-process adoption are not implemented.
 
@@ -141,7 +141,7 @@ Existing completed/pinned execution results and the last published transcript re
 
 Quick transcription uses shared admission and temporary checkpointing during processing. After processing returns, it removes its temporary database/checkpoint state. It does not offer retained-run resume after completion. Queued and processing audio is protected from expiry; the six-hour result/file retention period starts when processing becomes terminal, with hourly expired-item cleanup. It is not a durable recording workflow.
 
-Completion callbacks receive one durable dispatch claim per execution. A crash after the claim can lose delivery: this is not a transactional outbox. The existing webhook sender may make up to three HTTP attempts, so receivers should deduplicate by `metadata.execution_id` or the stable `Idempotency-Key: scriberr-execution-<execution-id>` header. Partial results do not trigger completed-result callbacks.
+Completion callbacks receive one durable dispatch claim per execution. A crash after the claim can lose delivery: this is not a transactional outbox. The existing webhook sender may make up to three HTTP attempts, so receivers should deduplicate by `metadata.execution_id` or the stable `Idempotency-Key: jotist-execution-<execution-id>` header. Partial results do not trigger completed-result callbacks.
 
 ## Learning, measured capacity and fixed profiles
 

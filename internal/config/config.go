@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"scriberr/pkg/logger"
+	"github.com/jaysqvl/Jotist/pkg/logger"
 
 	"github.com/joho/godotenv"
 )
@@ -80,7 +80,7 @@ func Load() *Config {
 		Host:                     getEnv("HOST", "0.0.0.0"),
 		Environment:              getEnv("APP_ENV", "development"),
 		AllowedOrigins:           strings.Split(getEnv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:8080"), ","),
-		DatabasePath:             getEnv("DATABASE_PATH", "data/scriberr.db"),
+		DatabasePath:             getEnv("DATABASE_PATH", "data/jotist.db"),
 		JWTSecret:                getJWTSecret(),
 		UploadDir:                getEnv("UPLOAD_DIR", "data/uploads"),
 		TranscriptsDir:           getEnv("TRANSCRIPTS_DIR", "data/transcripts"),

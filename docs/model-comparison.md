@@ -74,7 +74,7 @@ Asian-language publisher scores can use character error rate (CER), different da
 
 ## Local and cloud processing
 
-Each transcription choice is labeled **Local** or **Cloud**. Local means audio recognition runs on the Scriberr server, using its CPU or GPU. Downloadable OpenAI Whisper runs locally through WhisperX/faster-whisper; the separate **OpenAI Whisper API** uploads audio and any recognition prompt to `https://api.openai.com/v1/audio/transcriptions`. The cloud option remains available and displays an upload notice when selected.
+Each transcription choice is labeled **Local** or **Cloud**. Local means audio recognition runs on the Jotist server, using its CPU or GPU. Downloadable OpenAI Whisper runs locally through WhisperX/faster-whisper; the separate **OpenAI Whisper API** uploads audio and any recognition prompt to `https://api.openai.com/v1/audio/transcriptions`. The cloud option remains available and displays an upload notice when selected.
 
 Local models may contact their model repositories to download weights and supporting files. A Hugging Face token authorizes those downloads; it does not make local transcription a hosted inference service. Pyannote recording-metadata telemetry is explicitly disabled before ML imports in the standalone Pyannote, WhisperX and research diarization runners.
 

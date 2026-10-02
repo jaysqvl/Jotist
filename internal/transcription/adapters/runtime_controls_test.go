@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 )
 
 func TestResearchDiarizerInitializesOnFirstUseAndForwardsTokenPrivately(t *testing.T) {

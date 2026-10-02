@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 )
 
 func TestBitNetWaitingPreparationCanCancel(t *testing.T) {
@@ -90,7 +90,7 @@ done
 exit 0
 `)
 	adapter := NewVibeVoiceBitNetAdapter(filepath.Join(directory, "runtime"))
-	writeExecutable(adapter.binaryPath(), "#!/bin/sh\nprintf 'hello' > \"$SCRIBERR_RESULT_PATH\"\nprintf 'chunk\\n' >> \"$CHUNK_LOG\"\n")
+	writeExecutable(adapter.binaryPath(), "#!/bin/sh\nprintf 'hello' > \"$JOTIST_RESULT_PATH\"\nprintf 'chunk\\n' >> \"$CHUNK_LOG\"\n")
 	adapter.initialized = true // Native model setup is outside this wiring test.
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("CHUNK_LOG", filepath.Join(directory, "chunks"))
@@ -134,7 +134,7 @@ func TestBitNetOutputPatchFailsClosedAndPreservesSurroundingCode(t *testing.T) {
 	if !strings.HasPrefix(patched, "before\n") || !strings.HasSuffix(patched, "after") || strings.Contains(patched, "lossy formatter") {
 		t.Fatal("patch changed surrounding inference code")
 	}
-	for _, guard := range []string{"new_token != EOG_IM_END", "new_token != EOG_ENDOFTEXT", "SCRIBERR_RESULT_PATH", "return 2;", "std::fwrite(output_text.data()"} {
+	for _, guard := range []string{"new_token != EOG_IM_END", "new_token != EOG_ENDOFTEXT", "JOTIST_RESULT_PATH", "return 2;", "std::fwrite(output_text.data()"} {
 		if !strings.Contains(patched, guard) {
 			t.Fatalf("missing output integrity guard %s", guard)
 		}

@@ -3,8 +3,8 @@ package transcription
 import (
 	"fmt"
 	"math"
-	"scriberr/internal/transcription/adapters"
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/transcription/adapters"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 )
 
 // Published English WER percentages, not predictions for the user's recordings.

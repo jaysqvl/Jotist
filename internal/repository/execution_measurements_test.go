@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
-	"scriberr/internal/models"
+	"github.com/jaysqvl/Jotist/internal/models"
 )
 
 func TestExecutionMeasurementsSurviveDeadlineWithoutPermittingCheckpointPublication(t *testing.T) {

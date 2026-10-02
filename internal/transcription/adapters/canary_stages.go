@@ -12,8 +12,8 @@ import (
 	"strconv"
 	"time"
 
-	"scriberr/internal/processutil"
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/processutil"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 )
 
 const canaryModelRevision = "d455706339a6b32e1aa40f82c713a482a0c938e2"

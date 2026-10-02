@@ -19,7 +19,7 @@ import (
 // defaults (including the HF token) are resolved by the server at admission.
 func controlRequest(ctx context.Context, cfg *Config, method, path string, body []byte) ([]byte, error) {
 	if cfg.ServerURL == "" || cfg.Token == "" {
-		return nil, fmt.Errorf("run 'scriberr login --server URL' first")
+		return nil, fmt.Errorf("run 'jotist login --server URL' first")
 	}
 	base, err := url.Parse(cfg.ServerURL)
 	if err != nil || base.Host == "" || (base.Scheme != "http" && base.Scheme != "https") || base.User != nil {

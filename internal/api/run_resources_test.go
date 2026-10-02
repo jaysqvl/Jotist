@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
-	"scriberr/internal/models"
+	"github.com/jaysqvl/Jotist/internal/models"
 )
 
 func TestRunResourcesReturnNumericEvidenceWithoutCheckpointReadsOrPrivateMetadata(t *testing.T) {

@@ -12,10 +12,10 @@ import (
 	"sync"
 	"time"
 
-	"scriberr/internal/database"
-	"scriberr/internal/models"
-	"scriberr/internal/transcription/interfaces"
-	"scriberr/pkg/logger"
+	"github.com/jaysqvl/Jotist/internal/database"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/pkg/logger"
 
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"

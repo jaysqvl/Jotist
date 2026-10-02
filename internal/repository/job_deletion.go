@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"scriberr/internal/models"
+	"github.com/jaysqvl/Jotist/internal/models"
 
 	"gorm.io/gorm"
 )

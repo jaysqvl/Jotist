@@ -27,7 +27,7 @@ func (h *Handler) cookieSecure(c *gin.Context) bool {
 
 func (h *Handler) setAccessTokenCookie(c *gin.Context, token string) {
 	http.SetCookie(c.Writer, &http.Cookie{
-		Name:     "scriberr_access_token",
+		Name:     "jotist_access_token",
 		Value:    token,
 		Path:     "/",
 		Expires:  time.Now().Add(24 * time.Hour),
@@ -54,7 +54,7 @@ func (h *Handler) syncBrowserAccessCookie(c *gin.Context) {
 		return
 	}
 	token := parts[1]
-	if existing, err := c.Cookie("scriberr_access_token"); err != nil || existing != token {
+	if existing, err := c.Cookie("jotist_access_token"); err != nil || existing != token {
 		h.setAccessTokenCookie(c, token)
 	}
 	c.Next()

@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"scriberr/internal/models"
-	"scriberr/internal/transcription"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/transcription"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"scriberr/internal/config"
-	"scriberr/internal/models"
-	"scriberr/internal/repository"
+	"github.com/jaysqvl/Jotist/internal/config"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/repository"
 
 	"github.com/google/uuid"
 )

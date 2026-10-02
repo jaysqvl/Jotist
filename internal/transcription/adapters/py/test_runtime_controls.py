@@ -92,7 +92,7 @@ class RuntimeControls(unittest.TestCase):
                     with helper.gpu_execution(device):
                         raise error
                 if expected:
-                    self.assertTrue(output.getvalue().startswith("SCRIBERR_HOST_FAILURE="))
+                    self.assertTrue(output.getvalue().startswith("JOTIST_HOST_FAILURE="))
                     self.assertEqual(json.loads(output.getvalue().split("=",1)[1]), {"device":"cpu", "kind":"host_out_of_memory"})
                     self.assertNotIn(str(error), output.getvalue())
                 else:

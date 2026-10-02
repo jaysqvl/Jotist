@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"scriberr/internal/transcription/interfaces"
-	"scriberr/pkg/logger"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/pkg/logger"
 )
 
 // ModelRegistry manages all available model adapters with auto-discovery

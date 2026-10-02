@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"scriberr/internal/models"
+	"github.com/jaysqvl/Jotist/internal/models"
 )
 
 // ListAttemptSummaries reads only picker evidence, in one indexed query. It

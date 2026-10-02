@@ -16,18 +16,24 @@ configurations and all Docker build sources live here.
 Blackwell/CUDA 13 source builds remain unqualified for actual Blackwell model
 inference. They are not part of normal stable image publication.
 
-## Existing installations
+## Installation names and existing data
 
 `--project-directory .` is required for the alternate configurations. It keeps
 the project name, build context, `.env` lookup, and relative bind mounts rooted
 at this checkout, rather than at `deploy/compose`. If you previously supplied
 `--project-name` or `COMPOSE_PROJECT_NAME`, keep that same value.
 
-The existing `scriberr` service, named-volume keys, bind-directory names,
-container names, ports, and environment defaults are preserved. CPU source
-builds retain `./scriberr-data`; CUDA source builds retain `./scriberr_data`.
-These are different existing directories, not interchangeable spellings.
-Check your resolved configuration before an upgrade:
+New installations use the `jotist` service, `jotist_data` named volume, and
+`jotist.db` database. Source builds use `./jotist-data` for application data.
+The container runs `/app/jotist-server` and serves Jotist CLI downloads.
+The image templates follow stable `latest` and `latest-cuda` releases; pin a
+released version or digest when you need a reproducible deployment.
+
+For an existing installation, carry forward the actual storage mapping before
+starting these templates. Configure `DATABASE_PATH` for the existing database
+or rename the database while the server is stopped. Follow the
+[migration guide](../docs/jotist-migration.md); changing a service or volume key
+alone does not transfer its data. Check your resolved configuration:
 
 ```bash
 docker compose --project-directory . -f deploy/compose/cuda.yaml config

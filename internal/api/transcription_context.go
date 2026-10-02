@@ -7,9 +7,9 @@ import (
 	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
-	"scriberr/internal/models"
-	"scriberr/internal/transcription"
-	"scriberr/internal/transcription/adapters"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/transcription"
+	"github.com/jaysqvl/Jotist/internal/transcription/adapters"
 )
 
 func validateContext(context, terms *string) error {

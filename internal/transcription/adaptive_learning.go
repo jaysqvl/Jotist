@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"scriberr/internal/models"
-	"scriberr/internal/repository"
-	"scriberr/internal/transcription/interfaces"
-	"scriberr/pkg/logger"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/repository"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/pkg/logger"
 )
 
 func stageLearningScope(ctx context.Context, recovery recoveryStageContext, kind, fingerprint string, artifacts []repository.ModelArtifactIdentity, params map[string]interface{}, input interfaces.AudioInput) (models.AdaptiveLearningScope, int64) {
@@ -132,7 +132,7 @@ func recordStageObservation(ctx context.Context, learning *repository.AdaptiveLe
 // are read only from the current invocation's log range, never earlier retries.
 func supplementStageMeasurements(measurements models.StageMeasurements, log string) models.StageMeasurements {
 	for _, line := range strings.Split(log, "\n") {
-		if !strings.HasPrefix(line, "SCRIBERR_STAGE_METRICS=") {
+		if !strings.HasPrefix(line, "JOTIST_STAGE_METRICS=") {
 			continue
 		}
 		var report struct {
@@ -142,7 +142,7 @@ func supplementStageMeasurements(measurements models.StageMeasurements, log stri
 			TorchAllocated *int64 `json:"torch_peak_allocated_bytes"`
 			TorchReserved  *int64 `json:"torch_peak_reserved_bytes"`
 		}
-		if json.Unmarshal([]byte(strings.TrimPrefix(line, "SCRIBERR_STAGE_METRICS=")), &report) != nil || report.Scope != "stage_worker_self" {
+		if json.Unmarshal([]byte(strings.TrimPrefix(line, "JOTIST_STAGE_METRICS=")), &report) != nil || report.Scope != "stage_worker_self" {
 			continue
 		}
 		if report.RSS > 0 && (measurements.ProcessPeakRSSBytes == nil || report.RSS > *measurements.ProcessPeakRSSBytes) {

@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 )
 
 func appendStageDiagnostic(directory, node, attempt string, err error) {

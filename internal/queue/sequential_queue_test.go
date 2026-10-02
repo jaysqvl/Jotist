@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	executioncontext "scriberr/internal/execution"
-	"scriberr/internal/models"
-	"scriberr/internal/repository"
-	"scriberr/pkg/logger"
+	executioncontext "github.com/jaysqvl/Jotist/internal/execution"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/repository"
+	"github.com/jaysqvl/Jotist/pkg/logger"
 
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"

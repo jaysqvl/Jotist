@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"scriberr/internal/models"
-	"scriberr/internal/serverlock"
-	"scriberr/internal/transcription"
-	"scriberr/internal/transcription/interfaces"
+	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/serverlock"
+	"github.com/jaysqvl/Jotist/internal/transcription"
+	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 
 	"github.com/gin-gonic/gin"
 )

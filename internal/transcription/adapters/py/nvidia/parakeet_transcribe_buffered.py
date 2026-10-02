@@ -36,7 +36,7 @@ from pathlib import Path as _RuntimePath
 _runtime_path = _RuntimePath(__file__).resolve().with_name("runtime_failure.py")
 if not _runtime_path.exists():
     _runtime_path = _RuntimePath(__file__).resolve().parent.parent / "runtime_failure.py"
-_runtime_spec = _runtime_import.spec_from_file_location("scriberr_runtime_failure", _runtime_path)
+_runtime_spec = _runtime_import.spec_from_file_location("jotist_runtime_failure", _runtime_path)
 _runtime_helper = _runtime_import.module_from_spec(_runtime_spec)
 _runtime_spec.loader.exec_module(_runtime_helper)
 gpu_execution = _runtime_helper.gpu_execution
@@ -134,7 +134,7 @@ def transcribe_buffered(
         print(f"Transcribing chunk {i+1}/{len(chunks)} (duration: {chunk_info['duration']:.1f}s)...")
 
         # Save chunk to temporary file
-        with tempfile.NamedTemporaryFile(prefix="scriberr-parakeet-", suffix=".wav", delete=False) as chunk_file:
+        with tempfile.NamedTemporaryFile(prefix="jotist-parakeet-", suffix=".wav", delete=False) as chunk_file:
             chunk_path = chunk_file.name
         try:
             sf.write(chunk_path, chunk_info['audio'], sr)
