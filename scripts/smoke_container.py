@@ -171,6 +171,45 @@ print(json.dumps({"python": "3.12", "native_python_extension": True, "cmake_cpp"
     return result
 
 
+def qualify_kernel_headers(name: str) -> dict:
+    # Compare package metadata with actual leaf files. A path-only SBOM cannot
+    # establish that development headers contain no kernel binaries/modules.
+    program = r'''
+import hashlib
+import json
+from pathlib import Path
+import stat
+import subprocess
+
+version = subprocess.check_output(
+    ["dpkg-query", "-W", "-f=${Version}", "linux-libc-dev"], text=True
+).strip()
+paths = subprocess.check_output(["dpkg-query", "-L", "linux-libc-dev"], text=True).splitlines()
+files = []
+headers = 0
+allowed_docs = {"/usr/share/doc/linux-libc-dev/changelog.Debian.gz",
+                "/usr/share/doc/linux-libc-dev/copyright"}
+for value in paths:
+    path = Path(value)
+    mode = path.lstat().st_mode
+    if stat.S_ISDIR(mode):
+        continue
+    assert stat.S_ISREG(mode), "non-regular development header payload"
+    assert not mode & 0o111, "executable development header payload"
+    is_header = value.startswith("/usr/include/") and value.endswith(".h")
+    assert is_header or value in allowed_docs, "unexpected development header payload"
+    headers += int(is_header)
+    files.append(value)
+assert files and len(files) == len(set(files)), "missing or duplicate package payload"
+manifest = "\n".join(sorted(files)) + "\n"
+print(json.dumps({"name": "linux-libc-dev", "version": version,
+                  "installed_files": len(files), "headers": headers,
+                  "regular_headers_and_docs_only": True,
+                  "installed_paths_sha256": hashlib.sha256(manifest.encode()).hexdigest()}))
+'''
+    return json.loads(docker("exec", name, "gosu", "appuser", "python3", "-c", program))
+
+
 def qualify(args: argparse.Namespace) -> dict:
     prefix = "jotist-smoke-" + uuid.uuid4().hex
     volumes = [prefix + "-" + suffix for suffix in ("data", "runtime", "home")]
@@ -203,6 +242,7 @@ def qualify(args: argparse.Namespace) -> dict:
             identity = docker("exec", name, "awk", "/^Uid:|^Gid:/ { print $1, $2 }", "/proc/1/status").splitlines()
             assert identity == [f"Uid: {uid}", f"Gid: {gid}"], "runtime UID/GID differs from request"
             runtime_tools = qualify_runtime_tools(name)
+            kernel_headers = qualify_kernel_headers(name)
             request(base, "/api/v1/settings/models", status=401)
             if not recording_id:
                 request(base, "/api/v1/auth/register", body=json.dumps(credentials).encode(), status=201)
@@ -230,7 +270,8 @@ def qualify(args: argparse.Namespace) -> dict:
             request(base, f"/api/v1/transcription/{recording_id}", token=token)
             report["cases"].append({"identity": label, "uid": int(uid), "gid": int(gid),
                                     "ready": True, "docker_healthy": True, "authenticated_upload": True,
-                                    "restart_persistence": True, "cli": True, "runtime_tools": runtime_tools})
+                                    "restart_persistence": True, "cli": True, "runtime_tools": runtime_tools,
+                                    "kernel_headers": kernel_headers})
             docker("rm", "--force", name)
             containers.remove(name)
         report["passed"] = True

@@ -221,7 +221,7 @@ jobs:
           python3 scripts/smoke_container.py --image "${REPOSITORY}@${DIGEST}" \
             --revision "$REVISION" --version "$IMAGE_CHANNEL" --report "qualification/smoke-${VARIANT}.json"
 
-      - name: Scan the exact published image
+      - name: Record unfiltered exact image findings
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           version: v0.75.0
@@ -229,9 +229,23 @@ jobs:
           scanners: vuln
           severity: HIGH,CRITICAL
           ignore-unfixed: false
-          exit-code: '1'
+          exit-code: '0' # The strict gate below applies the reviewed package scope.
+          list-all-pkgs: true
           format: json
-          output: qualification/trivy-${{ matrix.variant }}.json
+          output: qualification/trivy-${{ matrix.variant }}-raw.json
+
+      - name: Enforce exact image vulnerability gate with verified package applicability
+        env:
+          IMAGE: ${{ steps.metadata.outputs.repository }}@${{ steps.build.outputs.digest }}
+          VARIANT: ${{ matrix.variant }}
+        run: |
+          python3 scripts/prepare_container_vex.py \
+            --report "qualification/trivy-${VARIANT}-raw.json" --smoke "qualification/smoke-${VARIANT}.json" \
+            --output qualification/kernel-headers.openvex.json
+          trivy image "$IMAGE" --cache-dir .cache/trivy --skip-db-update \
+            --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed=false --exit-code 1 \
+            --vex qualification/kernel-headers.openvex.json \
+            --format json --output "qualification/trivy-${VARIANT}.json"
 
       # Sign only after the exact image has passed its packaging and vulnerability gates.
       - name: Attest qualified image provenance

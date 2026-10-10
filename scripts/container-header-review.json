@@ -1,0 +1,963 @@
+{
+  "schema_version": 1,
+  "reviewed_at": "2026-10-10T04:09:06Z",
+  "review_by": "2026-11-09",
+  "package": {
+    "name": "linux-libc-dev",
+    "version": "6.8.0-146.146",
+    "purl": "pkg:deb/ubuntu/linux-libc-dev@6.8.0-146.146?arch=amd64&distro=ubuntu-24.04",
+    "installed_files": 990,
+    "headers": 988,
+    "installed_paths_sha256": "ab0b28e0f17afee8d182697823f7ef5c7e7c34fa614b013e5d0b9f6fed575c33"
+  },
+  "justification": "vulnerable_code_not_present",
+  "impact": "The listed CVEs affect Linux kernel implementation code. This exact Ubuntu package contains exported userspace development headers and two documentation files, without kernel implementation, modules or executables. The headers remain required for first-use native model builds. Each upstream fix below was compared with the 990 installed package paths. Runtime image qualification independently verifies the files are regular headers/documentation and that the path manifest matches. This assessment covers this image package only; it makes no assertion about the host kernel.",
+  "references": [
+    "https://packages.ubuntu.com/noble/linux-libc-dev",
+    "https://packages.ubuntu.com/noble/amd64/linux-libc-dev/filelist",
+    "https://www.kernel.org/doc/html/latest/kbuild/headers_install.html"
+  ],
+  "exported_header_change": {
+    "cve": "CVE-2026-80668",
+    "path": "include/uapi/linux/netfilter/nf_conntrack_common.h",
+    "fix_commit": "b8b09dc2bf35a00d4e0556b5d6308c7b917ebda2",
+    "reason": "The only changed exported-header path adds NF_CT_EXPECT_DEAD inside __KERNEL__. headers_install.sh removes this section with unifdef -U__KERNEL__ -D__EXPORTED_HEADERS__. Pre/post exported header bytes are identical; the race fix is in netfilter kernel code absent from this package.",
+    "exported_before_sha256": "9f31921469540c2b12b319d007554565f9d703cd8b3a9dec6edf36e1b61bd828",
+    "exported_after_sha256": "9f31921469540c2b12b319d007554565f9d703cd8b3a9dec6edf36e1b61bd828"
+  },
+  "upstream_fixes": {
+    "CVE-2024-35948": {
+      "commit": "fcdbc1d7a4b638e5d5668de461f320386f3002aa",
+      "paths": [
+        "fs/bcachefs/sb-clean.c",
+        "fs/bcachefs/sb-errors_types.h"
+      ]
+    },
+    "CVE-2024-38581": {
+      "commit": "948255282074d9367e01908b3f5dcf8c10fc9c3d",
+      "paths": [
+        "drivers/gpu/drm/amd/amdgpu/amdgpu_mes.c"
+      ]
+    },
+    "CVE-2024-40954": {
+      "commit": "6cd4a78d962bebbaf8beb7d2ead3f34120e3f7b2",
+      "paths": [
+        "net/core/sock.c"
+      ]
+    },
+    "CVE-2024-44964": {
+      "commit": "f01032a2ca099ec8d619aaa916c3762aa62495df",
+      "paths": [
+        "drivers/net/ethernet/intel/idpf/idpf_lib.c"
+      ]
+    },
+    "CVE-2024-46742": {
+      "commit": "4e8771a3666c8f216eefd6bd2fd50121c6c437db",
+      "paths": [
+        "fs/smb/server/oplock.c",
+        "fs/smb/server/smb2pdu.c"
+      ]
+    },
+    "CVE-2024-46833": {
+      "commit": "86db7bfb06704ef17340eeae71c832f21cfce35c",
+      "paths": [
+        "drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_err.c"
+      ]
+    },
+    "CVE-2024-52560": {
+      "commit": "2afd4d267e6dbaec8d3ccd4f5396cb84bc67aa2e",
+      "paths": [
+        "fs/ntfs3/attrib.c",
+        "fs/ntfs3/frecord.c",
+        "fs/ntfs3/ntfs_fs.h",
+        "fs/ntfs3/record.c"
+      ]
+    },
+    "CVE-2024-56591": {
+      "commit": "2b0f2fc9ed62e73c95df1fa8ed2ba3dac54699df",
+      "paths": [
+        "net/bluetooth/hci_conn.c"
+      ]
+    },
+    "CVE-2024-57857": {
+      "commit": "16b87037b48889d21854c8e97aec8a1baf2642b3",
+      "paths": [
+        "drivers/infiniband/sw/siw/siw.h",
+        "drivers/infiniband/sw/siw/siw_cm.c",
+        "drivers/infiniband/sw/siw/siw_main.c",
+        "drivers/infiniband/sw/siw/siw_verbs.c"
+      ]
+    },
+    "CVE-2025-22043": {
+      "commit": "542027e123fc0bfd61dd59e21ae0ee4ef2101b29",
+      "paths": [
+        "fs/smb/server/smb2pdu.c"
+      ]
+    },
+    "CVE-2025-37906": {
+      "commit": "f40139fde5278d81af3227444fd6e76a76b9506d",
+      "paths": [
+        "drivers/block/ublk_drv.c"
+      ]
+    },
+    "CVE-2025-38187": {
+      "commit": "9802f0a63b641f4cddb2139c814c2e95cb825099",
+      "paths": [
+        "drivers/gpu/drm/nouveau/nvkm/subdev/gsp/rm/r535/rpc.c"
+      ]
+    },
+    "CVE-2025-38563": {
+      "commit": "b024d7b56c77191cde544f838debb7f8451cd0d6",
+      "paths": [
+        "kernel/events/core.c"
+      ]
+    },
+    "CVE-2025-38717": {
+      "commit": "52565a935213cd6a8662ddb8efe5b4219343a25d",
+      "paths": [
+        "include/net/kcm.h",
+        "net/kcm/kcmsock.c"
+      ]
+    },
+    "CVE-2025-40025": {
+      "commit": "186098f34b8a5d65eb828f952c8cc56272c60ea0",
+      "paths": [
+        "fs/f2fs/f2fs.h",
+        "fs/f2fs/gc.c",
+        "fs/f2fs/node.c",
+        "fs/f2fs/node.h",
+        "fs/f2fs/recovery.c"
+      ]
+    },
+    "CVE-2025-40064": {
+      "commit": "3d3466878afd8d43ec0ca2facfbc7f03e40d0f79",
+      "paths": [
+        "net/smc/smc_pnet.c"
+      ]
+    },
+    "CVE-2025-40075": {
+      "commit": "50c127a69cd6285300931853b352a1918cfa180f",
+      "paths": [
+        "net/ipv4/tcp_metrics.c"
+      ]
+    },
+    "CVE-2025-40158": {
+      "commit": "11709573cc4e48dc34c80fc7ab9ce5b159e29695",
+      "paths": [
+        "net/ipv6/ip6_output.c"
+      ]
+    },
+    "CVE-2025-40190": {
+      "commit": "57295e835408d8d425bef58da5253465db3d6888",
+      "paths": [
+        "fs/ext4/xattr.c"
+      ]
+    },
+    "CVE-2025-68304": {
+      "commit": "79a2d4678ba90bdba577dc3af88cc900d6dcd5ee",
+      "paths": [
+        "include/net/bluetooth/hci_core.h",
+        "net/bluetooth/hci_core.c",
+        "net/bluetooth/iso.c",
+        "net/bluetooth/l2cap_core.c",
+        "net/bluetooth/sco.c"
+      ]
+    },
+    "CVE-2025-68360": {
+      "commit": "385aab8fccd7a8746b9f1a17f3c1e38498a14bc7",
+      "paths": [
+        "drivers/net/wireless/mediatek/mt76/mt76.h",
+        "drivers/net/wireless/mediatek/mt76/mt7996/mmio.c",
+        "drivers/net/wireless/mediatek/mt76/wed.c",
+        "include/linux/soc/mediatek/mtk_wed.h"
+      ]
+    },
+    "CVE-2025-71073": {
+      "commit": "e58c88f0cb2d8ed89de78f6f17409d29cfab6c5c",
+      "paths": [
+        "drivers/input/keyboard/lkkbd.c"
+      ]
+    },
+    "CVE-2025-71315": {
+      "commit": "02e2681ffe1addde1fc8c35d05657b16bfa79613",
+      "paths": [
+        "drivers/gpu/drm/vkms/vkms_crtc.c",
+        "drivers/gpu/drm/vkms/vkms_drv.h"
+      ]
+    },
+    "CVE-2026-23208": {
+      "commit": "ef5749ef8b307bf8717945701b1b79d036af0a15",
+      "paths": [
+        "sound/usb/pcm.c"
+      ]
+    },
+    "CVE-2026-23240": {
+      "commit": "7bb09315f93dce6acc54bf59e5a95ba7365c2be4",
+      "paths": [
+        "net/tls/tls_sw.c"
+      ]
+    },
+    "CVE-2026-23393": {
+      "commit": "3715a00855316066cdda69d43648336367422127",
+      "paths": [
+        "net/bridge/br_cfm.c"
+      ]
+    },
+    "CVE-2026-31536": {
+      "commit": "9da82dc73cb03e85d716a2609364572367a5ff47",
+      "paths": [
+        "fs/smb/server/transport_rdma.c"
+      ]
+    },
+    "CVE-2026-43009": {
+      "commit": "179ee84a89114b854ac2dd1d293633a7f6c8dac1",
+      "paths": [
+        "kernel/bpf/verifier.c"
+      ]
+    },
+    "CVE-2026-43263": {
+      "commit": "e66ff2b08e4ee1c4d3b84f24818e5bcc178cc3a4",
+      "paths": [
+        "drivers/media/platform/chips-media/wave5/wave5-helper.c",
+        "drivers/media/platform/chips-media/wave5/wave5-helper.h",
+        "drivers/media/platform/chips-media/wave5/wave5-vpu-dec.c",
+        "drivers/media/platform/chips-media/wave5/wave5-vpu-enc.c",
+        "drivers/media/platform/chips-media/wave5/wave5-vpu.c",
+        "drivers/media/platform/chips-media/wave5/wave5-vpuapi.h"
+      ]
+    },
+    "CVE-2026-43379": {
+      "commit": "eac3361e3d5dd8067b3258c69615888eb45e9f25",
+      "paths": [
+        "fs/smb/server/oplock.c"
+      ]
+    },
+    "CVE-2026-46330": {
+      "commit": "df31a6b0a3057e66994ad6ccf5d95b9b9514f033",
+      "paths": [
+        "net/smc/af_smc.c"
+      ]
+    },
+    "CVE-2026-52909": {
+      "commit": "d289d5307762d1838aaece22c6b6fcad9e8865f9",
+      "paths": [
+        "net/ipv6/ip6_vti.c"
+      ]
+    },
+    "CVE-2026-53090": {
+      "commit": "ee861486e377edc55361c08dcbceab3f6b6577bd",
+      "paths": [
+        "kernel/bpf/verifier.c"
+      ]
+    },
+    "CVE-2026-53178": {
+      "commit": "88e994c57a79f62d5338231d8d37ee8dd98baffe",
+      "paths": [
+        "drivers/staging/rtl8723bs/core/rtw_mlme.c"
+      ]
+    },
+    "CVE-2026-53250": {
+      "commit": "22ba97ea9cc1f63a0d0244fae38057ed452b6ac7",
+      "paths": [
+        "net/xdp/xsk.c"
+      ]
+    },
+    "CVE-2026-53362": {
+      "commit": "736b380e28d0480c7bc3e022f1950f31fe53a7c5",
+      "paths": [
+        "net/ipv6/ip6_output.c"
+      ]
+    },
+    "CVE-2026-53365": {
+      "commit": "ae38d9179190a956e2a87a69ef1dd6f451b51c4d",
+      "paths": [
+        "net/vmw_vsock/virtio_transport_common.c"
+      ]
+    },
+    "CVE-2026-53388": {
+      "commit": "a078484921052d0badd827fcc2770b5cfc1d4120",
+      "paths": [
+        "fs/fuse/dev.c"
+      ]
+    },
+    "CVE-2026-53398": {
+      "commit": "9e18e83b8846a5c3fe13fc8a464b4865d33996c6",
+      "paths": [
+        "fs/nfsd/nfs4xdr.c"
+      ]
+    },
+    "CVE-2026-53399": {
+      "commit": "30d55c8aabb261bc3f427d6b9aae7ef6206063f9",
+      "paths": [
+        "fs/nfsd/nfs4layouts.c"
+      ]
+    },
+    "CVE-2026-63801": {
+      "commit": "bda3348872a2ef0d19f2df6aa8cb5025adce2f20",
+      "paths": [
+        "net/tipc/crypto.c"
+      ]
+    },
+    "CVE-2026-63809": {
+      "commit": "4c21b5927d4364bfe7365f2700da5fea0ed0d004",
+      "paths": [
+        "kernel/bpf/cgroup.c"
+      ]
+    },
+    "CVE-2026-63815": {
+      "commit": "378acf3cf19b6af6cba55e8dd1154c4e1504bae8",
+      "paths": [
+        "fs/f2fs/inode.c"
+      ]
+    },
+    "CVE-2026-63823": {
+      "commit": "fd15b457a86939c38aa12116adabd8ff686c5e51",
+      "paths": [
+        "include/keys/request_key_auth-type.h",
+        "security/keys/internal.h",
+        "security/keys/keyctl.c",
+        "security/keys/request_key_auth.c"
+      ]
+    },
+    "CVE-2026-63940": {
+      "commit": "3988bd2723de407ae90fa7a6f6029b4e60238c58",
+      "paths": [
+        "arch/x86/kvm/svm/sev.c"
+      ]
+    },
+    "CVE-2026-64188": {
+      "commit": "d00c953a8f69921f484b629801766da68f27f658",
+      "paths": [
+        "drivers/net/ethernet/qualcomm/rmnet/rmnet_config.c",
+        "drivers/net/ethernet/qualcomm/rmnet/rmnet_config.h"
+      ]
+    },
+    "CVE-2026-64191": {
+      "commit": "6036b5067a8199ba7a2dc7b377d4b9dd276d5f9e",
+      "paths": [
+        "drivers/i2c/i2c-stub.c"
+      ]
+    },
+    "CVE-2026-64266": {
+      "commit": "b5befa80fdbe287a98480effed9564712924add5",
+      "paths": [
+        "fs/fuse/dev.c"
+      ]
+    },
+    "CVE-2026-64269": {
+      "commit": "963af8d97a8c6a117134a8d0db1415e0489200b1",
+      "paths": [
+        "drivers/infiniband/ulp/rtrs/rtrs-srv.c"
+      ]
+    },
+    "CVE-2026-64276": {
+      "commit": "d577e46785d45484b2ab7e7309c49b18764bf56c",
+      "paths": [
+        "drivers/input/rmi4/rmi_f30.c"
+      ]
+    },
+    "CVE-2026-64361": {
+      "commit": "966cb76fb2857a4242cab6ea2ea17acf818a3da7",
+      "paths": [
+        "fs/hfs/bnode.c",
+        "fs/hfsplus/hfsplus_fs.h"
+      ]
+    },
+    "CVE-2026-64380": {
+      "commit": "7ad2bcf2441430bb2e918fb3ef9a90d775a6e422",
+      "paths": [
+        "fs/smb/client/smb2pdu.c"
+      ]
+    },
+    "CVE-2026-64383": {
+      "commit": "4be31c943a3a27a5a0251dbb8f5cb89059ec3d5a",
+      "paths": [
+        "fs/smb/client/smb2pdu.c"
+      ]
+    },
+    "CVE-2026-64385": {
+      "commit": "f9bbadb6c94583e3b4af1afc449bfceb1d1ddec9",
+      "paths": [
+        "fs/smb/client/smb2pdu.c"
+      ]
+    },
+    "CVE-2026-64386": {
+      "commit": "2a88561d66eb855813cf004a0abe648bbb17de5e",
+      "paths": [
+        "fs/smb/client/smb2pdu.c"
+      ]
+    },
+    "CVE-2026-64387": {
+      "commit": "9647492b5e41954be59d5157eddbcd4cdc1656f7",
+      "paths": [
+        "fs/smb/client/smb2pdu.c"
+      ]
+    },
+    "CVE-2026-64390": {
+      "commit": "c1016dd1d8b2bcd1158bbaabe94a31bb7e7431fb",
+      "paths": [
+        "fs/smb/server/smb2pdu.c",
+        "fs/smb/server/vfs_cache.c",
+        "fs/smb/server/vfs_cache.h"
+      ]
+    },
+    "CVE-2026-64393": {
+      "commit": "b383bcad3d2fe634b26efbce53e22bbb5753a520",
+      "paths": [
+        "fs/smb/server/smb2pdu.c"
+      ]
+    },
+    "CVE-2026-64396": {
+      "commit": "d20d1c8ba5765d1d12eefc0aee6385ab3f240e1e",
+      "paths": [
+        "fs/smb/server/smb2pdu.c"
+      ]
+    },
+    "CVE-2026-64423": {
+      "commit": "7993211bde166471dffac074dc965489f86531f8",
+      "paths": [
+        "net/ipv4/igmp.c"
+      ]
+    },
+    "CVE-2026-64432": {
+      "commit": "57382ec6ac63b63dce2789e835fded28b698ae79",
+      "paths": [
+        "fs/ntfs3/fslog.c"
+      ]
+    },
+    "CVE-2026-64440": {
+      "commit": "f8001e1a516ba3b495728c65b61f799cbfad6bd0",
+      "paths": [
+        "drivers/staging/rtl8723bs/core/rtw_wlan_util.c"
+      ]
+    },
+    "CVE-2026-64441": {
+      "commit": "1463ca3ec6601cbb097d8d87dbf5dcf1cb86a344",
+      "paths": [
+        "drivers/staging/rtl8723bs/core/rtw_ieee80211.c"
+      ]
+    },
+    "CVE-2026-64442": {
+      "commit": "ef61d628dfad38fead1fd2e08979ae9126d011d5",
+      "paths": [
+        "drivers/staging/rtl8723bs/core/rtw_mlme_ext.c"
+      ]
+    },
+    "CVE-2026-64535": {
+      "commit": "dbbd07d0a7020b80f6a7028e561908f7b83b3d5a",
+      "paths": [
+        "drivers/nvme/target/tcp.c"
+      ]
+    },
+    "CVE-2026-64543": {
+      "commit": "1579342d71133da7f00daa02c75cebec7372097b",
+      "paths": [
+        "net/tipc/core.c",
+        "net/tipc/discover.c"
+      ]
+    },
+    "CVE-2026-64548": {
+      "commit": "0c0a8ed85349dae298712d79cb276acfeb794d82",
+      "paths": [
+        "net/core/filter.c"
+      ]
+    },
+    "CVE-2026-64554": {
+      "commit": "86f3ce81dd2b4b0aa2c3016c989a943e4b1b643d",
+      "paths": [
+        "net/ipv6/netfilter.c"
+      ]
+    },
+    "CVE-2026-64557": {
+      "commit": "6fef032af0092ed5ccb767239a9ac1bc38c08a40",
+      "paths": [
+        "include/net/bluetooth/l2cap.h",
+        "net/bluetooth/6lowpan.c",
+        "net/bluetooth/l2cap_core.c",
+        "net/bluetooth/l2cap_sock.c",
+        "net/bluetooth/smp.c"
+      ]
+    },
+    "CVE-2026-64562": {
+      "commit": "622ebfac01ba4f9c0060cebd41257fe46fc4a0b3",
+      "paths": [
+        "arch/x86/kvm/vmx/nested.c"
+      ]
+    },
+    "CVE-2026-64564": {
+      "commit": "9b2854f86f0b56e9027d68e7a3fc909d1a9b566f",
+      "paths": [
+        "net/sctp/sm_make_chunk.c"
+      ]
+    },
+    "CVE-2026-64567": {
+      "commit": "a2d8d5647ed854e38f941741aea45b9eb15a6350",
+      "paths": [
+        "fs/btrfs/free-space-cache.c"
+      ]
+    },
+    "CVE-2026-64597": {
+      "commit": "f96e1cdcb63ed3321142ff2fcdf784e32cda8fee",
+      "paths": [
+        "fs/smb/client/smb2pdu.c"
+      ]
+    },
+    "CVE-2026-68085": {
+      "commit": "1b0d946d6f08bd39211385bc703a440911b41e46",
+      "paths": [
+        "drivers/bluetooth/hci_ldisc.c"
+      ]
+    },
+    "CVE-2026-68098": {
+      "commit": "58d97fcd0bf1aee694e244cc28635b9df95b543b",
+      "paths": [
+        "fs/smb/server/smbacl.c"
+      ]
+    },
+    "CVE-2026-68117": {
+      "commit": "5f5a41a48dbf9eda57b67ce23e548602cf7195a6",
+      "paths": [
+        "net/tipc/socket.c"
+      ]
+    },
+    "CVE-2026-68121": {
+      "commit": "6866abf59976d273164a6624234d96a967280223",
+      "paths": [
+        "drivers/net/ppp/pppoe.c"
+      ]
+    },
+    "CVE-2026-68147": {
+      "commit": "4462ac3d90e897dda52ce4b6af2d526ddae835a8",
+      "paths": [
+        "fs/crypto/inline_crypt.c",
+        "fs/f2fs/super.c",
+        "include/linux/fscrypt.h"
+      ]
+    },
+    "CVE-2026-68162": {
+      "commit": "158f3cc332dc53f43ec20060233d7c3cecd6d912",
+      "paths": [
+        "net/sctp/protocol.c",
+        "net/sctp/sysctl.c"
+      ]
+    },
+    "CVE-2026-68189": {
+      "commit": "30bc6248f035a792d1b1f4cc761b32fd5827b55f",
+      "paths": [
+        "net/bluetooth/hci_sync.c"
+      ]
+    },
+    "CVE-2026-68196": {
+      "commit": "4c4c97b60a5e978121d9ee8cb0ab3916e5d6a8de",
+      "paths": [
+        "drivers/net/wireless/microchip/wilc1000/hif.c"
+      ]
+    },
+    "CVE-2026-68198": {
+      "commit": "17ff29cd8dbc977c97788a5f7c011ec807b58242",
+      "paths": [
+        "drivers/net/wireless/ath/ath6kl/txrx.c"
+      ]
+    },
+    "CVE-2026-68199": {
+      "commit": "44126b6994eeb28f2103b638e698f40a1244f327",
+      "paths": [
+        "drivers/net/wireless/ath/ath6kl/txrx.c"
+      ]
+    },
+    "CVE-2026-68204": {
+      "commit": "0a820f03727b509b887f3216a574062948761f34",
+      "paths": [
+        "drivers/media/test-drivers/vivid/vivid-ctrls.c",
+        "drivers/media/test-drivers/vivid/vivid-vid-cap.c",
+        "drivers/media/test-drivers/vivid/vivid-vid-out.c"
+      ]
+    },
+    "CVE-2026-68236": {
+      "commit": "01ba5b36898d6258f584269537cc49e7b05cf7c6",
+      "paths": [
+        "drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c"
+      ]
+    },
+    "CVE-2026-68257": {
+      "commit": "2b0386d4293920e690c0e017708f999b93cc729b",
+      "paths": [
+        "drivers/gpu/drm/amd/amdkfd/kfd_queue.c"
+      ]
+    },
+    "CVE-2026-68284": {
+      "commit": "0688e6fe599d2d39147ae9ece97944c6e1815ebf",
+      "paths": [
+        "net/ipv4/tcp_bpf.c"
+      ]
+    },
+    "CVE-2026-68323": {
+      "commit": "350e592ff4e30e48ffb55e142d11a73e63f4869c",
+      "paths": [
+        "net/tipc/udp_media.c"
+      ]
+    },
+    "CVE-2026-68329": {
+      "commit": "02f8cefa2ad95ea3754f0cfd6fbae7f866202ccb",
+      "paths": [
+        "drivers/iommu/amd/iommu.c"
+      ]
+    },
+    "CVE-2026-68399": {
+      "commit": "14b49b5ab29979552c219a09e569b424fbbf4a6e",
+      "paths": [
+        "net/core/bpf_sk_storage.c",
+        "net/core/sock.c"
+      ]
+    },
+    "CVE-2026-68442": {
+      "commit": "0e465c63f103a5ce6849614d6bda048d70eebec8",
+      "paths": [
+        "fs/btrfs/extent_map.c"
+      ]
+    },
+    "CVE-2026-68446": {
+      "commit": "0403cec2aff8037bc246cf9a0831eb169ddcd9df",
+      "paths": [
+        "drivers/gpu/drm/vmwgfx/vmwgfx_surface.c"
+      ]
+    },
+    "CVE-2026-68451": {
+      "commit": "013a4484f061a2b41f052e25c0015203287e63f1",
+      "paths": [
+        "drivers/s390/crypto/zcrypt_ccamisc.c"
+      ]
+    },
+    "CVE-2026-68470": {
+      "commit": "57d503ce32eccfa7650065ca4c560f7e29a2e676",
+      "paths": [
+        "net/mac80211/rx.c",
+        "net/mac80211/util.c"
+      ]
+    },
+    "CVE-2026-72024": {
+      "commit": "539dfcf69105d8d3d4d677b71de6e5ede2e6dfa0",
+      "paths": [
+        "net/mac802154/iface.c"
+      ]
+    },
+    "CVE-2026-72110": {
+      "commit": "9b51a6155d14389876916726430da30eabb1d4ed",
+      "paths": [
+        "kernel/fork.c"
+      ]
+    },
+    "CVE-2026-72111": {
+      "commit": "5e0b273e0a62cc04ec338c7b502797c66c2ed42a",
+      "paths": [
+        "kernel/bpf/verifier.c"
+      ]
+    },
+    "CVE-2026-72123": {
+      "commit": "68973f9db76144825e4f35dfdc80fb8279eb2d57",
+      "paths": [
+        "net/can/bcm.c"
+      ]
+    },
+    "CVE-2026-72124": {
+      "commit": "cf070fe33bfbd1a4c21236078fadb35dd223a157",
+      "paths": [
+        "net/can/isotp.c"
+      ]
+    },
+    "CVE-2026-72135": {
+      "commit": "f20d61c22bcaf172d6790b6500e3838e532e71c8",
+      "paths": [
+        "drivers/char/tpm/tpm-dev.c",
+        "drivers/char/tpm/tpmrm-dev.c"
+      ]
+    },
+    "CVE-2026-72195": {
+      "commit": "d1570c48f49a693974d000251030370ee2e83539",
+      "paths": [
+        "fs/ntfs3/fslog.c"
+      ]
+    },
+    "CVE-2026-72288": {
+      "commit": "7258770e5814f15e8308ebda82ac9acf6964ba8e",
+      "paths": [
+        "arch/arm64/kvm/vgic/vgic.c"
+      ]
+    },
+    "CVE-2026-72338": {
+      "commit": "8b519cbcabe836a441369fbec1a8a6518a709251",
+      "paths": [
+        "include/net/tc_act/tc_pedit.h",
+        "net/sched/act_api.c",
+        "net/sched/act_pedit.c",
+        "net/sched/cls_api.c"
+      ]
+    },
+    "CVE-2026-72390": {
+      "commit": "e5b811fe793166aecc59b085c1b7c31262ef2316",
+      "paths": [
+        "net/sched/sch_teql.c"
+      ]
+    },
+    "CVE-2026-72472": {
+      "commit": "4837fb36219e6c08b666bc31a86841bad8526358",
+      "paths": [
+        "fs/nfs/delegation.c",
+        "fs/nfs/nfs4proc.c",
+        "include/linux/nfs_xdr.h"
+      ]
+    },
+    "CVE-2026-72478": {
+      "commit": "bb11485a87fbb2254b62cfed630b699d50e57da8",
+      "paths": [
+        "fs/ntfs3/fslog.c",
+        "fs/ntfs3/ntfs_fs.h",
+        "fs/ntfs3/run.c"
+      ]
+    },
+    "CVE-2026-74268": {
+      "commit": "990348e5bb457697c2f1f7f7b65154a3334d9d2b",
+      "paths": [
+        "include/net/tcp.h",
+        "net/ipv4/inet_connection_sock.c"
+      ]
+    },
+    "CVE-2026-74317": {
+      "commit": "7bd4355272de34c2e90e34b72c5613736d03c32b",
+      "paths": [
+        "drivers/net/ethernet/intel/ixgbe/ixgbe_main.c"
+      ]
+    },
+    "CVE-2026-74334": {
+      "commit": "50d5c02ab8e62325548bd3a6e6b758a9dcd6e7c3",
+      "paths": [
+        "drivers/infiniband/core/nldev.c",
+        "drivers/infiniband/core/restrack.c",
+        "drivers/infiniband/core/restrack.h",
+        "drivers/infiniband/core/uverbs_cmd.c",
+        "include/rdma/ib_verbs.h"
+      ]
+    },
+    "CVE-2026-74341": {
+      "commit": "88a240d86d3d64521f9194abe185ac71cc74d0bd",
+      "paths": [
+        "drivers/net/wireless/ath/wcn36xx/smd.c"
+      ]
+    },
+    "CVE-2026-74350": {
+      "commit": "e234973f286ed2e8961a24561ec91594ec3e3ff8",
+      "paths": [
+        "fs/ocfs2/inode.c"
+      ]
+    },
+    "CVE-2026-74363": {
+      "commit": "b93c55b4932dd7e32dca8cf34a3443cc87a02906",
+      "paths": [
+        "kernel/bpf/inode.c"
+      ]
+    },
+    "CVE-2026-74378": {
+      "commit": "22b8fbded65b8c441b634a185f8da67657df6c50",
+      "paths": [
+        "drivers/infiniband/sw/rxe/rxe_resp.c"
+      ]
+    },
+    "CVE-2026-74390": {
+      "commit": "5ebb3ed757be3e04cf803026004aa0beaeb13e9b",
+      "paths": [
+        "drivers/infiniband/hw/irdma/verbs.c"
+      ]
+    },
+    "CVE-2026-74394": {
+      "commit": "eb4ecdf631fe00e8020bf461503cb9b7017ed796",
+      "paths": [
+        "drivers/infiniband/ulp/srpt/ib_srpt.c"
+      ]
+    },
+    "CVE-2026-74411": {
+      "commit": "08fdcb529df6df3562dd2b0035f88dd5be8b3c68",
+      "paths": [
+        "drivers/net/wireless/realtek/rtw89/fw.c"
+      ]
+    },
+    "CVE-2026-74427": {
+      "commit": "47694fbc9d24ab6bf210f91e8efe06a10a478064",
+      "paths": [
+        "fs/afs/rxrpc.c"
+      ]
+    },
+    "CVE-2026-74438": {
+      "commit": "b2c41fa9dd8fc740c489e060b199165771f268d1",
+      "paths": [
+        "arch/arm/configs/sunxi_defconfig",
+        "drivers/crypto/allwinner/Kconfig",
+        "drivers/crypto/allwinner/sun4i-ss/Makefile",
+        "drivers/crypto/allwinner/sun4i-ss/sun4i-ss-core.c",
+        "drivers/crypto/allwinner/sun4i-ss/sun4i-ss-prng.c",
+        "drivers/crypto/allwinner/sun4i-ss/sun4i-ss.h"
+      ]
+    },
+    "CVE-2026-74446": {
+      "commit": "ff8bc5a68a9a70bdc38d61a72c7a49c56063f9d2",
+      "paths": [
+        "drivers/gpu/drm/amd/amdkfd/kfd_events.c"
+      ]
+    },
+    "CVE-2026-74465": {
+      "commit": "a58a2b0ce354df531ebc71fc870058c2feb59f6b",
+      "paths": [
+        "net/openvswitch/meter.c"
+      ]
+    },
+    "CVE-2026-74470": {
+      "commit": "93dde0bf2f39a0f9f57fd610aa3201ce5b753433",
+      "paths": [
+        "drivers/scsi/scsi_debug.c"
+      ]
+    },
+    "CVE-2026-74506": {
+      "commit": "4af1ec68d54b3871155914d584fb10669c41a861",
+      "paths": [
+        "fs/afs/internal.h"
+      ]
+    },
+    "CVE-2026-74510": {
+      "commit": "d0a7b48ad0921bd88effaee10bf970ab1d5d0ddd",
+      "paths": [
+        "net/bluetooth/mgmt.c"
+      ]
+    },
+    "CVE-2026-74534": {
+      "commit": "fdfde532ab1caa165fcd8985001157ac8b4db365",
+      "paths": [
+        "net/bluetooth/iso.c"
+      ]
+    },
+    "CVE-2026-74535": {
+      "commit": "200fa1629c57a3ca2b03d3ca63fd3a9bfd910c43",
+      "paths": [
+        "net/bluetooth/iso.c"
+      ]
+    },
+    "CVE-2026-80631": {
+      "commit": "b0d27d43791b7a3057c3c4aedf9b4aa033d37c46",
+      "paths": [
+        "fs/btrfs/lzo.c"
+      ]
+    },
+    "CVE-2026-80634": {
+      "commit": "e052f920773b73be49eb4d8702a9f85de7464363",
+      "paths": [
+        "net/netfilter/nf_flow_table_path.c"
+      ]
+    },
+    "CVE-2026-80637": {
+      "commit": "992c20bc8a4aba220c8b95b467d049289778dad6",
+      "paths": [
+        "net/netfilter/nf_synproxy_core.c"
+      ]
+    },
+    "CVE-2026-80644": {
+      "commit": "c0438198c28b1d22c272751af5e717c11d9fa8dd",
+      "paths": [
+        "fs/ocfs2/journal.c"
+      ]
+    },
+    "CVE-2026-80668": {
+      "commit": "b8b09dc2bf35a00d4e0556b5d6308c7b917ebda2",
+      "paths": [
+        "include/net/netfilter/nf_conntrack_expect.h",
+        "include/uapi/linux/netfilter/nf_conntrack_common.h",
+        "net/netfilter/nf_conntrack_core.c",
+        "net/netfilter/nf_conntrack_expect.c",
+        "net/netfilter/nf_conntrack_h323_main.c",
+        "net/netfilter/nf_conntrack_helper.c",
+        "net/netfilter/nf_conntrack_netlink.c",
+        "net/netfilter/nf_conntrack_sip.c",
+        "net/netfilter/nft_ct.c"
+      ]
+    },
+    "CVE-2026-80671": {
+      "commit": "5949d339f5ec98752d56dcd4e36f619a59d513a5",
+      "paths": [
+        "tools/perf/builtin-sched.c"
+      ]
+    },
+    "CVE-2026-80681": {
+      "commit": "1395a676ec15a0a02a2a6d86602324f2d5fd41d5",
+      "paths": [
+        "drivers/net/vxlan/vxlan_core.c"
+      ]
+    },
+    "CVE-2026-80691": {
+      "commit": "9c33222bd387312874fbe36ca8002e5c945b9653",
+      "paths": [
+        "drivers/target/target_core_iblock.c"
+      ]
+    },
+    "CVE-2026-80692": {
+      "commit": "2f5d635ad5906b0235bc0c870e8beba3116e1e98",
+      "paths": [
+        "net/bluetooth/hci_sync.c"
+      ]
+    },
+    "CVE-2026-80693": {
+      "commit": "9f7007ee9858c99aa43101bc8352c672fee85644",
+      "paths": [
+        "drivers/net/ethernet/intel/idpf/idpf_dev.c",
+        "drivers/net/ethernet/intel/idpf/idpf_vf_dev.c",
+        "drivers/net/ethernet/intel/idpf/idpf_virtchnl.c",
+        "drivers/net/ethernet/intel/idpf/idpf_virtchnl.h"
+      ]
+    },
+    "CVE-2026-80700": {
+      "commit": "706c93c5813caabbb0d0a576c017d15aeec2c113",
+      "paths": [
+        "drivers/gpu/drm/vmwgfx/vmwgfx_blit.c"
+      ]
+    },
+    "CVE-2026-80702": {
+      "commit": "83195b778f2d109a3a4f3ffaba4dce7e4cdb58aa",
+      "paths": [
+        "drivers/gpu/drm/vmwgfx/vmwgfx_resource.c"
+      ]
+    },
+    "CVE-2026-80710": {
+      "commit": "7f40b346462f563a0d6e841a77b5163d2a882a04",
+      "paths": [
+        "drivers/s390/block/dasd_eckd.c"
+      ]
+    },
+    "CVE-2026-80714": {
+      "commit": "a63d2dbaeb50a85d4c976b15a36e6b0c7113db5b",
+      "paths": [
+        "net/netfilter/ipvs/ip_vs_conn.c"
+      ]
+    },
+    "CVE-2026-80716": {
+      "commit": "f495b6c4c8594122918552c9be2b51eb71647cd9",
+      "paths": [
+        "sound/core/pcm_native.c"
+      ]
+    },
+    "CVE-2026-80718": {
+      "commit": "89b1b79c308818a715e75f28744b70d8940a07c9",
+      "paths": [
+        "mm/percpu-km.c"
+      ]
+    },
+    "CVE-2026-80721": {
+      "commit": "aa9f7cb2bd3a2be998ceb739fc9a2f986eba43eb",
+      "paths": [
+        "net/bluetooth/iso.c"
+      ]
+    },
+    "CVE-2026-80725": {
+      "commit": "81be30c1f5f2bffda1f04c0efd0746af10b9643a",
+      "paths": [
+        "net/core/gro.c",
+        "net/ipv6/ip6_offload.c"
+      ]
+    }
+  }
+}

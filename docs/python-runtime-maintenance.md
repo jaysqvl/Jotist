@@ -54,6 +54,31 @@ fixing [GHSA-4w2j-m93h-cj5j](https://github.com/advisories/GHSA-4w2j-m93h-cj5j)
 in the older embedded QUIC implementation. Image vulnerability checks cover the actual installed
 system packages and bundled binaries separately from the adapter audits.
 
+### Kernel header applicability in image scans
+
+Ubuntu's `linux-libc-dev` package supplies exported userspace headers needed by
+the native compiler toolchain. Kernel implementation CVEs can be attributed to
+that source package even though its installed payload has no kernel modules or
+executables. This does not establish the security of the host's kernel.
+
+`scripts/container-header-review.json` records the exact Ubuntu package PURL,
+version, architecture, path manifest and individually reviewed CVE fix commits.
+The current review covers 143 CVEs on `6.8.0-146.146`: their changed kernel
+implementation files are absent from the package. The only changed exported
+header adds a definition inside `__KERNEL__`; the upstream header-export step
+removes it, producing identical pre/post userspace bytes.
+
+Each built image must independently verify the actual 990 payload files are
+regular headers or the two expected documentation files, and that their path
+manifest matches. `prepare_container_vex.py` then produces version-specific
+[OpenVEX](https://trivy.dev/docs/latest/supply-chain/vex/file/) statements with
+`vulnerable_code_not_present`. The original scan, actual file inspection,
+generated VEX and final scan are retained together. The review expires on
+2026-11-09. Changed package identity or payload, expired reviews, and missing
+evidence fail qualification. New CVEs and findings on any other package retain
+the HIGH/CRITICAL gate, including findings without an available fix. The image
+gate runs before signed qualification and alias promotion.
+
 ## Coordinated compatibility changes
 
 WhisperX and DiariZen contain small, explicitly documented compatibility ports.

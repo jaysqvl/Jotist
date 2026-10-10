@@ -135,6 +135,7 @@ class ImageRestartTests(unittest.TestCase):
             patch.object(smoke, "request", side_effect=request),
             patch.object(smoke, "wait_ready", side_effect=readiness),
             patch.object(smoke, "qualify_runtime_tools", return_value={"native_python_extension": True}),
+            patch.object(smoke, "qualify_kernel_headers", return_value={"regular_headers_and_docs_only": True}),
             patch.object(smoke.subprocess, "run") as process,
         ):
             process.return_value.returncode = 0
