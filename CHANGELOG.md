@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.3.2](https://github.com/jaysqvl/Jotist/compare/v2.3.1...v2.3.2) (2026-10-10)
+
+
+### Fixes
+
+- Fix downloaded Hugging Face models incorrectly appearing as audit-only when their cache includes repository file listings.
+- Show each model inspection warning once, while retaining checks that prevent unsafe removal.
+
 ## [2.3.1](https://github.com/jaysqvl/Jotist/compare/v2.3.0...v2.3.1) (2026-10-10)
 
 
