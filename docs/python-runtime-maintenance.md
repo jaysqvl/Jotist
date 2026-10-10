@@ -125,6 +125,16 @@ CI resolves all supported backend/Python combinations and automatically runs
 Linux CPU imports, native decoding, and installed dependency audits for adapter pull requests. GPU and full
 checkpoint qualification require the corresponding hardware and model assets.
 
+The opt-in `TestRuntimeQualification` harness covers actual Canary, Parakeet,
+Canary-Qwen and Sortformer checkpoint loading, as well as the shared local-ASR,
+WhisperX and research diarizer paths. Set `JOTIST_RUNTIME_MODEL`,
+`JOTIST_RUNTIME_ENV`, `JOTIST_RUNTIME_AUDIO` and `JOTIST_RUNTIME_DEVICE` for the
+selected installed runtime and known fixture. Use a qualified isolated runtime;
+the harness deliberately skips installation and does not update production
+dependencies. It runs one qualification worker per host and retains only numeric
+output evidence. Listing a supported path does not mean it has passed on the
+current release.
+
 NLTK 3.10.3 still has an unpatched model-persistence advisory. Its exceptions
 apply only to the reviewed WhisperX and Canary-Qwen paths and require matching
 hashes of both installed library code and the actual materialized Jotist caller
