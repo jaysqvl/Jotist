@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.2](https://github.com/jaysqvl/Jotist/compare/v2.3.1...v2.3.2) (2026-10-10)
+
+
+### Bug Fixes
+
+* **models:** support Hub tree caches and deduplicate warnings ([#41](https://github.com/jaysqvl/Jotist/issues/41)) ([909a56d](https://github.com/jaysqvl/Jotist/commit/909a56d92f222c45af5156c1f72a0bd75171aa4e))
+
 ## [2.3.1](https://github.com/jaysqvl/Jotist/compare/v2.3.0...v2.3.1) (2026-10-10)
 
 
