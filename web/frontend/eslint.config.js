@@ -6,7 +6,7 @@ import react from 'eslint-plugin-react'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['dist', '.test-dist'] },
+  { ignores: ['dist', '.test-dist', 'playwright-report', 'test-results'] },
   {
     extends: [
       js.configs.recommended,
@@ -35,5 +35,9 @@ export default tseslint.config(
 
       'no-console': ['warn', { allow: ['warn', 'error', 'info'] }],
     },
+  },
+  {
+    files: ['playwright.config.ts', 'e2e/**/*.ts'],
+    languageOptions: { globals: globals.node },
   },
 )

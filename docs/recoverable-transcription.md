@@ -23,6 +23,16 @@ Canary preserves its native recognition chunking, timestamp prompt and numerical
 
 Executions and stages have distinct identities. An attempt commits only while its exact execution generation remains authorized, uncancelled and within its saved deadline. Cancellation fences stale writers before their processes stop. A generation change alone does not authorize overlapping attempts: the previous attempt must have stopped and been terminalized.
 
+### Cohere audio preparation
+
+Cohere automatically uses the shared speech detection hook before recognition. This is normal model execution and does not require Strong recovery. The pinned Silero VAD 6.2.3 TorchScript detector runs on the resolved recognition device, then unloads before the recognizer loads. Required detection failures stop with an audio preparation diagnostic; the worker does not silently retry unfiltered audio.
+
+Recognition consumes padded speech ranges on the original timeline, bounded by the existing model window setting. Jotist keeps the full prepared waveform for word alignment and speaker diarization; it does not concatenate speech or shift timestamps. The versioned contract retains short detected utterances, adds 500 ms of context on each side, and merges nearby ranges. It uses a speech classifier rather than an amplitude cutoff. WhisperX continues using its own internal VAD; other recognizers retain their current preparation.
+
+Detector implementation, asset checksum and settings are included in checkpoint compatibility. Existing results remain intact, but a result made without this preparation cannot satisfy a new Cohere recognition stage. Compatible completed recognition results still skip inference.
+
+Cohere's publisher recommends VAD for hallucinations on quiet background noise ([model limitations](https://huggingface.co/CohereLabs/cohere-transcribe-03-2026#limitations)). Detection can still miss speech or classify noise as speech, so completion alone is not an accuracy guarantee. Decoder end-marker validation and the existing recovery permissions remain in force.
+
 ## Automatic recovery, scheduling and limits
 
 Settings → Transcription has one global Automatic recovery switch and a strength:

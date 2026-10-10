@@ -91,6 +91,37 @@ class NativeWheelPolicyTests(unittest.TestCase):
         ):
             verifier.check_package_pins(adapter, {"whisperx": ["3.8.7rc1"]})
 
+    def test_nvidia_runtimes_reject_hydra_policy_bypass_release(self):
+        # CVE-2026-106439 permits mutation of Hydra 1.3.6's target policy.
+        # Reject both a downgraded recipe and a stale derived lock, including
+        # NeMo's older upstream upper bound, before importing a checkpoint.
+        for key in ("nvidia-asr", "canary-qwen"):
+            adapter = verifier.ADAPTERS_BY_KEY[key]
+            hydra_pin = next(
+                pin for pin in adapter.package_pins if pin.name == "hydra-core"
+            )
+            for version in ("1.3.2", "1.3.6"):
+                with self.subTest(adapter=key, version=version):
+                    with tempfile.TemporaryDirectory() as directory:
+                        project = Path(directory) / "pyproject.toml"
+                        project.write_text(
+                            adapter.pyproject.read_text().replace(
+                                f"hydra-core=={hydra_pin.version}",
+                                f"hydra-core=={version}",
+                            )
+                        )
+                        with self.assertRaisesRegex(
+                            verifier.CheckError, "hydra-core.*must be a direct"
+                        ):
+                            verifier.validate_pyproject(
+                                replace(adapter, pyproject=project)
+                            )
+                    with self.assertRaises(verifier.CheckError):
+                        verifier.check_package_pins(
+                            replace(adapter, package_pins=(hydra_pin,)),
+                            {"hydra-core": [version]},
+                        )
+
     def test_vendor_sources_and_backend_are_preserved_in_test_environment(self):
         with tempfile.TemporaryDirectory() as directory:
             for key in ("whisperx", "diarizen", "nvidia-asr", "canary-qwen"):

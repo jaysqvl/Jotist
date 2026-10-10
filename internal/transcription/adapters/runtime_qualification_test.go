@@ -92,7 +92,7 @@ func TestRuntimeQualification(t *testing.T) {
 		t.Fatal("cannot link read-only audio into qualification workspace")
 	}
 	input := interfaces.AudioInput{FilePath: privateAudio, Format: strings.TrimPrefix(filepath.Ext(audio), "."), Size: stat.Size(), Duration: time.Duration(seconds * float64(time.Second))}
-	input, err = (&pipeline.AudioFormatPreprocessor{}).Process(ctx, input)
+	input, err = (&pipeline.AudioFormatPreprocessor{}).Process(ctx, input, interfaces.ModelCapabilities{})
 	if err != nil {
 		t.Fatal("qualification audio conversion failed")
 	}
@@ -139,18 +139,45 @@ func TestRuntimeQualification(t *testing.T) {
 		interfaces.StagedTranscriptionAdapter
 		ResolveStageParameters(interfaces.StageDescriptor, map[string]interface{}, []byte) (map[string]interface{}, error)
 	}
+	materializeNVIDIACompatibility := func() {
+		t.Helper()
+		compat, readErr := nvidiaScripts.ReadFile("py/nvidia/nvidia_compat.py")
+		if readErr != nil || writePythonProject(filepath.Join(environment, "nvidia_compat.py"), compat) != nil {
+			t.Fatal("cannot materialize NVIDIA compatibility import")
+		}
+	}
 	switch model {
 	case "canary":
 		adapter := NewCanaryAdapter(environment)
 		link("canary-1b-v2.nemo")
-		compat, _ := nvidiaScripts.ReadFile("py/nvidia/nvidia_compat.py")
-		if writePythonProject(filepath.Join(environment, "nvidia_compat.py"), compat) != nil {
-			t.Fatal("cannot materialize NVIDIA compatibility import")
-		}
+		materializeNVIDIACompatibility()
 		if err := adapter.copyTranscriptionScript(); err != nil {
 			t.Fatal("cannot materialize Canary worker")
 		}
 		staged, stages = adapter, adapter.Stages()
+	case "parakeet":
+		adapter := NewParakeetAdapter(environment)
+		link("parakeet-tdt-0.6b-v3.nemo")
+		materializeNVIDIACompatibility()
+		if adapter.copyTranscriptionScript() != nil || adapter.copyBufferedScript() != nil {
+			t.Fatal("cannot materialize Parakeet workers")
+		}
+		transcript, err = adapter.Transcribe(ctx, input, params, procCtx)
+	case "canary-qwen":
+		adapter := NewCanaryQwenAdapter(environment)
+		materializeNVIDIACompatibility()
+		if adapter.copyTranscriptionScript() != nil {
+			t.Fatal("cannot materialize Canary-Qwen worker")
+		}
+		transcript, err = adapter.Transcribe(ctx, input, params, procCtx)
+	case "sortformer":
+		adapter := NewSortformerAdapter(environment)
+		link("diar_streaming_sortformer_4spk-v2.1.nemo")
+		materializeNVIDIACompatibility()
+		if adapter.copyDiarizationScript() != nil {
+			t.Fatal("cannot materialize Sortformer worker")
+		}
+		diarization, err = adapter.Diarize(ctx, input, params, procCtx)
 	case "whisperx":
 		adapter := NewWhisperXAdapter(root)
 		adapter.initialized = true

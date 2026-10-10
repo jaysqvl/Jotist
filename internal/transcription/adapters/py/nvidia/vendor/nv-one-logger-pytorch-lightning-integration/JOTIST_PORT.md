@@ -9,5 +9,5 @@ reject NeMo imports. The method body and the `@override` check remain intact.
 The package uses a local version and public build metadata. `UPSTREAM.json`
 records the official source archive and before/after source hashes. The rest of
 OneLogger and NeMo remain official PyPI packages. The parent runtime explicitly
-uses patched Lightning 2.6.6 and Hydra 1.3.6; no checkpoint loading safeguards
+uses patched Lightning 2.6.6 and Hydra 1.3.7; no checkpoint loading safeguards
 are disabled by this port.

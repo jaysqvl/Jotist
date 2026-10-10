@@ -195,6 +195,12 @@ func main() {
 		MaxHeaderBytes:    1 << 20,
 	}
 
+	// Register shutdown before HTTP readiness becomes visible. Orchestrators
+	// may stop a newly ready process immediately during rolling replacement.
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(quit)
+
 	// Start server in a goroutine
 	go func() {
 		logger.Debug("Starting HTTP server", "host", cfg.Host, "port", cfg.Port)
@@ -206,13 +212,14 @@ func main() {
 
 	// Give the server a moment to start
 	time.Sleep(100 * time.Millisecond)
-	logger.Info("Jotist is ready",
-		"url", fmt.Sprintf("http://%s:%s", cfg.Host, cfg.Port))
+	if taskQueue.Ready() {
+		logger.Info("Jotist is ready", "url", fmt.Sprintf("http://%s:%s", cfg.Host, cfg.Port))
+	} else {
+		logger.Warn("Jotist interface is available; transcription dispatch is not ready")
+	}
 	logger.Debug("API documentation available at /swagger/index.html")
 
 	// Wait for interrupt signal to gracefully shutdown the server
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
 	logger.Info("Shutting down server")

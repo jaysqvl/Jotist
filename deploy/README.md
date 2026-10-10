@@ -67,3 +67,11 @@ docker build -f deploy/docker/Dockerfile.cuda -t jotist:local-cuda .
 The container's entrypoint path stays `/usr/local/bin/docker-entrypoint.sh`.
 Release automation uses these same Dockerfiles and supplies the release version
 and source commit. See [release maintenance](../docs/jotist-releases.md).
+
+## Health and startup
+
+`GET /health` is a lightweight liveness and release-identity response. `GET /ready` returns HTTP 200 only when the database is reachable and the processing queue has started; it returns 503 with generic component states otherwise. A busy worker or waiting jobs are normal ready states. `/ready` does not load models, download weights or prove GPU inference.
+
+Docker health checks use `/ready`. Models prepare on first use under the run's model-file lease, so starting the server does not restore intentionally deleted weights. The first run after a model removal may take longer while downloading it again.
+
+The root entrypoint applies both `PUID` and `PGID`, including an existing host group, and refuses to launch with a mismatched identity. When using Docker's explicit `--user`, that identity takes precedence. Keep persistent mount permissions compatible with the selected user. Configure restart/autostart behavior in your deployment manager; a Docker health check reports health and does not itself restart an unhealthy container.

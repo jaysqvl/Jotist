@@ -88,10 +88,10 @@ func localASRWorkerDiagnostic(data []byte, cause error) (error, map[string]strin
 	}
 	// The message contains only catalog text and bounded numeric coordinates.
 	diagnostic := interfaces.NewSafeRuntimeDiagnostic(code, message, cause)
-	if oneOf(failure.Class, "RecognitionError", "TimestampBoundsError", "RuntimeError", "ValueError", "TypeError", "AttributeError", "KeyError", "IndexError", "ImportError", "ModuleNotFoundError", "OSError", "FileNotFoundError", "PermissionError", "MemoryError", "GatedRepoError", "RepositoryNotFoundError", "HfHubHTTPError", "ModelError") {
+	if oneOf(failure.Class, "RecognitionError", "AudioPreparationError", "TimestampBoundsError", "RuntimeError", "ValueError", "TypeError", "AttributeError", "KeyError", "IndexError", "ImportError", "ModuleNotFoundError", "OSError", "FileNotFoundError", "PermissionError", "MemoryError", "GatedRepoError", "RepositoryNotFoundError", "HfHubHTTPError", "ModelError") {
 		fields["exception_class"] = failure.Class
 	}
-	if oneOf(failure.Phase, "configuration", "runtime_initialization", "audio_decode", "model_loading", "recognition", "alignment", "diarization", "output_validation") {
+	if oneOf(failure.Phase, "configuration", "runtime_initialization", "audio_decode", "audio_preparation", "model_loading", "recognition", "alignment", "diarization", "output_validation") {
 		fields["phase"] = failure.Phase
 	}
 	if oneOf(failure.Device, "cpu", "cuda") {

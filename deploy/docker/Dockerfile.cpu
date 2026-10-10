@@ -21,7 +21,7 @@ RUN cd frontend \
 ########################
 # Go build stage
 ########################
-FROM golang:1.26.6-bookworm AS go-builder
+FROM golang:1.26.9-bookworm AS go-builder
 WORKDIR /src
 ARG VERSION=dev
 ARG COMMIT=none
@@ -57,7 +57,10 @@ RUN mkdir -p /out/bin/cli \
 ########################
 # Runtime stage
 ########################
-FROM python:3.11-slim AS runtime
+# Use the same maintained OS/Python baseline as the CUDA runtimes. The floating
+# python:3.11-slim base also carries a separate, vendored setuptools dependency
+# graph that is not managed by the adapter audit.
+FROM ubuntu:24.04 AS runtime
 
 ENV PYTHONUNBUFFERED=1 \
   HOST=0.0.0.0 \
@@ -75,14 +78,16 @@ WORKDIR /app
 # System deps: curl for uv install, ca-certs, ffmpeg for yt-dlp, git for git+ installs, gosu for user switching
 # Build tools: gcc, g++, make for compiling Python C extensions (needed for NeMo dependencies like texterrors)
 RUN apt-get update \
+  && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y --no-install-recommends \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   curl ca-certificates ffmpeg git gosu \
-  build-essential gcc g++ make cmake python3-dev unzip\
+  build-essential gcc g++ make cmake python3-dev unzip \
+  python3 python3-venv python3-pip \
   && rm -rf /var/lib/apt/lists/*
 
 # Install uv (fast Python package manager) directly to system PATH
-ARG UV_VERSION=0.11.25
-ARG UV_SHA256=1db18b5e76fa645a7f3865773139bdec8e2d46adbdbb35e7410b34fa8015ccd2
+ARG UV_VERSION=0.12.5
+ARG UV_SHA256=68a509da24b06b4223a1c0175fb5eb5bc79342b76cbeff0cfe51ac3f5b17b6b2
 RUN curl -fL "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-x86_64-unknown-linux-gnu.tar.gz" -o /tmp/uv.tar.gz \
   && echo "${UV_SHA256}  /tmp/uv.tar.gz" | sha256sum -c - \
   && tar -xzf /tmp/uv.tar.gz -C /tmp \
@@ -110,9 +115,9 @@ RUN curl -fL "https://github.com/denoland/deno/releases/download/${DENO_VERSION}
   && rm -f /tmp/deno.zip \
   && deno --version
 
-# Create default user (will be modified at runtime if needed)
-RUN groupadd -g 1000 appuser \
-  && useradd -m -u 1000 -g 1000 appuser \
+# Ubuntu can already contain UID/GID 1000. The entrypoint applies PUID/PGID.
+RUN groupadd -g 10001 appuser \
+  && useradd -m -u 10001 -g 10001 appuser \
   && mkdir -p /app/data/uploads /app/data/transcripts \
   && chown -R appuser:appuser /app
 
@@ -129,6 +134,8 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh \
 # Expose port and declare volume for persistence
 EXPOSE 8080
 VOLUME ["/app/data"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=3 \
+  CMD curl --fail --silent --max-time 3 "http://127.0.0.1:${PORT:-8080}/ready" >/dev/null || exit 1
 
 # Start as root to allow user ID changes, entrypoint script will switch users
 # Verify uv is available

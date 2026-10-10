@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { RunStatisticsSettings } from "../components/RunStatisticsSettings";
 import { useQueryClient } from "@tanstack/react-query";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { User, Settings as SettingsIcon, Key, Bot, FileText, Plus, Terminal, BarChart3 } from "lucide-react";
+import { User, Settings as SettingsIcon, Key, Bot, FileText, Plus, Terminal, BarChart3, HardDrive } from "lucide-react";
 import {
   Tabs,
   TabsContent,
@@ -19,13 +19,14 @@ import { LLMSettings } from "../components/LLMSettings";
 import { SummaryTemplateDialog, type SummaryTemplate } from "../components/SummaryTemplateDialog";
 import { SummaryTemplatesTable } from "../components/SummaryTemplatesTable";
 import { CLISettingsTab } from "../components/CLISettingsTab";
+import { ModelStorageSettings } from "../components/ModelStorageSettings";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { unknownAppInfo, useAppInfo } from "@/hooks/useAppInfo";
 
 export function Settings() {
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab") || "transcription";
-  const activeTab = ["transcription", "statistics", "account", "apikeys", "llms", "summary", "cli"].includes(requestedTab) ? requestedTab : "transcription";
+  const activeTab = ["transcription", "statistics", "models", "account", "apikeys", "llms", "summary", "cli"].includes(requestedTab) ? requestedTab : "transcription";
   const setActiveTab = (tab: string) => { const next = new URLSearchParams(searchParams); next.set("tab", tab); setSearchParams(next, { replace: true }); };
   const { getAuthHeaders } = useAuth();
   const queryClient = useQueryClient();
@@ -34,6 +35,17 @@ export function Settings() {
   const [summaryRefresh, setSummaryRefresh] = useState(0);
   const [llmConfigured, setLlmConfigured] = useState(false);
   const { data: appInfo = unknownAppInfo } = useAppInfo();
+  const tabsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const list = tabsRef.current;
+    const selected = list?.querySelector<HTMLElement>('[data-state="active"]');
+    if (!list || !selected) return;
+    const bounds = list.getBoundingClientRect();
+    const tab = selected.getBoundingClientRect();
+    if (tab.right > bounds.right) list.scrollLeft += tab.right - bounds.right + 4;
+    else if (tab.left < bounds.left) list.scrollLeft -= bounds.left - tab.left + 4;
+  }, [activeTab]);
 
   // Fetch LLM config and models
   useEffect(() => {
@@ -75,7 +87,7 @@ export function Settings() {
           onValueChange={setActiveTab}
           className="space-y-4 sm:space-y-6"
         >
-          <TabsList className="flex w-full min-w-0 justify-start overflow-x-auto items-center h-auto bg-[var(--bg-main)]/50 border border-[var(--border-subtle)] p-1 rounded-xl">
+          <TabsList ref={tabsRef} className="flex w-full min-w-0 justify-start overflow-x-auto items-center h-auto bg-[var(--bg-main)]/50 border border-[var(--border-subtle)] p-1 rounded-xl">
             <TabsTrigger
               value="transcription"
               aria-label="Transcription"
@@ -85,6 +97,7 @@ export function Settings() {
               <span className="inline">Transcription</span>
             </TabsTrigger>
             <TabsTrigger value="statistics" aria-label="Statistics" className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-[var(--text-tertiary)] transition-all hover:text-[var(--text-secondary)] data-[state=active]:bg-[var(--bg-card)] data-[state=active]:text-[var(--text-primary)] data-[state=active]:shadow-sm sm:text-sm"><BarChart3 className="h-4 w-4" /><span>Statistics</span></TabsTrigger>
+            <TabsTrigger value="models" aria-label="Models" className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-[var(--text-tertiary)] transition-all hover:text-[var(--text-secondary)] data-[state=active]:bg-[var(--bg-card)] data-[state=active]:text-[var(--text-primary)] data-[state=active]:shadow-sm sm:text-sm"><HardDrive className="h-4 w-4" /><span>Models</span></TabsTrigger>
             <TabsTrigger
               value="account"
               aria-label="Account"
@@ -133,6 +146,7 @@ export function Settings() {
           </TabsContent>
 
           <TabsContent value="statistics"><RunStatisticsSettings /></TabsContent>
+          <TabsContent value="models"><ModelStorageSettings /></TabsContent>
 
           {/* Account Tab */}
           <TabsContent value="account" className="space-y-6">

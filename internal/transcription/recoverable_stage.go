@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/modelstorage"
 	"github.com/jaysqvl/Jotist/internal/repository"
 	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 
@@ -30,11 +31,24 @@ type recoveryStageContext struct {
 }
 
 func runRecoverableStage[T any](ctx context.Context, recovery recoveryStageContext, kind, node string, adapter interfaces.ModelAdapter, input interfaces.AudioInput, params map[string]interface{}, procCtx interfaces.ProcessingContext, run func(map[string]interface{}) (T, error)) (T, map[string]string, error) {
+	modelFiles := modelstorage.StageUse(adapter.GetCapabilities().ModelID, kind, procCtx.JobID, params)
+	releaseModelFiles := modelstorage.ProcessGate().BeginUse(modelFiles)
+	defer releaseModelFiles()
 	var zero T
 	if recovery.nodePrefix != "" {
 		node = recovery.nodePrefix + node
 	}
 	if recovery.store == nil {
+		// Missing weights must be fetched again even on legacy runs without a
+		// checkpoint store. The file lease covers preparation and inference.
+		if err := adapter.PrepareEnvironment(ctx); err != nil {
+			appendStageDiagnostic(procCtx.OutputDirectory, node, "preparation", err)
+			if diagnostic, ok := interfaces.RuntimeDiagnostic(err); ok {
+				return zero, nil, fmt.Errorf("%s runtime preparation failed: %w", node, diagnostic)
+			}
+			return zero, nil, fmt.Errorf("%s runtime preparation failed; verify model access and installed dependencies", node)
+		}
+		modelstorage.ProcessGate().FilesChanged(modelFiles)
 		return runWithAutoDeviceFallback(ctx, node, params, procCtx, run)
 	}
 	prepareRelease, err := acquireGPUStage(ctx, resolveStageParameters(params, RecoveryFixed, recovery.gpu))
@@ -43,6 +57,7 @@ func runRecoverableStage[T any](ctx context.Context, recovery recoveryStageConte
 	}
 	err = adapter.PrepareEnvironment(ctx)
 	prepareRelease()
+	modelstorage.ProcessGate().FilesChanged(modelFiles)
 	if err != nil {
 		appendStageDiagnostic(procCtx.OutputDirectory, node, "preparation", err)
 		if diagnostic, ok := interfaces.RuntimeDiagnostic(err); ok {
@@ -164,7 +179,7 @@ func runRecoverableStage[T any](ctx context.Context, recovery recoveryStageConte
 	if (planned["align_words"] == true || planned["diarize"] == true) && len(descriptor.ModelArtifacts) == 0 {
 		reusable = false
 	}
-	provenance := repository.CheckpointProvenance{AudioSHA256: recovery.originalHash, PreparedAudioSHA256: recovery.preparedHash, PreprocessingHash: digestBytes([]byte("mono-pcm16-16000-v1")), SettingsHash: privateSettingsHash(planned), RuntimeFingerprint: fingerprint, Implementation: "adapter-boundary-v1", Models: artifacts, Upstream: recovery.upstream}
+	provenance := repository.CheckpointProvenance{AudioSHA256: recovery.originalHash, PreparedAudioSHA256: recovery.preparedHash, PreprocessingHash: audioPreprocessingHash(input), SettingsHash: privateSettingsHash(planned), RuntimeFingerprint: fingerprint, Implementation: "adapter-boundary-v1", Models: artifacts, Upstream: recovery.upstream}
 	schema := "1"
 	if descriptor.SchemaVersion != "" {
 		schema = descriptor.SchemaVersion

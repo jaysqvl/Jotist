@@ -68,7 +68,7 @@ ADAPTERS: tuple[AdapterSpec, ...] = (
             PackagePin("nemo-toolkit", version="3.0.0"),
             PackagePin("lightning", version="2.6.6"),
             PackagePin("pytorch-lightning", version="2.6.6"),
-            PackagePin("hydra-core", version="1.3.6"),
+            PackagePin("hydra-core", version="1.3.7"),
             PackagePin(
                 "nv-one-logger-pytorch-lightning-integration", version="2.3.1+jotist.1"
             ),
@@ -86,7 +86,7 @@ ADAPTERS: tuple[AdapterSpec, ...] = (
             ),
         ),
         bootstrap_script="nvidia_compat.py",
-        expected_overrides=("lightning==2.6.6", "hydra-core==1.3.6"),
+        expected_overrides=("lightning==2.6.6", "hydra-core==1.3.7"),
         pair_import_packages=("onnx", "ml-dtypes"),
         pair_import_code=(
             "import ml_dtypes, onnx; "
@@ -106,7 +106,7 @@ ADAPTERS: tuple[AdapterSpec, ...] = (
             PackagePin("nemo-toolkit", version="3.0.0"),
             PackagePin("lightning", version="2.6.6"),
             PackagePin("pytorch-lightning", version="2.6.6"),
-            PackagePin("hydra-core", version="1.3.6"),
+            PackagePin("hydra-core", version="1.3.7"),
             PackagePin("nltk", version="3.10.3"),
             PackagePin(
                 "nv-one-logger-pytorch-lightning-integration", version="2.3.1+jotist.1"
@@ -126,7 +126,7 @@ ADAPTERS: tuple[AdapterSpec, ...] = (
         ),
         bootstrap_script="nvidia_compat.py",
         caller_scripts=("canary_qwen_transcribe.py",),
-        expected_overrides=("lightning==2.6.6", "hydra-core==1.3.6"),
+        expected_overrides=("lightning==2.6.6", "hydra-core==1.3.7"),
         pair_import_packages=("onnx", "ml-dtypes"),
         pair_import_code=(
             "import ml_dtypes, onnx; "
@@ -221,13 +221,14 @@ ADAPTERS: tuple[AdapterSpec, ...] = (
         key="local-asr",
         label="Modern local ASR",
         pyproject=ROOT / "internal/transcription/adapters/py/local_asr/pyproject.toml",
-        import_code="import torch, torchaudio; from transformers import AutoProcessor, AutoModelForSpeechSeq2Seq",
+        import_code="import torch, torchaudio, silero_vad; from transformers import AutoProcessor, AutoModelForSpeechSeq2Seq",
         requires_python=">=3.11,<3.13",
         package_pins=(
             PackagePin("transformers", version="5.17.0"),
             PackagePin("torch", version="2.14.0"),
             PackagePin("torchaudio", version="2.11.0"),
             PackagePin("torchcodec", version="0.16.0"),
+            PackagePin("silero-vad", version="6.2.3"),
             PackagePin("huggingface-hub", version="1.31.0"),
             PackagePin("accelerate", version="1.15.0"),
         ),

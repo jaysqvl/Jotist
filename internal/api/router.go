@@ -78,6 +78,7 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 
 	// Health check endpoint (no auth required)
 	router.GET("/health", handler.HealthCheck)
+	router.GET("/ready", handler.ReadinessCheck)
 
 	// CLI install script alias (root level for easier access)
 	router.GET("/install.sh", handler.GetInstallScript)
@@ -86,6 +87,10 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 	// API v1 routes
 	v1 := router.Group("/api/v1")
 	{
+		modelFiles := v1.Group("/settings/models", middleware.JWTOnlyMiddleware(authService))
+		modelFiles.GET("", handler.GetModelStorage)
+		modelFiles.GET("/events", handler.ModelStorageEvents)
+		modelFiles.DELETE("/:id", handler.RemoveModelFiles)
 		// Authentication routes (no auth required)
 		auth := v1.Group("/auth")
 		{

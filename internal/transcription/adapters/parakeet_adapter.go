@@ -42,6 +42,7 @@ func NewParakeetAdapter(envPath string) *ParakeetAdapter {
 			"high_quality":      true,
 		},
 		Metadata: map[string]string{
+			"lazy_init":           "true",
 			"engine":              "nvidia_nemo",
 			"framework":           "nemo_toolkit",
 			"license":             "CC-BY-4.0",

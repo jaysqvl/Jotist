@@ -9,17 +9,18 @@ import (
 
 // ModelCapabilities describes what a model can do and its requirements
 type ModelCapabilities struct {
-	ModelID            string            `json:"model_id"`
-	ModelFamily        string            `json:"model_family"`
-	DisplayName        string            `json:"display_name"`
-	Description        string            `json:"description"`
-	Version            string            `json:"version"`
-	SupportedLanguages []string          `json:"supported_languages"`
-	SupportedFormats   []string          `json:"supported_formats"`
-	RequiresGPU        bool              `json:"requires_gpu"`
-	MemoryRequirement  int               `json:"memory_requirement_mb"`
-	Features           map[string]bool   `json:"features"`
-	Metadata           map[string]string `json:"metadata"`
+	ModelID            string                 `json:"model_id"`
+	ModelFamily        string                 `json:"model_family"`
+	DisplayName        string                 `json:"display_name"`
+	Description        string                 `json:"description"`
+	Version            string                 `json:"version"`
+	SupportedLanguages []string               `json:"supported_languages"`
+	SupportedFormats   []string               `json:"supported_formats"`
+	RequiresGPU        bool                   `json:"requires_gpu"`
+	MemoryRequirement  int                    `json:"memory_requirement_mb"`
+	Features           map[string]bool        `json:"features"`
+	Metadata           map[string]string      `json:"metadata"`
+	SpeechDetection    *SpeechDetectionConfig `json:"speech_detection,omitempty"`
 }
 
 // ParameterSchema defines a parameter that a model accepts
@@ -45,14 +46,30 @@ type ValidationRule struct {
 
 // AudioInput represents input audio data and metadata
 type AudioInput struct {
-	FilePath     string            `json:"file_path"`
-	Format       string            `json:"format"`
-	SampleRate   int               `json:"sample_rate"`
-	Channels     int               `json:"channels"`
-	Duration     time.Duration     `json:"duration"`
-	Size         int64             `json:"size"`
-	Metadata     map[string]string `json:"metadata"`
-	TempFilePath string            `json:"temp_file_path,omitempty"` // For converted files
+	FilePath        string                 `json:"file_path"`
+	Format          string                 `json:"format"`
+	SampleRate      int                    `json:"sample_rate"`
+	Channels        int                    `json:"channels"`
+	Duration        time.Duration          `json:"duration"`
+	Size            int64                  `json:"size"`
+	Metadata        map[string]string      `json:"metadata"`
+	TempFilePath    string                 `json:"temp_file_path,omitempty"` // For converted files
+	SpeechDetection *SpeechDetectionConfig `json:"speech_detection,omitempty"`
+}
+
+// SpeechDetectionConfig is an adapter-owned preparation contract, not a user
+// recovery setting. Recognition consumes ranges on the unchanged audio timeline.
+type SpeechDetectionConfig struct {
+	Implementation       string  `json:"implementation"`
+	PackageVersion       string  `json:"package_version"`
+	ModelSHA256          string  `json:"model_sha256"`
+	SampleRate           int     `json:"sample_rate"`
+	Threshold            float64 `json:"threshold"`
+	NegativeThreshold    float64 `json:"negative_threshold"`
+	MinSpeechDurationMS  int     `json:"min_speech_duration_ms"`
+	MinSilenceDurationMS int     `json:"min_silence_duration_ms"`
+	ContextPaddingMS     int     `json:"context_padding_ms"`
+	MergeGapMS           int     `json:"merge_gap_ms"`
 }
 
 // TranscriptSegment is an adapter's acoustic segment, not necessarily a display
@@ -215,7 +232,7 @@ type ProcessingPipeline interface {
 // Preprocessor handles audio preprocessing before model execution
 type Preprocessor interface {
 	// Process transforms the audio input
-	Process(ctx context.Context, input AudioInput) (AudioInput, error)
+	Process(ctx context.Context, input AudioInput, capabilities ModelCapabilities) (AudioInput, error)
 
 	// AppliesTo determines if this preprocessor should be used for the given model
 	AppliesTo(capabilities ModelCapabilities) bool

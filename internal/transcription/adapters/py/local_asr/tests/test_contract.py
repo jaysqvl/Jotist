@@ -271,6 +271,8 @@ def test_recognition_failure_identifies_audio_window(monkeypatch,tmp_path):
 
 def cohere_cutoff_pipeline(monkeypatch, tmp_path, response, max_new_tokens=0):
     audio = np.ones(30 * 16000, dtype=np.float32)
+    # Decoder-policy tests retain their complete synthetic speech window.
+    monkeypatch.setattr(transcribe, "detect_speech", lambda audio, sr, device, contract, **kwargs: ([(0, len(audio))], {}))
     monkeypatch.setitem(sys.modules, "soundfile", types.SimpleNamespace(read=lambda *args, **kwargs: (audio, 16000)))
     monkeypatch.setitem(sys.modules, "torch", types.SimpleNamespace(
         cuda=types.SimpleNamespace(is_available=lambda: False), float32="torch.float32"))

@@ -15,7 +15,7 @@ dependencies = [
     "peft==0.20.0",
     "lightning==2.6.6",
     "pytorch-lightning==2.6.6",
-    "hydra-core==1.3.6",
+    "hydra-core==1.3.7",
     "nltk==3.10.3",
     "nv-one-logger-pytorch-lightning-integration==2.3.1+jotist.1",
     "librosa",
@@ -37,10 +37,10 @@ dev = [
 [tool.uv]
 # NeMo 3.0's training-era upper bounds select vulnerable Lightning <=2.4.0
 # and Hydra <=1.3.2. This inference compatibility port changes only those
-# bounds: Lightning 2.6.6 fixes CVE-2026-58659/CVE-2026-31221; Hydra >=1.3.4
-# fixes CVE-2026-68508. Keep the official NeMo wheel and strict source hashes.
+# bounds: Lightning 2.6.6 fixes CVE-2026-58659/CVE-2026-31221; Hydra 1.3.7
+# fixes CVE-2026-68508/CVE-2026-106439. Keep the official NeMo wheel and strict source hashes.
 # Changes require the real ASR/SALM and Canary checkpoint qualification suite.
-override-dependencies = ["lightning==2.6.6", "hydra-core==1.3.6"]
+override-dependencies = ["lightning==2.6.6", "hydra-core==1.3.7"]
 
 [tool.uv.sources]
 nv-one-logger-pytorch-lightning-integration = { path = "vendor/nv-one-logger-pytorch-lightning-integration" }

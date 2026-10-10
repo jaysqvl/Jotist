@@ -154,6 +154,19 @@ func NewLocalASRAdapter(envPath, modelID string) (*LocalASRAdapter, error) {
 		SupportedFormats:  []string{"wav", "flac", "mp3", "m4a", "mp4", "ogg", "opus", "aac", "webm"},
 		MemoryRequirement: spec.MemoryMB, Features: features, Metadata: metadata,
 	}
+	if spec.Engine == "cohere" {
+		data, err := localASRScripts.ReadFile("py/local_asr/speech_detection.json")
+		if err != nil {
+			return nil, fmt.Errorf("missing speech detection contract")
+		}
+		var contract interfaces.SpeechDetectionConfig
+		if err := json.Unmarshal(data, &contract); err != nil {
+			return nil, fmt.Errorf("invalid speech detection contract")
+		}
+		capabilities.SpeechDetection = &contract
+		features["external_vad"] = true
+		metadata["speech_detection"] = contract.Implementation
+	}
 	maxChunk := float64(spec.MaxChunkSeconds)
 	minChunk, minTokens, maxTokens := float64(0), float64(0), float64(65536)
 	schema := []interfaces.ParameterSchema{
@@ -240,7 +253,7 @@ func (a *LocalASRAdapter) PrepareEnvironment(ctx context.Context) error {
 		}
 		return localASRDiagnostic("environment_install_failed", err)
 	}
-	cmd = processutil.CommandContext(ctx, "uv", "run", "--no-sync", "--project", a.envPath, "python", "-c", "import torch, transformers, soundfile; from transformers import AutoProcessor")
+	cmd = processutil.CommandContext(ctx, "uv", "run", "--no-sync", "--project", a.envPath, "python", "-c", "import torch, transformers, soundfile, silero_vad; from transformers import AutoProcessor")
 	if err := processutil.Run(ctx, cmd); err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -350,6 +363,12 @@ func (a *LocalASRAdapter) writeEnvironmentAssets(assets map[string][]byte) error
 // request and process arguments. Hugging Face's usual token/cache lookup works.
 func (a *LocalASRAdapter) buildRequest(input interfaces.AudioInput, params map[string]interface{}, tempDir string) ([]string, []string, error) {
 	config := map[string]interface{}{"model_id": a.spec.ID, "audio_file": input.FilePath, "output": filepath.Join(tempDir, "result.json")}
+	if contract := a.GetCapabilities().SpeechDetection; contract != nil {
+		if input.SpeechDetection != nil && *input.SpeechDetection != *contract {
+			return nil, nil, localASRDiagnostic("runtime_audio_preparation", nil)
+		}
+		config["speech_detection"] = contract
+	}
 	config["external_diarization_requested"], _ = params["external_diarization_requested"].(bool)
 	for _, schema := range a.schema {
 		if schema.Name != "hf_token" {

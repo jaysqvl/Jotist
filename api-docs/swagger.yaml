@@ -483,6 +483,13 @@ definitions:
         description: Match tests expecting snake_case key
         type: boolean
     type: object
+  api.RemoveModelFilesRequest:
+    properties:
+      version:
+        type: string
+    required:
+    - version
+    type: object
   api.ReorderTranscriptionQueueRequest:
     properties:
       ordered_ids:
@@ -1610,6 +1617,97 @@ definitions:
         type: number
       verbose:
         type: boolean
+    type: object
+  modelstorage.Entry:
+    properties:
+      bytes:
+        type: integer
+      cached_only_profiles:
+        type: integer
+      can_remove:
+        type: boolean
+      id:
+        type: string
+      last_used:
+        type: string
+      locations:
+        type: integer
+      name:
+        type: string
+      profiles:
+        type: integer
+      purpose:
+        type: string
+      reason:
+        type: string
+      removable_bytes:
+        type: integer
+      revisions:
+        type: integer
+      shared_bytes:
+        type: integer
+      source:
+        type: string
+      status:
+        type: string
+      uses:
+        items:
+          $ref: '#/definitions/modelstorage.Use'
+        type: array
+      version:
+        type: string
+    type: object
+  modelstorage.Inventory:
+    properties:
+      entries:
+        items:
+          $ref: '#/definitions/modelstorage.Entry'
+        type: array
+      model_bytes:
+        type: integer
+      package_cache_bytes:
+        type: integer
+      runtime_bytes:
+        type: integer
+      scanned_at:
+        type: string
+      volumes:
+        items:
+          $ref: '#/definitions/modelstorage.Volume'
+        type: array
+      warnings:
+        items:
+          type: string
+        type: array
+    type: object
+  modelstorage.Removal:
+    properties:
+      id:
+        type: string
+      message:
+        type: string
+      removed_bytes:
+        type: integer
+    type: object
+  modelstorage.Use:
+    properties:
+      cached_only:
+        type: boolean
+      recording_id:
+        type: string
+      recording_title:
+        type: string
+      stage:
+        type: string
+      state:
+        type: string
+    type: object
+  modelstorage.Volume:
+    properties:
+      available_bytes:
+        type: integer
+      total_bytes:
+        type: integer
     type: object
   repository.AdaptivePolicySnapshot:
     properties:
@@ -2849,6 +2947,62 @@ paths:
       summary: Set default transcription profile
       tags:
       - profiles
+  /api/v1/settings/models:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/modelstorage.Inventory'
+      security:
+      - BearerAuth: []
+      summary: Audit downloaded models and local cache storage
+      tags:
+      - settings
+  /api/v1/settings/models/{id}:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: Opaque cache entry ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Confirmed inventory version
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.RemoveModelFilesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/modelstorage.Removal'
+      security:
+      - BearerAuth: []
+      summary: Remove a downloaded model
+      tags:
+      - settings
+  /api/v1/settings/models/events:
+    get:
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: Model storage invalidations
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Subscribe to model storage changes
+      tags:
+      - settings
   /api/v1/summaries:
     get:
       description: Get all summarization templates
@@ -4852,7 +5006,8 @@ paths:
       - user
   /health:
     get:
-      description: Check if the API is healthy
+      description: Confirms the HTTP process is responding. Use /ready for database
+        and queue readiness.
       produces:
       - application/json
       responses:
@@ -4862,7 +5017,27 @@ paths:
             additionalProperties:
               type: string
             type: object
-      summary: Health check
+      summary: Service liveness and release identity
+      tags:
+      - health
+  /ready:
+    get:
+      description: Read-only database and queue startup checks. Busy workers remain
+        ready. Failure responses omit internal errors and private paths.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "503":
+          description: Service Unavailable
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Check whether the service can accept transcription work
       tags:
       - health
   /transcription/{id}/logs:

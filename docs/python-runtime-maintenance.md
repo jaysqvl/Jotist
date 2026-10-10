@@ -4,11 +4,11 @@ Jotist uses a shared PyTorch implementation across its model adapters. Separate
 Python environments isolate conflicting package requirements; they are not
 security sandboxes. Several models already share each environment.
 
-The published RC3 preview corrects an existing-install upgrade problem found
-while staging RC2: retained lockfiles kept older dependencies, and readiness
-left obsolete packages installed. Its preparation code passed migration of
-retained environments as well as fresh-install checks. Deployment acceptance
-still requires qualification of the actual published image and installed state.
+Preparation must refresh retained dependency graphs during coordinated security
+updates, including environments whose recipes did not change. Readiness also
+removes obsolete installed packages. Deployment acceptance requires testing the
+actual preparation methods on retained environments in the published image;
+manually deleting a copied lockfile does not establish that an upgrade works.
 
 ## Runtime groups
 
@@ -44,6 +44,41 @@ guidance. The Blackwell image uses CUDA 13.0 and requires a compatible NVIDIA
 driver. Package resolution alone does not establish that a GPU architecture was
 tested.
 
+All container variants use Ubuntu 24.04 and its Python 3.12 packages. Runtime
+image builds apply the distribution's available package updates before adding
+audio and compiler dependencies. The compiler and Python development headers
+remain available for first-use native builds. CI pulls the current base images
+and bypasses the runtime stage cache so cached APT layers cannot retain old
+security packages. The checksum-pinned uv 0.12.5 binary includes Quinn 0.11.15,
+fixing [GHSA-4w2j-m93h-cj5j](https://github.com/advisories/GHSA-4w2j-m93h-cj5j)
+in the older embedded QUIC implementation. Image vulnerability checks cover the actual installed
+system packages and bundled binaries separately from the adapter audits.
+
+### Kernel header applicability in image scans
+
+Ubuntu's `linux-libc-dev` package supplies exported userspace headers needed by
+the native compiler toolchain. Kernel implementation CVEs can be attributed to
+that source package even though its installed payload has no kernel modules or
+executables. This does not establish the security of the host's kernel.
+
+`scripts/container-header-review.json` records the exact Ubuntu package PURL,
+version, architecture, path manifest and individually reviewed CVE fix commits.
+The current review covers 143 CVEs on `6.8.0-146.146`: their changed kernel
+implementation files are absent from the package. The only changed exported
+header adds a definition inside `__KERNEL__`; the upstream header-export step
+removes it, producing identical pre/post userspace bytes.
+
+Each built image must independently verify the actual 990 payload files are
+regular headers or the two expected documentation files, and that their path
+manifest matches. `prepare_container_vex.py` then produces version-specific
+[OpenVEX](https://trivy.dev/docs/latest/supply-chain/vex/file/) statements with
+`vulnerable_code_not_present`. The original scan, actual file inspection,
+generated VEX and final scan are retained together. The review expires on
+2026-11-09. Changed package identity or payload, expired reviews, and missing
+evidence fail qualification. New CVEs and findings on any other package retain
+the HIGH/CRITICAL gate, including findings without an available fix. The image
+gate runs before signed qualification and alias promotion.
+
 ## Coordinated compatibility changes
 
 WhisperX and DiariZen contain small, explicitly documented compatibility ports.
@@ -55,7 +90,8 @@ loading uses restricted deserialization with scoped, known local types.
 
 NeMo 3.0 requests Lightning <=2.4 and Hydra <=1.3.2, which retain published
 vulnerabilities. The NVIDIA recipes explicitly override only these dependency
-bounds, pinning Lightning and PyTorch Lightning 2.6.6 and Hydra 1.3.6. This is a
+bounds, pinning Lightning and PyTorch Lightning 2.6.6 and Hydra 1.3.7. Hydra 1.3.7
+also fixes the mutable target-policy bypass in CVE-2026-106439. This is a
 Jotist-maintained compatibility choice, not a claim that the stock NeMo metadata
 supports these versions. Native imports and actual inference must be repeated
 when these bounds change. The two-file OneLogger Lightning integration is
@@ -68,13 +104,21 @@ it. Original licenses are included in
 
 ## Upgrading an existing environment
 
-A hash marker identifies each managed runtime's embedded project definition and
-reconciled Python pin. On first adoption, or when either changes, preparation
-removes the derived `uv.lock` so uv resolves the updated recipe. The marker is
-written atomically. uv synchronizes the existing environment and may rebuild it
+A hash marker identifies each managed runtime's embedded project definition,
+reconciled Python pin and dependency generation. On first adoption, or when any
+of these changes, preparation removes the derived `uv.lock` so uv resolves the
+updated recipe. The marker is written atomically. uv synchronizes the existing
+environment and may rebuild it
 when its Python interpreter changes. Downloaded models and application data are
 preserved; ordinary preparation with unchanged inputs retains the resolved lock
 rather than refreshing all dependencies on every restart.
+
+Advance `pythonRuntimeDependencyGeneration` in
+`internal/transcription/adapters/adapter_python_environment.go` for coordinated
+transitive security updates, even when a runtime's direct requirements remain
+unchanged. A previously valid project/pin marker must not preserve old
+transitive versions through that update. Keep the generation stable for ordinary
+application releases, and qualify all affected runtime groups after advancing it.
 
 Readiness synchronizes the installed environment exactly. Where readiness uses
 `uv run`, it passes `--exact`, removing packages that are no longer part of the
@@ -110,8 +154,10 @@ does not establish readiness and must not be accepted for deployment.
    CPU recovery where relevant. Preserve precision, model revisions, alignment
    and chunking settings. A short smoke test establishes integration, not WER,
    DER, or accuracy on a user's meetings.
-6. Test migration using a private copy of existing runtime volumes as well as a
-   fresh environment. After exact readiness, compare the complete installed
+6. Test migration using the application's actual preparation methods on a
+   private copy of existing runtime volumes, retaining their old project,
+   interpreter pin, adoption marker and lockfile. Also test a fresh environment.
+   After exact readiness, compare the complete installed
    package/version graph with the reviewed qualification graph and run the
    installed audit. Review and requalify any difference, including extra
    packages; checking only the directly pinned versions is insufficient.
@@ -123,6 +169,16 @@ does not establish readiness and must not be accepted for deployment.
 CI resolves all supported backend/Python combinations and automatically runs
 Linux CPU imports, native decoding, and installed dependency audits for adapter pull requests. GPU and full
 checkpoint qualification require the corresponding hardware and model assets.
+
+The opt-in `TestRuntimeQualification` harness covers actual Canary, Parakeet,
+Canary-Qwen and Sortformer checkpoint loading, as well as the shared local-ASR,
+WhisperX and research diarizer paths. Set `JOTIST_RUNTIME_MODEL`,
+`JOTIST_RUNTIME_ENV`, `JOTIST_RUNTIME_AUDIO` and `JOTIST_RUNTIME_DEVICE` for the
+selected installed runtime and known fixture. Use a qualified isolated runtime;
+the harness deliberately skips installation and does not update production
+dependencies. It runs one qualification worker per host and retains only numeric
+output evidence. Listing a supported path does not mean it has passed on the
+current release.
 
 NLTK 3.10.3 still has an unpatched model-persistence advisory. Its exceptions
 apply only to the reviewed WhisperX and Canary-Qwen paths and require matching

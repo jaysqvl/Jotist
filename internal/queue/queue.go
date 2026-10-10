@@ -14,6 +14,7 @@ import (
 
 	"github.com/jaysqvl/Jotist/internal/execution"
 	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/modelstorage"
 	"github.com/jaysqvl/Jotist/internal/repository"
 	"github.com/jaysqvl/Jotist/pkg/logger"
 
@@ -66,6 +67,7 @@ type TaskQueue struct {
 	jobTimeout     time.Duration
 	reconcileEvery time.Duration
 	protectedJobs  map[string]struct{}
+	startupMutex   sync.RWMutex // Separate from jobsMutex: enqueue can hold queue ownership.
 	startupError   error
 }
 
@@ -135,7 +137,7 @@ func (tq *TaskQueue) Start() error {
 	if tq.settingsRepo != nil && !tq.workerOverride {
 		workers, err := tq.settingsRepo.LoadWorkers(tq.ctx)
 		if err != nil {
-			tq.startupError = err
+			tq.blockStartup(err)
 			return fmt.Errorf("load recording concurrency: %w", err)
 		}
 		tq.workerCount = workers
@@ -148,7 +150,7 @@ func (tq *TaskQueue) Start() error {
 	if recovery, ok := tq.processor.(ExecutionRecoveryProcessor); ok {
 		protected, err := recovery.RecoverExecutions(tq.ctx)
 		if err != nil {
-			tq.startupError = err
+			tq.blockStartup(err)
 			return fmt.Errorf("execution recovery barrier failed: %w", err)
 		}
 		for _, id := range protected {
@@ -194,7 +196,11 @@ func (tq *TaskQueue) Stop() {
 
 // EnqueueJob adds a job to the queue
 func (tq *TaskQueue) EnqueueJob(jobID string) error {
-	return tq.enqueueTask(queuedTask{JobID: jobID}, false)
+	err := tq.enqueueTask(queuedTask{JobID: jobID}, false)
+	if err == nil {
+		modelstorage.ProcessGate().ActivityChanged()
+	}
+	return err
 }
 
 func (tq *TaskQueue) enqueueSequentialJob(jobID, queueItemID string) error {
@@ -211,8 +217,9 @@ func (tq *TaskQueue) enqueueSequentialJob(jobID, queueItemID string) error {
 }
 
 func (tq *TaskQueue) enqueueTask(task queuedTask, waitForCapacity bool) error {
-	if tq.startupError != nil {
-		return fmt.Errorf("transcription dispatch is blocked: %w", tq.startupError)
+	startupError := tq.startupFailure()
+	if startupError != nil {
+		return fmt.Errorf("transcription dispatch is blocked: %w", startupError)
 	}
 	// Check if queue is already shut down
 	select {
@@ -279,8 +286,10 @@ func (tq *TaskQueue) AddSequentialRuns(ctx context.Context, jobID string, items 
 // transcript snapshot immediately before an idle promotion clears mutable job
 // results, without racing job deletion or an immediate rerun.
 func (tq *TaskQueue) AddSequentialRunsWithPreparation(ctx context.Context, jobID string, items []models.TranscriptionQueueItem, prepare func() error) ([]models.TranscriptionQueueItem, error) {
-	if tq.startupError != nil {
-		return nil, tq.startupError
+	releaseAdmission := modelstorage.ProcessGate().Admission()
+	defer releaseAdmission()
+	if err := tq.startupFailure(); err != nil {
+		return nil, err
 	}
 	if tq.runQueueRepo == nil {
 		return nil, fmt.Errorf("sequential queue repository is not configured")
@@ -307,8 +316,10 @@ func (tq *TaskQueue) AddSequentialRunsWithPreparation(ctx context.Context, jobID
 // StartImmediateRun preserves the legacy one-off start behavior while making
 // admission atomic with sequential queue additions and worker ownership.
 func (tq *TaskQueue) StartImmediateRun(ctx context.Context, updatedJob *models.TranscriptionJob) error {
-	if tq.startupError != nil {
-		return tq.startupError
+	releaseAdmission := modelstorage.ProcessGate().Admission()
+	defer releaseAdmission()
+	if err := tq.startupFailure(); err != nil {
+		return err
 	}
 	if updatedJob == nil {
 		return ErrJobStateChanged
@@ -393,6 +404,7 @@ func (tq *TaskQueue) CancelSequentialRun(ctx context.Context, jobID, itemID stri
 	if err := tq.runQueueRepo.CancelQueued(ctx, jobID, itemID); err != nil {
 		return nil, err
 	}
+	modelstorage.ProcessGate().ActivityChanged()
 	return tq.runQueueRepo.List(ctx, jobID, false)
 }
 
@@ -404,6 +416,9 @@ func (tq *TaskQueue) ClearSequentialRuns(ctx context.Context, jobID string) ([]m
 	if err != nil {
 		return nil, 0, err
 	}
+	if cleared > 0 {
+		modelstorage.ProcessGate().ActivityChanged()
+	}
 	items, err := tq.runQueueRepo.List(ctx, jobID, false)
 	return items, cleared, err
 }
@@ -413,8 +428,8 @@ func (tq *TaskQueue) ClearSequentialRuns(ctx context.Context, jobID string) ([]m
 // must invoke the returned release function after all file and database
 // cleanup has finished.
 func (tq *TaskQueue) ReserveJobDeletion(ctx context.Context, jobID string) (*models.TranscriptionJob, func(), error) {
-	if tq.startupError != nil {
-		return nil, nil, tq.startupError
+	if err := tq.startupFailure(); err != nil {
+		return nil, nil, err
 	}
 	tq.jobsMutex.Lock()
 	defer tq.jobsMutex.Unlock()
@@ -459,8 +474,8 @@ func (tq *TaskQueue) ReserveJobDeletion(ctx context.Context, jobID string) (*mod
 }
 
 func (tq *TaskQueue) promoteNext(ctx context.Context, jobID string, enqueue bool) (*models.TranscriptionQueueItem, error) {
-	if tq.startupError != nil {
-		return nil, tq.startupError
+	if err := tq.startupFailure(); err != nil {
+		return nil, err
 	}
 	if _, protected := tq.protectedJobs[jobID]; protected {
 		return nil, nil
@@ -476,6 +491,9 @@ func (tq *TaskQueue) promoteNext(ctx context.Context, jobID string, enqueue bool
 		return nil, ErrJobStateChanged
 	}
 	item, err := tq.runQueueRepo.PromoteNext(ctx, jobID)
+	if err == nil && item != nil {
+		modelstorage.ProcessGate().ActivityChanged()
+	}
 	if err != nil || item == nil || !enqueue {
 		return item, err
 	}
@@ -709,7 +727,12 @@ type processingExecutionFinalizer interface {
 	FailProcessingExecutions(ctx context.Context, jobID, reason string) error
 }
 
-func (tq *TaskQueue) claimTask(ctx context.Context, task queuedTask, job *models.TranscriptionJob) (bool, error) {
+func (tq *TaskQueue) claimTask(ctx context.Context, task queuedTask, job *models.TranscriptionJob) (claimed bool, err error) {
+	defer func() {
+		if claimed && err == nil {
+			modelstorage.ProcessGate().ActivityChanged()
+		}
+	}()
 	if _, protected := tq.protectedJobs[task.JobID]; protected {
 		return false, nil
 	}
@@ -749,6 +772,7 @@ func (tq *TaskQueue) claimTask(ctx context.Context, task queuedTask, job *models
 // processor returns. That makes terminalization, ownership removal, and
 // successor promotion one observable transition to KillJob and other workers.
 func (tq *TaskQueue) finalizeAndAdvance(jobID, queueItemID string, status models.TranscriptionQueueStatus, errorMessage string, owner *RunningJob) {
+	defer modelstorage.ProcessGate().ActivityChanged()
 	if tq.runQueueRepo != nil {
 		var executionID *string
 		if owner.ExecutionID != "" {
@@ -904,6 +928,7 @@ func (tq *TaskQueue) killJob(jobID, expectedQueueItemID string, enforceTarget bo
 }
 
 func (tq *TaskQueue) cancelPersistedActiveAndAdvance(jobID, reason string) {
+	defer modelstorage.ProcessGate().ActivityChanged()
 	if tq.runQueueRepo == nil {
 		return
 	}

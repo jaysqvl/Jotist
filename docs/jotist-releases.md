@@ -2,7 +2,24 @@
 
 Jotist publishes server archives and Linux amd64 containers from [jaysqvl/Jotist](https://github.com/jaysqvl/Jotist). **v1.7.0** is the first stable Jotist release, continuing the inherited 1.6.1 version line.
 
-The standard stable publication selects **CPU and CUDA 12.6** using `variants=cpu-cuda`. It publishes `latest` and `latest-cuda` only after the existing validation and artifact jobs succeed. Blackwell/CUDA 13 is excluded from that default: dependency-resolution and native-library checks exist, but actual Blackwell inference remains unqualified.
+The standard stable publication selects **CPU and CUDA 12.6** using `variants=cpu-cuda`. It publishes `latest` and `latest-cuda` only after source validation, archive publication and qualification of every selected image succeed. Blackwell/CUDA 13 is excluded from that default: dependency-resolution and native-library checks exist, but actual Blackwell inference remains unqualified.
+
+## Publication gates
+
+PR checks include Go race tests, dependency audits, Python contracts, resolver and installed-runtime checks, responsive browser/accessibility tests, and actual CPU/CUDA image boots. The image smoke uses disposable containers and volumes to verify `/ready`, Docker health, authentication, audio upload/playback, packaged CLI downloads, restart persistence and both default and Unraid UID/GID settings. A hosted CPU runner does not qualify CUDA inference.
+
+Publication first pushes a unique candidate tag with an SBOM and BuildKit provenance. The publisher pulls that exact digest, repeats the image smoke and rejects HIGH/CRITICAL image vulnerability findings, including unfixed ones. Only then does it sign GitHub provenance and verify the attestation against this repository's publishing workflow. A separate promotion job requires every requested variant to succeed and re-verifies each signature before moving version or stable aliases. Registry tag updates are separate operations; a registry outage during promotion can leave partial aliases, so verify every selected digest in the workflow summary.
+
+To independently verify a newly published image:
+
+```bash
+gh attestation verify oci://ghcr.io/jaysqvl/jotist@sha256:... \
+  --repo jaysqvl/Jotist \
+  --signer-workflow jaysqvl/Jotist/.github/workflows/docker-dev-images.yml \
+  --deny-self-hosted-runners
+```
+
+This contract applies to images produced by the updated publisher. Historical images are not retroactively signed or qualified. GPU inference and long-recording behavior still require target-hardware validation; packaging health and a dependency scan do not establish model accuracy.
 
 ## Image names
 
@@ -30,9 +47,9 @@ Selected CPU and CUDA 12.6 model pipelines passed the runtime qualification reco
 Maintainer installations can track `ghcr.io/jaysqvl/jotist:dev-cuda`. **Publish
 development CUDA image** runs on pushes to `main`, validates the exact pushed
 commit through the existing release checks, and builds the CUDA 12.6 image. It
-publishes `dev-cuda-<12-character-commit>` first, then copies that exact digest to
-`dev-cuda` only if the built commit is still the head of `main`. Superseded runs
-are canceled. Failed validation or builds leave the previous alias available.
+publishes an isolated candidate first, then copies the qualified digest to
+`dev-cuda-<12-character-commit>` and `dev-cuda` only if the built commit is still the head of `main`. Superseded runs
+are canceled. Failed validation, builds or image qualification leave the previous alias available.
 Stable `latest` aliases and version tags are unaffected.
 
 This channel deliberately includes unreleased development changes. The checks
@@ -49,9 +66,8 @@ set it to `true` (or remove it) to resume. Manual dispatch remains available.
 To adopt the channel without rebuilding or changing the currently qualified
 application, dispatch the same workflow on `main` with `qualified_cuda_digest`
 set to the full `sha256:...` digest of the already published Jotist CUDA image.
-This mode copies the existing manifest in the same registry and verifies that
-the digest is unchanged. The maintainer must first verify its CUDA variant and
-complete the required NAS qualification; promotion itself performs neither.
+This mode requires a verified attestation from the current publisher, checks the CUDA variant label and that the image's source revision matches current `main`, copies the existing manifest in the same registry and verifies that
+the digest is unchanged. Unsigned historical images are rejected. The maintainer must first complete the required NAS qualification; promotion itself does not run model inference.
 
 For a coordinated first cutover, pause automatic builds before merging this
 workflow, qualify the selected versioned image, promote its digest, and verify
@@ -78,13 +94,11 @@ Use **Publish container images** when rebuilding a particular variant or publish
 
 The workflow resolves the source once and validates it before building. It rejects other source repositories. Release workflow calls can reuse validation only when their supplied immutable commit exactly matches the image source; this option is not exposed in manual dispatch.
 
-The `variants` choices are `cpu-cuda` (the default), `cpu`, `cuda`, `blackwell`, and `all`. `cpu-cuda` selects exactly the CPU and CUDA 12.6 jobs. `all` retains the explicit option to publish all three variants, including unqualified Blackwell; it is not used by the normal stable release call. If stable aliases are requested for an explicit `all` or `blackwell` build, the existing alias mechanism also publishes `latest-blackwell`. That is a publication choice, not evidence of hardware qualification.
+The `variants` choices are `cpu-cuda` (the default), `cpu`, `cuda`, `blackwell`, and `all`. `cpu-cuda` selects exactly the CPU and CUDA 12.6 jobs. `all` retains the explicit option to publish all three variants, including Blackwell; it is not used by the normal stable release call. No selection updates `latest-blackwell` while Blackwell inference remains unqualified.
 
 Each matrix job builds its own Dockerfile from the repository-root context and prints the resulting digest and source commit. CPU uses `deploy/docker/Dockerfile.cpu`, CUDA uses `deploy/docker/Dockerfile.cuda`, and Blackwell uses `deploy/docker/Dockerfile.blackwell`.
 
-When manually selecting an older source tag, the workflow uses that checkout's
-original root Dockerfile if the relocated file is absent. It does not transplant
-current build files into historical source or rewrite published tags.
+Selected source must contain the current Dockerfile layout and image-smoke contract. Older source without these checks fails qualification rather than bypassing it. Existing historical images remain available by their original references.
 
 ## Stable releases
 
@@ -92,7 +106,7 @@ Release Please opens a version/changelog PR from conventional commits on `main`.
 
 After review and validation, merge the version/changelog PR. Release Please calls the same validation/artifact/image pipeline with `variants=cpu-cuda` and stable aliases enabled. The normal call publishes CPU and CUDA 12.6; Blackwell is not selected. The reusable workflow call is intentional: tags/releases created using `GITHUB_TOKEN` do not need to trigger another tag-push workflow.
 
-Repository Actions must be allowed to create pull requests. Jobs request only the contents, pull-request, issue, or package permissions they need. No custom PAT or Docker Hub credentials are required for this publication flow.
+Repository Actions must be allowed to create pull requests. Jobs request the contents, pull-request, issue, package, attestation and OIDC permissions they need. No custom PAT or Docker Hub credentials are required for this publication flow.
 
 ## Writing release notes
 

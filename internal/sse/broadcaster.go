@@ -35,6 +35,7 @@ type Broadcaster struct {
 	unregister  chan Subscription
 	broadcast   chan Message
 	shutdown    chan struct{}
+	stopped     chan struct{}
 	mutex       sync.RWMutex
 }
 
@@ -46,6 +47,7 @@ func NewBroadcaster() *Broadcaster {
 		unregister:  make(chan Subscription),
 		broadcast:   make(chan Message),
 		shutdown:    make(chan struct{}),
+		stopped:     make(chan struct{}),
 	}
 
 	go b.listen()
@@ -54,6 +56,7 @@ func NewBroadcaster() *Broadcaster {
 
 // listen handles the addition and removal of clients and broadcasting of messages
 func (b *Broadcaster) listen() {
+	defer close(b.stopped)
 	for {
 		select {
 		case sub := <-b.register:
@@ -111,6 +114,9 @@ func (b *Broadcaster) listen() {
 func (b *Broadcaster) Shutdown() {
 	close(b.shutdown)
 }
+
+// Done lets other event streams share the server's shutdown lifecycle.
+func (b *Broadcaster) Done() <-chan struct{} { return b.stopped }
 
 // ServeHTTP handles the SSE connection
 func (b *Broadcaster) ServeHTTP(w http.ResponseWriter, r *http.Request) {

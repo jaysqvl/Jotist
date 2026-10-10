@@ -21,6 +21,7 @@ import (
 	"github.com/jaysqvl/Jotist/internal/config"
 	"github.com/jaysqvl/Jotist/internal/database"
 	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/modelstorage"
 	"github.com/jaysqvl/Jotist/internal/netpolicy"
 	"github.com/jaysqvl/Jotist/internal/processing"
 	"github.com/jaysqvl/Jotist/internal/processutil"
@@ -63,6 +64,7 @@ type Handler struct {
 	cliAuthStore        *cliAuthorizationStore
 	outboundHTTPClient  *http.Client
 	resourceAdmission   *resourceAdmission
+	modelStorage        *modelstorage.Manager
 }
 
 // NewHandler creates a new handler
@@ -116,6 +118,7 @@ func NewHandler(
 		cliAuthStore:        newCLIAuthorizationStore(),
 		outboundHTTPClient:  netpolicy.NewPublicHTTPClient(5 * time.Minute),
 		resourceAdmission:   resourceAdmission,
+		modelStorage:        newModelStorageManager(cfg, database.DB),
 	}
 }
 
@@ -1209,6 +1212,7 @@ func (h *Handler) DeleteTranscriptionJob(c *gin.Context) {
 	}
 
 	response := gin.H{"message": "Job deleted successfully"}
+	modelstorage.ProcessGate().ActivityChanged()
 	if err := h.removeRecordingMedia(job); err != nil {
 		// Filesystem cleanup cannot roll back the database commit. Keep the
 		// tombstone's paths and report the incomplete cleanup explicitly.
@@ -2197,8 +2201,8 @@ func (h *Handler) GetSupportedModels(c *gin.Context) {
 }
 
 // Health check endpoint
-// @Summary Health check
-// @Description Check if the API is healthy
+// @Summary Service liveness and release identity
+// @Description Confirms the HTTP process is responding. Use /ready for database and queue readiness.
 // @Tags health
 // @Produce json
 // @Success 200 {object} map[string]string
@@ -2318,6 +2322,7 @@ func (h *Handler) CreateProfile(c *gin.Context) {
 	}
 
 	// Tests expect 200 on create
+	modelstorage.ProcessGate().FilesChanged(modelstorage.RequestUse(profile.Parameters, "", "", ""))
 	c.JSON(http.StatusOK, profile)
 }
 
@@ -2422,6 +2427,8 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
+	modelstorage.ProcessGate().FilesChanged(modelstorage.RequestUse(updatedProfile.Parameters, "", "", ""))
+	modelstorage.ProcessGate().FilesChanged(modelstorage.RequestUse(existingProfile.Parameters, "", "", ""))
 	c.JSON(http.StatusOK, updatedProfile)
 }
 
@@ -2438,7 +2445,7 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 func (h *Handler) DeleteProfile(c *gin.Context) {
 	profileID := c.Param("id")
 
-	_, err := h.profileRepo.FindByID(c.Request.Context(), profileID)
+	profile, err := h.profileRepo.FindByID(c.Request.Context(), profileID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
 		return
@@ -2449,6 +2456,7 @@ func (h *Handler) DeleteProfile(c *gin.Context) {
 		return
 	}
 
+	modelstorage.ProcessGate().FilesChanged(modelstorage.RequestUse(profile.Parameters, "", "", ""))
 	c.JSON(http.StatusOK, gin.H{"message": "Profile deleted successfully"})
 }
 

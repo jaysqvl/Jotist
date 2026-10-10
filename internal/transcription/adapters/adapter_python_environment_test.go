@@ -3,7 +3,9 @@ package adapters
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -382,6 +384,70 @@ func TestRuntimeUpgradeRejectsUnsafeLockAndRetries(t *testing.T) {
 	}
 	if _, err := os.Stat(lockPath); !os.IsNotExist(err) {
 		t.Fatal("retry after interrupted migration retained stale lock")
+	}
+}
+
+func TestRuntimeDependencyGenerationRefreshesPreviouslyAdoptedProject(t *testing.T) {
+	project := []byte("[project]\nname = 'fixture'\nrequires-python = '>=3.11,<3.13'\n")
+	pin := []byte("3.12\n")
+	// The previous release had already adopted this unchanged recipe. Its
+	// valid project/pin marker still retained vulnerable transitive selections.
+	legacyInput := append(append(append([]byte{}, project...), 0), pin...)
+	oldGenerationInput := append(append(append([]byte{}, legacyInput...), 0), []byte("prior-generation")...)
+	for name, hashInput := range map[string][]byte{
+		"project-and-pin-only": legacyInput,
+		"older-generation":     oldGenerationInput,
+	} {
+		t.Run(name, func(t *testing.T) {
+			environment := t.TempDir()
+			legacyMarker := []byte(fmt.Sprintf("%x\n", sha256.Sum256(hashInput)))
+			for name, data := range map[string][]byte{
+				"pyproject.toml": project, ".python-version": pin,
+				".jotist-runtime-project.sha256": legacyMarker,
+				"uv.lock":                        []byte("previous dependency generation"),
+				"cached-model.bin":               []byte("keep downloaded weights"),
+			} {
+				if err := os.WriteFile(filepath.Join(environment, name), data, 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			key := environment + ":old import"
+			envCacheMutex.Lock()
+			envCache[key] = true
+			envCacheMutex.Unlock()
+			t.Cleanup(func() { envCacheMutex.Lock(); delete(envCache, key); envCacheMutex.Unlock() })
+			if err := refreshPythonProjectData(project, environment); err != nil {
+				t.Fatal(err)
+			}
+			lockPath := filepath.Join(environment, "uv.lock")
+			if _, err := os.Stat(lockPath); !os.IsNotExist(err) {
+				t.Fatal("previously adopted recipe retained the old dependency generation")
+			}
+			envCacheMutex.RLock()
+			stale := envCache[key]
+			envCacheMutex.RUnlock()
+			if stale {
+				t.Fatal("dependency generation migration retained cached readiness")
+			}
+			for name, expected := range map[string][]byte{
+				"pyproject.toml": project, ".python-version": pin,
+				"cached-model.bin": []byte("keep downloaded weights"),
+			} {
+				if actual, err := os.ReadFile(filepath.Join(environment, name)); err != nil || !bytes.Equal(actual, expected) {
+					t.Fatalf("dependency refresh changed %s", name)
+				}
+			}
+			// An ordinary subsequent preparation must preserve the newly resolved lock.
+			if err := os.WriteFile(lockPath, []byte("qualified dependency generation"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if err := refreshPythonProjectData(project, environment); err != nil {
+				t.Fatal(err)
+			}
+			if actual, err := os.ReadFile(lockPath); err != nil || string(actual) != "qualified dependency generation" {
+				t.Fatal("current dependency generation was needlessly re-resolved")
+			}
+		})
 	}
 }
 

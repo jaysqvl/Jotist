@@ -4,14 +4,18 @@ from pathlib import Path
 
 _MESSAGES = json.loads(Path(__file__).with_name("diagnostics.json").read_text(encoding="utf-8"))
 _APPLICATION_CODES = {message: code for code, message in _MESSAGES.items() if code.startswith("application_")}
-_CLASSES = {"RecognitionError", "TimestampBoundsError", "RuntimeError", "ValueError", "TypeError", "AttributeError", "KeyError", "IndexError", "ImportError", "ModuleNotFoundError", "OSError", "FileNotFoundError", "PermissionError", "MemoryError", "GatedRepoError", "RepositoryNotFoundError", "HfHubHTTPError"}
-_PHASES = {"configuration", "runtime_initialization", "audio_decode", "model_loading", "recognition", "alignment", "output_validation"}
+_CLASSES = {"RecognitionError", "AudioPreparationError", "TimestampBoundsError", "RuntimeError", "ValueError", "TypeError", "AttributeError", "KeyError", "IndexError", "ImportError", "ModuleNotFoundError", "OSError", "FileNotFoundError", "PermissionError", "MemoryError", "GatedRepoError", "RepositoryNotFoundError", "HfHubHTTPError"}
+_PHASES = {"configuration", "runtime_initialization", "audio_decode", "audio_preparation", "model_loading", "recognition", "alignment", "output_validation"}
 
 
 def safe_failure(exc, phase, window_index=None, window_count=None):
     from backends import RecognitionError
     kind = type(exc).__name__
-    code = _APPLICATION_CODES.get(str(exc)) if isinstance(exc, RecognitionError) else None
+    from speech_detection import AudioPreparationError
+    if isinstance(exc, AudioPreparationError):
+        code, phase = "runtime_audio_preparation", "audio_preparation"
+    else:
+        code = _APPLICATION_CODES.get(str(exc)) if isinstance(exc, RecognitionError) else None
     # Transformers wraps Hugging Face access errors in OSError. Inspect the
     # cause classes/status only; library error text may contain credentials.
     chain, current = [], exc

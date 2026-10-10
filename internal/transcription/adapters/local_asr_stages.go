@@ -23,8 +23,13 @@ func (a *LocalASRAdapter) Stages() []interfaces.StageDescriptor {
 		// after unloading ASR, while retaining native speaker identities.
 		recognitionArtifacts["Qwen/Qwen3-ForcedAligner-0.6B-hf"] = localASRAlignerRevision
 	}
+	implementation := "local-asr-recognition-v2"
+	if contract := a.BaseAdapter.GetCapabilities().SpeechDetection; contract != nil {
+		implementation = "local-asr-recognition-v3-speech-ranges"
+		recognitionArtifacts["silero-vad/"+contract.PackageVersion] = contract.ModelSHA256
+	}
 	stages := []interfaces.StageDescriptor{{
-		Kind: "recognition", SchemaVersion: "transcript-result-v1", ImplementationVersion: "local-asr-recognition-v2",
+		Kind: "recognition", SchemaVersion: "transcript-result-v1", ImplementationVersion: implementation,
 		Recoverable: true, Cancellable: true, ModelArtifacts: recognitionArtifacts,
 		DevicePrecisions:   map[string][]string{"cpu": {"float32"}, "cuda": {"float16", "bfloat16", "float32"}},
 		PrecisionParameter: "precision", MeasurementSupport: []string{"process_peak_rss", "structured_cuda_failure"},
