@@ -55,7 +55,8 @@ loading uses restricted deserialization with scoped, known local types.
 
 NeMo 3.0 requests Lightning <=2.4 and Hydra <=1.3.2, which retain published
 vulnerabilities. The NVIDIA recipes explicitly override only these dependency
-bounds, pinning Lightning and PyTorch Lightning 2.6.6 and Hydra 1.3.6. This is a
+bounds, pinning Lightning and PyTorch Lightning 2.6.6 and Hydra 1.3.7. Hydra 1.3.7
+also fixes the mutable target-policy bypass in CVE-2026-106439. This is a
 Jotist-maintained compatibility choice, not a claim that the stock NeMo metadata
 supports these versions. Native imports and actual inference must be repeated
 when these bounds change. The two-file OneLogger Lightning integration is

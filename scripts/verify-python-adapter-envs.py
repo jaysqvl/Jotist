@@ -68,7 +68,7 @@ ADAPTERS: tuple[AdapterSpec, ...] = (
             PackagePin("nemo-toolkit", version="3.0.0"),
             PackagePin("lightning", version="2.6.6"),
             PackagePin("pytorch-lightning", version="2.6.6"),
-            PackagePin("hydra-core", version="1.3.6"),
+            PackagePin("hydra-core", version="1.3.7"),
             PackagePin(
                 "nv-one-logger-pytorch-lightning-integration", version="2.3.1+jotist.1"
             ),
@@ -86,7 +86,7 @@ ADAPTERS: tuple[AdapterSpec, ...] = (
             ),
         ),
         bootstrap_script="nvidia_compat.py",
-        expected_overrides=("lightning==2.6.6", "hydra-core==1.3.6"),
+        expected_overrides=("lightning==2.6.6", "hydra-core==1.3.7"),
         pair_import_packages=("onnx", "ml-dtypes"),
         pair_import_code=(
             "import ml_dtypes, onnx; "
@@ -106,7 +106,7 @@ ADAPTERS: tuple[AdapterSpec, ...] = (
             PackagePin("nemo-toolkit", version="3.0.0"),
             PackagePin("lightning", version="2.6.6"),
             PackagePin("pytorch-lightning", version="2.6.6"),
-            PackagePin("hydra-core", version="1.3.6"),
+            PackagePin("hydra-core", version="1.3.7"),
             PackagePin("nltk", version="3.10.3"),
             PackagePin(
                 "nv-one-logger-pytorch-lightning-integration", version="2.3.1+jotist.1"
@@ -126,7 +126,7 @@ ADAPTERS: tuple[AdapterSpec, ...] = (
         ),
         bootstrap_script="nvidia_compat.py",
         caller_scripts=("canary_qwen_transcribe.py",),
-        expected_overrides=("lightning==2.6.6", "hydra-core==1.3.6"),
+        expected_overrides=("lightning==2.6.6", "hydra-core==1.3.7"),
         pair_import_packages=("onnx", "ml-dtypes"),
         pair_import_code=(
             "import ml_dtypes, onnx; "
