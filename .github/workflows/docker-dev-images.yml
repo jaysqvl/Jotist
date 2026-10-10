@@ -283,6 +283,9 @@ jobs:
   promote:
     name: Promote all qualified variants
     needs: [resolve, qualify]
+    # Reused validation is intentionally skipped; ignore that ancestor's implicit
+    # success() gate while still requiring every requested variant to qualify.
+    if: ${{ !cancelled() && needs.resolve.result == 'success' && needs.qualify.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -346,3 +349,25 @@ jobs:
             echo "Image: \`${repo}@${digest}\` · source: \`${REVISION}\`" >> "$GITHUB_STEP_SUMMARY"
             echo "Packaging, vulnerability scan, SBOM and signed provenance verified. CUDA inference requires separate hardware qualification." >> "$GITHUB_STEP_SUMMARY"
           done < <(jq -r '.include[] | [.variant,.suffix] | @tsv' <<< "$MATRIX")
+
+  complete:
+    name: Require completed image promotion
+    needs: [resolve, qualify, promote]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require source, qualification and promotion success
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+
+          results = json.loads(os.environ["RESULTS"])
+          if set(results) != {"resolve", "qualify", "promote"}:
+              raise SystemExit("Image publication prerequisites are incomplete")
+          for job, details in results.items():
+              if details["result"] != "success":
+                  raise SystemExit(f"Image publication incomplete: {job}={details['result']}")
+          PY
