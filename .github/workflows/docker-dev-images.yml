@@ -89,12 +89,12 @@ jobs:
             exit 1
           fi
           case "$VARIANTS" in all|cpu-cuda|cpu|cuda|blackwell) ;; *) exit 1 ;; esac
-          matrix='[{"variant":"cpu","dockerfile":"deploy/docker/Dockerfile.cpu","legacy_dockerfile":"Dockerfile","suffix":""},{"variant":"cuda","dockerfile":"deploy/docker/Dockerfile.cuda","legacy_dockerfile":"Dockerfile.cuda","suffix":"-cuda"},{"variant":"blackwell","dockerfile":"deploy/docker/Dockerfile.blackwell","legacy_dockerfile":"Dockerfile.cuda.13.0","suffix":"-blackwell"}]'
+          matrix='[{"variant":"cpu","dockerfile":"deploy/docker/Dockerfile.cpu","suffix":""},{"variant":"cuda","dockerfile":"deploy/docker/Dockerfile.cuda","suffix":"-cuda"},{"variant":"blackwell","dockerfile":"deploy/docker/Dockerfile.blackwell","suffix":"-blackwell"}]'
           matrix="$(jq -c --arg variant "$VARIANTS" '{include: map(select($variant == "all" or .variant == $variant or ($variant == "cpu-cuda" and (.variant == "cpu" or .variant == "cuda"))))}' <<< "$matrix")"
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           echo "image_channel=$IMAGE_CHANNEL" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ inputs.upstream_ref }}
           fetch-depth: 0
@@ -134,33 +134,32 @@ jobs:
     with:
       source_ref: ${{ needs.resolve.outputs.sha }}
 
-  publish:
-    name: Publish ${{ matrix.variant }} image
+  qualify:
+    name: Qualify ${{ matrix.variant }} candidate
     needs: [resolve, validate]
     if: ${{ !cancelled() && needs.resolve.result == 'success' && (needs.validate.result == 'success' || (needs.validate.result == 'skipped' && needs.resolve.outputs.already_validated == 'true')) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+      attestations: write
+      id-token: write
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.resolve.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ needs.resolve.outputs.sha }}
 
-      - name: Locate Dockerfile in the selected source
-        id: dockerfile
+      - name: Require the current qualification contract
         env:
-          CURRENT_PATH: ${{ matrix.dockerfile }}
-          LEGACY_PATH: ${{ matrix.legacy_dockerfile }}
+          DOCKERFILE: ${{ matrix.dockerfile }}
         run: |
-          # Manual builds can select a release from before the source-layout move.
-          path="$CURRENT_PATH"
-          if [[ ! -f "$path" ]]; then path="$LEGACY_PATH"; fi
-          test -f "$path"
-          echo "path=$path" >> "$GITHUB_OUTPUT"
+          test -f "$DOCKERFILE"
+          test -f scripts/smoke_container.py
+          mkdir -p qualification
 
       - name: Prepare image metadata
         id: metadata
@@ -168,40 +167,33 @@ jobs:
         env:
           OWNER: ${{ github.repository_owner }}
           IMAGE_CHANNEL: ${{ needs.resolve.outputs.image_channel }}
-          SHORT_SHA: ${{ needs.resolve.outputs.short_sha }}
-          PUBLISH_LATEST: ${{ needs.resolve.outputs.publish_latest }}
+          REVISION: ${{ needs.resolve.outputs.sha }}
           SUFFIX: ${{ matrix.suffix }}
         run: |
           repo="ghcr.io/${OWNER,,}/jotist"
-          tags="${repo}:${IMAGE_CHANNEL}${SUFFIX}-${SHORT_SHA}"
-          # The rolling dev alias moves only after a successful build and a fresh main check.
-          if [[ "$IMAGE_CHANNEL" != dev ]]; then tags="${repo}:${IMAGE_CHANNEL}${SUFFIX}"$'\n'"${tags}"; fi
-          if [[ "$PUBLISH_LATEST" == true ]]; then tags="${tags}"$'\n'"${repo}:latest${SUFFIX}"; fi
           echo "repository=$repo" >> "$GITHUB_OUTPUT"
+          echo "candidate=${repo}:candidate-${REVISION}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}${SUFFIX}" >> "$GITHUB_OUTPUT"
           echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
-          {
-            echo 'tags<<EOF'
-            printf '%s\n' "$tags"
-            echo EOF
-          } >> "$GITHUB_OUTPUT"
 
-      - uses: docker/setup-buildx-action@v4
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
-      - uses: docker/login-action@v4
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and publish image
+      - name: Publish isolated candidate with SBOM and build provenance
         id: build
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
-          file: ${{ steps.dockerfile.outputs.path }}
+          file: ${{ matrix.dockerfile }}
           platforms: linux/amd64
           push: true
-          tags: ${{ steps.metadata.outputs.tags }}
+          tags: ${{ steps.metadata.outputs.candidate }}
+          sbom: true
+          provenance: mode=max
           build-args: |
             VERSION=${{ needs.resolve.outputs.image_channel }}
             COMMIT=${{ needs.resolve.outputs.sha }}
@@ -213,33 +205,128 @@ jobs:
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ needs.resolve.outputs.sha }}
             org.opencontainers.image.version=${{ needs.resolve.outputs.image_channel }}
+            io.jotist.image.variant=${{ matrix.variant }}
 
-      - name: Promote current main to the development alias
-        if: needs.resolve.outputs.image_channel == 'dev'
+      - name: Pull and boot the exact published image
         env:
           REPOSITORY: ${{ steps.metadata.outputs.repository }}
           DIGEST: ${{ steps.build.outputs.digest }}
           REVISION: ${{ needs.resolve.outputs.sha }}
-          SUFFIX: ${{ matrix.suffix }}
+          IMAGE_CHANNEL: ${{ needs.resolve.outputs.image_channel }}
+          VARIANT: ${{ matrix.variant }}
         run: |
-          main_sha="$(git ls-remote origin refs/heads/main | cut -f1)"
-          if [[ "$main_sha" != "$REVISION" ]]; then
-            echo "Main moved; keeping the commit image without changing the development alias." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-          docker buildx imagetools create --prefer-index=false \
-            --metadata-file promoted-image.json \
-            --tag "${REPOSITORY}:dev${SUFFIX}" "${REPOSITORY}@${DIGEST}"
-          test "$(jq -r '."containerimage.descriptor".digest' promoted-image.json)" = "$DIGEST"
-          echo "Development alias: \`${REPOSITORY}:dev${SUFFIX}\`." >> "$GITHUB_STEP_SUMMARY"
+          docker pull "${REPOSITORY}@${DIGEST}"
+          python3 scripts/smoke_container.py --image "${REPOSITORY}@${DIGEST}" \
+            --revision "$REVISION" --version "$IMAGE_CHANNEL" --report "qualification/smoke-${VARIANT}.json"
 
-      - name: Record immutable deployment reference
+      - name: Scan the exact published image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.75.0
+          image-ref: ${{ steps.metadata.outputs.repository }}@${{ steps.build.outputs.digest }}
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: false
+          exit-code: '1'
+          format: json
+          output: qualification/trivy-${{ matrix.variant }}.json
+
+      # Sign only after the exact image has passed its packaging and vulnerability gates.
+      - name: Attest qualified image provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ steps.metadata.outputs.repository }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - name: Verify signature and record qualification
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPOSITORY: ${{ steps.metadata.outputs.repository }}
           DIGEST: ${{ steps.build.outputs.digest }}
           REVISION: ${{ needs.resolve.outputs.sha }}
           VARIANT: ${{ matrix.variant }}
+          SUFFIX: ${{ matrix.suffix }}
         run: |
-          echo "### Jotist $VARIANT" >> "$GITHUB_STEP_SUMMARY"
-          echo "Image: \`$REPOSITORY@$DIGEST\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "Source: \`$REVISION\`" >> "$GITHUB_STEP_SUMMARY"
+          gh attestation verify "oci://${REPOSITORY}@${DIGEST}" --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/docker-dev-images.yml" \
+            --deny-self-hosted-runners
+          jq -n --arg repository "$REPOSITORY" --arg digest "$DIGEST" --arg revision "$REVISION" \
+            --arg variant "$VARIANT" --arg suffix "$SUFFIX" \
+            '{repository:$repository,digest:$digest,revision:$revision,variant:$variant,suffix:$suffix}' \
+            > "qualification/qualified-${VARIANT}.json"
+
+      - name: Retain per-variant qualification evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: published-image-${{ matrix.variant }}
+          path: qualification/
+          retention-days: 30
+
+  promote:
+    name: Promote all qualified variants
+    needs: [resolve, qualify]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      attestations: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: published-image-*
+          path: qualification
+          merge-multiple: true
+      - name: Verify every requested variant before moving any alias
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MATRIX: ${{ needs.resolve.outputs.matrix }}
+          REVISION: ${{ needs.resolve.outputs.sha }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          repo="ghcr.io/${OWNER,,}/jotist"
+          while IFS=$'\t' read -r variant suffix; do
+            file="qualification/qualified-${variant}.json"
+            jq -e --arg repo "$repo" --arg revision "$REVISION" --arg variant "$variant" --arg suffix "$suffix" \
+              '.repository == $repo and .revision == $revision and .variant == $variant and .suffix == $suffix and (.digest | test("^sha256:[0-9a-f]{64}$"))' "$file"
+            digest="$(jq -r .digest "$file")"
+            gh attestation verify "oci://${repo}@${digest}" --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/docker-dev-images.yml" \
+              --deny-self-hosted-runners
+          done < <(jq -r '.include[] | [.variant,.suffix] | @tsv' <<< "$MATRIX")
+      - name: Promote verified digests
+        env:
+          IMAGE_CHANNEL: ${{ needs.resolve.outputs.image_channel }}
+          SHORT_SHA: ${{ needs.resolve.outputs.short_sha }}
+          REVISION: ${{ needs.resolve.outputs.sha }}
+          PUBLISH_LATEST: ${{ needs.resolve.outputs.publish_latest }}
+          MATRIX: ${{ needs.resolve.outputs.matrix }}
+        run: |
+          if [[ "$IMAGE_CHANNEL" == dev && "$(git ls-remote origin refs/heads/main | cut -f1)" != "$REVISION" ]]; then
+            echo "Main moved; qualified candidates are retained without changing development aliases." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          while IFS=$'\t' read -r variant suffix; do
+            file="qualification/qualified-${variant}.json"
+            repo="$(jq -r .repository "$file")"
+            digest="$(jq -r .digest "$file")"
+            tags=(--tag "${repo}:${IMAGE_CHANNEL}${suffix}-${SHORT_SHA}" --tag "${repo}:${IMAGE_CHANNEL}${suffix}")
+            # Blackwell packaging is tested, but actual Blackwell inference is still unqualified.
+            if [[ "$PUBLISH_LATEST" == true && "$variant" != blackwell ]]; then tags+=(--tag "${repo}:latest${suffix}"); fi
+            docker buildx imagetools create --prefer-index=false --metadata-file promoted-image.json \
+              "${tags[@]}" "${repo}@${digest}"
+            test "$(jq -r '."containerimage.descriptor".digest' promoted-image.json)" = "$digest"
+            echo "### Jotist ${variant}" >> "$GITHUB_STEP_SUMMARY"
+            echo "Image: \`${repo}@${digest}\` · source: \`${REVISION}\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "Packaging, vulnerability scan, SBOM and signed provenance verified. CUDA inference requires separate hardware qualification." >> "$GITHUB_STEP_SUMMARY"
+          done < <(jq -r '.include[] | [.variant,.suffix] | @tsv' <<< "$MATRIX")

@@ -92,6 +92,22 @@ exit 0
 	adapter := NewVibeVoiceBitNetAdapter(filepath.Join(directory, "runtime"))
 	writeExecutable(adapter.binaryPath(), "#!/bin/sh\nprintf 'hello' > \"$JOTIST_RESULT_PATH\"\nprintf 'chunk\\n' >> \"$CHUNK_LOG\"\n")
 	adapter.initialized = true // Native model setup is outside this wiring test.
+	for _, name := range []string{vibeBitNetVAE, vibeBitNetLM} {
+		path := filepath.Join(adapter.envPath, "models", name)
+		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			t.Fatal(err)
+		}
+		f, err := os.Create(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = f.Truncate(100_000_001); err != nil {
+			t.Fatal(err)
+		}
+		if err = f.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("CHUNK_LOG", filepath.Join(directory, "chunks"))
 	inputPath := filepath.Join(directory, "input.wav")

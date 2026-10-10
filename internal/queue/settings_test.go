@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	"github.com/jaysqvl/Jotist/internal/models"
 	"github.com/jaysqvl/Jotist/internal/repository"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDefaultOneWorkerSerializesDifferentRecordings(t *testing.T) {
@@ -59,6 +59,7 @@ func TestLiveConcurrencyReductionWaitsForActiveOwnersAndPersists(t *testing.T) {
 	}
 	waitStarted()
 	require.Equal(t, int32(1), p.active.Load())
+	require.True(t, q.Ready(), "busy workers and queued recordings remain ready")
 	require.NoError(t, q.SetWorkers(context.Background(), 2))
 	waitStarted()
 	require.Equal(t, int32(2), p.active.Load())

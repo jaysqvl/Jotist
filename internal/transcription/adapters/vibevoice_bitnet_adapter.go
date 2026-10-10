@@ -27,7 +27,8 @@ const vibeBitNetLM = "vibeasr-lm-i2_s-embed-q6_k.gguf"
 // 1.5B decoder is a distinct checkpoint from VibeVoice-ASR-7B.
 type VibeVoiceBitNetAdapter struct {
 	*BaseAdapter
-	envPath string
+	envPath         string
+	downloadWeights func(context.Context, string, string) error
 }
 
 func NewVibeVoiceBitNetAdapter(envPath string) *VibeVoiceBitNetAdapter {
@@ -58,7 +59,7 @@ func NewVibeVoiceBitNetAdapter(envPath string) *VibeVoiceBitNetAdapter {
 		{Name: "diarize_model", Type: "string", Default: "none", Description: "External diarizers run after word alignment; this compressed model has no native speaker labels", Group: "basic"},
 	}
 	schema = append(schema, contextParameters()...)
-	return &VibeVoiceBitNetAdapter{BaseAdapter: NewBaseAdapter("vibevoice-bitnet", envPath, caps, schema), envPath: envPath}
+	return &VibeVoiceBitNetAdapter{BaseAdapter: NewBaseAdapter("vibevoice-bitnet", envPath, caps, schema), envPath: envPath, downloadWeights: downloader.DownloadFile}
 }
 
 func (v *VibeVoiceBitNetAdapter) GetSupportedModels() []string { return []string{vibeBitNetModel} }
@@ -102,7 +103,7 @@ func (v *VibeVoiceBitNetAdapter) PrepareEnvironment(ctx context.Context) error {
 	}
 	defer release()
 	if v.initialized {
-		return nil
+		return v.ensureModelWeights(ctx)
 	}
 	if runtime.GOOS == "windows" {
 		return fmt.Errorf("VibeVoice BitNet setup currently supports Linux and macOS; upstream Windows requires a separate MinGW build")
@@ -160,17 +161,26 @@ func (v *VibeVoiceBitNetAdapter) PrepareEnvironment(ctx context.Context) error {
 			return err
 		}
 	}
+	if err := v.ensureModelWeights(ctx); err != nil {
+		return err
+	}
+	v.initialized = true
+	return nil
+}
+
+// Native runtime readiness is separate from weight availability. Removing
+// downloaded models must not require rebuilding the runtime or a server restart.
+func (v *VibeVoiceBitNetAdapter) ensureModelWeights(ctx context.Context) error {
 	for _, name := range []string{vibeBitNetVAE, vibeBitNetLM} {
 		path := filepath.Join(v.envPath, "models", name)
 		if stat, err := os.Stat(path); err == nil && stat.Size() > 100_000_000 {
 			continue
 		}
 		url := "https://huggingface.co/" + vibeBitNetModel + "/resolve/" + vibeBitNetModelRevision + "/" + name
-		if err := downloader.DownloadFile(ctx, url, path); err != nil {
+		if err := v.downloadWeights(ctx, url, path); err != nil {
 			return fmt.Errorf("download BitNet model: %w", err)
 		}
 	}
-	v.initialized = true
 	return nil
 }
 

@@ -44,6 +44,7 @@ func NewCanaryQwenAdapter(envPath string) *CanaryQwenAdapter {
 			"llm_postprocess": true,
 		},
 		Metadata: map[string]string{
+			"lazy_init":                    "true",
 			"engine":                       "nvidia_nemo",
 			"framework":                    "speechlm2_salm",
 			"license":                      "CC-BY-4.0",

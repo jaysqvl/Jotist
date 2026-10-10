@@ -24,6 +24,17 @@ func digestBytes(data []byte) string {
 }
 func digestJSON(value interface{}) string { data, _ := json.Marshal(value); return digestBytes(data) }
 
+func audioPreprocessingHash(input interfaces.AudioInput) string {
+	const format = "mono-pcm16-16000-v1"
+	if input.SpeechDetection == nil {
+		return digestBytes([]byte(format))
+	}
+	return digestJSON(struct {
+		Format          string                            `json:"format"`
+		SpeechDetection *interfaces.SpeechDetectionConfig `json:"speech_detection"`
+	}{format, input.SpeechDetection})
+}
+
 func fileDigest(ctx context.Context, path string) (string, error) {
 	file, err := os.Open(path)
 	if err != nil {

@@ -1895,6 +1895,99 @@
                 }
             }
         },
+        "/api/v1/settings/models": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "settings"
+                ],
+                "summary": "Audit downloaded models and local cache storage",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/modelstorage.Inventory"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/settings/models/events": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "settings"
+                ],
+                "summary": "Subscribe to model storage changes",
+                "responses": {
+                    "200": {
+                        "description": "Model storage invalidations",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/settings/models/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "settings"
+                ],
+                "summary": "Remove a downloaded model",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Opaque cache entry ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Confirmed inventory version",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.RemoveModelFilesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/modelstorage.Removal"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/summaries": {
             "get": {
                 "security": [
@@ -5051,14 +5144,14 @@
         },
         "/health": {
             "get": {
-                "description": "Check if the API is healthy",
+                "description": "Confirms the HTTP process is responding. Use /ready for database and queue readiness.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "health"
                 ],
-                "summary": "Health check",
+                "summary": "Service liveness and release identity",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -5067,6 +5160,34 @@
                             "additionalProperties": {
                                 "type": "string"
                             }
+                        }
+                    }
+                }
+            }
+        },
+        "/ready": {
+            "get": {
+                "description": "Read-only database and queue startup checks. Busy workers remain ready. Failure responses omit internal errors and private paths.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "health"
+                ],
+                "summary": "Check whether the service can accept transcription work",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -5808,6 +5929,17 @@
                 "registration_enabled": {
                     "description": "Match tests expecting snake_case key",
                     "type": "boolean"
+                }
+            }
+        },
+        "api.RemoveModelFilesRequest": {
+            "type": "object",
+            "required": [
+                "version"
+            ],
+            "properties": {
+                "version": {
+                    "type": "string"
                 }
             }
         },
@@ -7486,6 +7618,145 @@
                 },
                 "verbose": {
                     "type": "boolean"
+                }
+            }
+        },
+        "modelstorage.Entry": {
+            "type": "object",
+            "properties": {
+                "bytes": {
+                    "type": "integer"
+                },
+                "cached_only_profiles": {
+                    "type": "integer"
+                },
+                "can_remove": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "last_used": {
+                    "type": "string"
+                },
+                "locations": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "profiles": {
+                    "type": "integer"
+                },
+                "purpose": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "removable_bytes": {
+                    "type": "integer"
+                },
+                "revisions": {
+                    "type": "integer"
+                },
+                "shared_bytes": {
+                    "type": "integer"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "uses": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelstorage.Use"
+                    }
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "modelstorage.Inventory": {
+            "type": "object",
+            "properties": {
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelstorage.Entry"
+                    }
+                },
+                "model_bytes": {
+                    "type": "integer"
+                },
+                "package_cache_bytes": {
+                    "type": "integer"
+                },
+                "runtime_bytes": {
+                    "type": "integer"
+                },
+                "scanned_at": {
+                    "type": "string"
+                },
+                "volumes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelstorage.Volume"
+                    }
+                },
+                "warnings": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "modelstorage.Removal": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "removed_bytes": {
+                    "type": "integer"
+                }
+            }
+        },
+        "modelstorage.Use": {
+            "type": "object",
+            "properties": {
+                "cached_only": {
+                    "type": "boolean"
+                },
+                "recording_id": {
+                    "type": "string"
+                },
+                "recording_title": {
+                    "type": "string"
+                },
+                "stage": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                }
+            }
+        },
+        "modelstorage.Volume": {
+            "type": "object",
+            "properties": {
+                "available_bytes": {
+                    "type": "integer"
+                },
+                "total_bytes": {
+                    "type": "integer"
                 }
             }
         },

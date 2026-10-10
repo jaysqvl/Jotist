@@ -8,6 +8,7 @@
 		"build": "tsc -b && vite build",
 		"lint": "eslint .",
 		"test": "node -e \"require('node:fs').rmSync('.test-dist', { recursive: true, force: true })\" && tsc -p tsconfig.tests.json && node --test \".test-dist/**/*.test.js\"",
+		"test:browser": "playwright test",
 		"type-check": "tsc -b",
 		"preview": "vite preview"
 	},
@@ -40,7 +41,7 @@
 		"cmdk": "^1.1.1",
 		"framer-motion": "^12.23.26",
 		"highlight.js": "^11.11.1",
-		"katex": "^0.16.22",
+		"katex": "0.18.2",
 		"lucide-react": "^0.540.0",
 		"react": "^19.1.1",
 		"react-dom": "^19.1.1",
@@ -54,8 +55,16 @@
 		"wavesurfer.js": "^7.10.1",
 		"zustand": "^5.0.9"
 	},
+	"overrides": {
+		"katex": "$katex",
+		"@tailwindcss/typography": {
+			"postcss-selector-parser": "7.1.6"
+		}
+	},
 	"devDependencies": {
+		"@axe-core/playwright": "4.13.0",
 		"@eslint/js": "^9.33.0",
+		"@playwright/test": "1.64.0",
 		"@types/react": "^19.1.10",
 		"@types/react-dom": "^19.1.7",
 		"@vitejs/plugin-react": "^5.0.0",

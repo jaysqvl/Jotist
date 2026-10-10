@@ -13,6 +13,7 @@ import tempfile
 
 from backends import CohereAutoTokenLimitError, GenerationTokenLimitError, RecognitionError, create_backend
 from diagnostics import safe_failure
+from speech_detection import detect_speech, required_contract
 
 
 class TimestampBoundsError(RecognitionError):
@@ -61,6 +62,7 @@ def load_config(path):
         raise RecognitionError("Credentials must be supplied through HF_TOKEN, never a request file.")
     # Untrusted request fields cannot override the code revision or engine.
     config.update(spec)
+    required_contract(config)
     if (config.get("external_diarization_requested") and not config.get("align_words", not spec.get("native_timestamps"))
             and not spec.get("native_timestamps") and spec["engine"] != "granite_plus"):
         raise RecognitionError("This model requires word alignment for external diarization; enable align_words.")
@@ -195,9 +197,24 @@ def execute(config):
     window = int(config.get("chunk_duration", config["default_chunk_seconds"]))
     if window == 0 and not config.get("native_speakers"):
         window = config["default_chunk_seconds"]
-    bounds = [(start, end, False) for start, end in audio_windows(audio, sr, window, config["max_chunk_seconds"])]
+    config["_diagnostic_phase"] = "audio_preparation"
+    contract = required_contract(config)
+    preparation_metadata = {}
+    ranges = [(0, len(audio))]
+    if contract is not None:
+        last_progress = -1
+        def preparation_progress(percent):
+            nonlocal last_progress
+            completed = int(percent)
+            if completed > last_progress:
+                last_progress = completed
+                _runtime_helper.progress()
+        ranges, preparation_metadata = model_call(config, device, detect_speech, audio, sr, device, contract,
+                                                  progress=preparation_progress)
+    bounds = [(start + begin, start + finish, False) for start, end in ranges
+              for begin, finish in audio_windows(audio[start:end], sr, window, config["max_chunk_seconds"])]
     config["_diagnostic_phase"] = "model_loading"
-    backend = model_call(config, device, create_backend, config["model_id"], device, dtype, config)
+    backend = model_call(config, device, create_backend, config["model_id"], device, dtype, config) if bounds else None
     chunks = []
     config["_diagnostic_phase"] = "recognition"
     auto_token_splits = 0
@@ -363,6 +380,9 @@ def execute(config):
         for item in chunk_segments:
             segments.append({**item, "start":item["start"] + offset, "end":item["end"] + offset})
     metadata = {"resolved_device":device, "precision":str(dtype).replace("torch.", ""), "context_mode":config["context_mode"], "timestamp_source":",".join(sorted(sources)) or "none", "duration_seconds":str(duration), "chunk_count":str(len(bounds))}
+    metadata.update(preparation_metadata)
+    if contract is not None:
+        metadata["recognition_performed"] = str(bool(bounds)).lower()
     if auto_token_splits:
         metadata["auto_token_split_windows"] = str(auto_token_splits)
         if config.get("engine") == "cohere":

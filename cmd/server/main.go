@@ -206,8 +206,11 @@ func main() {
 
 	// Give the server a moment to start
 	time.Sleep(100 * time.Millisecond)
-	logger.Info("Jotist is ready",
-		"url", fmt.Sprintf("http://%s:%s", cfg.Host, cfg.Port))
+	if taskQueue.Ready() {
+		logger.Info("Jotist is ready", "url", fmt.Sprintf("http://%s:%s", cfg.Host, cfg.Port))
+	} else {
+		logger.Warn("Jotist interface is available; transcription dispatch is not ready")
+	}
 	logger.Debug("API documentation available at /swagger/index.html")
 
 	// Wait for interrupt signal to gracefully shutdown the server

@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 # Default values
 PUID=${PUID:-1000}
@@ -7,40 +7,32 @@ PGID=${PGID:-1000}
 
 echo "=== Jotist Container Setup ==="
 echo "Requested UID: $PUID, GID: $PGID"
-# export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/x86_64-linux-gnu/
-# echo "LD_LIBRARY_PATH is: $LD_LIBRARY_PATH"
+# Linux reserves 4294967295 as an invalid UID/GID. Validate before passing an
+# identity to account tools or changing ownership; never continue as another user.
+validate_id() {
+    local value=$1 name=$2
+    if [[ ! "$value" =~ ^(0|[1-9][0-9]{0,9})$ ]] || (( value > 4294967294 )); then
+        echo "Invalid $name: expected a decimal Linux user/group ID." >&2
+        exit 1
+    fi
+}
 
-# Function to setup user if needed
 setup_user() {
     local target_uid=$1
     local target_gid=$2
+    validate_id "$target_uid" PUID
+    validate_id "$target_gid" PGID
 
-    # Check if we need to modify the user
-    if [ "$target_uid" != "1000" ] || [ "$target_gid" != "1000" ]; then
-        echo "Setting up custom user with UID=$target_uid, GID=$target_gid..."
-
-        # Check if group already exists with different GID
-        if getent group "$target_gid" >/dev/null 2>&1; then
-            echo "Group with GID $target_gid already exists, using it"
-        else
-            # Modify existing group or create new one
-            groupmod -g "$target_gid" appuser 2>/dev/null || {
-                groupadd -g "$target_gid" appgroup
-                usermod -g "$target_gid" appuser
-            }
-        fi
-
-        # Modify user UID
-        usermod -u "$target_uid" appuser 2>/dev/null || {
-            echo "Warning: Could not change user ID, continuing with existing user"
-        }
-
-        # Update ownership of app directory
-        chown -R "$target_uid:$target_gid" /app 2>/dev/null || true
-
-    else
-        echo "Using default user (UID=1000, GID=1000)"
+    if ! getent group "$target_gid" >/dev/null; then
+        groupmod -g "$target_gid" appuser
     fi
+    # CUDA base images can already contain UID 1000, and Unraid's group 100
+    # already exists. Keep the application account but set both IDs explicitly.
+    if [ "$(id -u appuser)" != "$target_uid" ] || [ "$(id -g appuser)" != "$target_gid" ]; then
+        usermod -o -u "$target_uid" -g "$target_gid" appuser
+    fi
+    test "$(id -u appuser)" = "$target_uid"
+    test "$(id -g appuser)" = "$target_gid"
 }
 
 # Setup the user (only if running as root)
@@ -51,6 +43,7 @@ if [ "$(id -u)" = "0" ]; then
     echo "Setting up data directories..."
     mkdir -p /app/data/uploads /app/data/transcripts /app/whisperx-env
     chown -R "$PUID:$PGID" /app/data /app/whisperx-env
+    chown "$PUID:$PGID" /home/appuser
 
     echo "=== Setup Complete ==="
     echo "Switching to user appuser (UID=$PUID, GID=$PGID) and starting application..."

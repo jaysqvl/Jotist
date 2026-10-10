@@ -142,8 +142,8 @@
   /* Neutral Charcoal */
   --text-secondary: #737373;
   /* Neutral Grey */
-  --text-tertiary: #A3A3A3;
-  /* Lighter Grey */
+  --text-tertiary: #737373;
+  /* Secondary text must remain readable at small sizes on white. */
 
   /* Borders: Essential for "White on White" design */
   --border-subtle: rgba(0, 0, 0, 0.06);
@@ -165,13 +165,14 @@
 
   /* --- STATUS COLORS (Harmonized) --- */
   --success: #10B981;
-  --success-solid: #10B981;
+  --success-solid: #047857;
   --success-translucent: rgba(16, 185, 129, 0.15);
   /* Emerald Green */
   --error: #EF4444;
+  --error-solid: #B91C1C;
   /* Soft Red */
   --warning: #F59E0B;
-  --warning-solid: #F59E0B;
+  --warning-solid: #92400E;
   --warning-translucent: rgba(245, 158, 11, 0.15);
   /* Amber */
 
@@ -194,9 +195,9 @@
   --muted-foreground: var(--text-secondary);
 
   --accent: var(--brand-light);
-  --accent-foreground: var(--brand-solid);
+  --accent-foreground: #5547CB;
 
-  --destructive: var(--error);
+  --destructive: #B91C1C;
   --destructive-foreground: #FFFFFF;
 
   --border: var(--border-subtle);
@@ -240,7 +241,10 @@
   --text-primary: #EDEDED;
   /* Soft White */
   --text-secondary: #A1A1A1;
-  --text-tertiary: #525252;
+  --text-tertiary: #A1A1A1;
+  --success-solid: #34D399;
+  --error-solid: #FCA5A5;
+  --warning-solid: #FBBF24;
 
   /* Borders: Light borders define edges in dark mode (Rim Light) */
   --border-subtle: rgba(255, 255, 255, 0.08);
@@ -271,8 +275,7 @@
   --accent: rgba(99, 86, 229, 0.15);
   --accent-foreground: #ADA5FF;
 
-  --destructive: 0 62.8% 30.6%;
-  /* Keeping original destructive for dark mode safety or use var(--error) */
+  --destructive: #B91C1C;
   --destructive-foreground: #EDEDED;
 
   --border: var(--border-subtle);

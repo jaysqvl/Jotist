@@ -304,8 +304,8 @@
     {
       "method": "GET",
       "path": "/health",
-      "summary": "Health check",
-      "description": "Check if the API is healthy",
+      "summary": "Service liveness and release identity",
+      "description": "Confirms the HTTP process is responding. Use /ready for database and queue readiness.",
       "tag": "health"
     },
     {
@@ -415,6 +415,27 @@
     },
     {
       "method": "GET",
+      "path": "/api/v1/settings/models",
+      "summary": "Audit downloaded models and local cache storage",
+      "description": "",
+      "tag": "settings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/settings/models/events",
+      "summary": "Subscribe to model storage changes",
+      "description": "",
+      "tag": "settings"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/settings/models/{id}",
+      "summary": "Remove a downloaded model",
+      "description": "",
+      "tag": "settings"
+    },
+    {
+      "method": "GET",
       "path": "/api/v1/transcription/{id}/notes",
       "summary": "List notes for a transcription",
       "description": "Get all notes attached to a transcription, ordered by time and creation",
@@ -510,6 +531,13 @@
       "summary": "Set recording concurrency",
       "description": "Save a server-wide limit. Active executions finish normally when the limit is lowered. QUEUE_WORKERS is an explicit deployment override.",
       "tag": "admin"
+    },
+    {
+      "method": "GET",
+      "path": "/ready",
+      "summary": "Check whether the service can accept transcription work",
+      "description": "Read-only database and queue startup checks. Busy workers remain ready. Failure responses omit internal errors and private paths.",
+      "tag": "health"
     },
     {
       "method": "GET",

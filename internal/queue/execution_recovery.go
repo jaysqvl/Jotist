@@ -3,9 +3,10 @@ package queue
 import (
 	"context"
 	"errors"
-	"gorm.io/gorm"
 	"github.com/jaysqvl/Jotist/internal/models"
+	"github.com/jaysqvl/Jotist/internal/modelstorage"
 	"github.com/jaysqvl/Jotist/internal/repository"
+	"gorm.io/gorm"
 )
 
 type ExecutionRecoveryProcessor interface {
@@ -17,8 +18,10 @@ type ExecutionRecoveryProcessor interface {
 // ResumeExecution admits only the exact persisted execution. Preparation owns
 // plan/deadline/credential validation and its transactional state transition.
 func (tq *TaskQueue) ResumeExecution(ctx context.Context, jobID, executionID string) error {
-	if tq.startupError != nil {
-		return tq.startupError
+	releaseAdmission := modelstorage.ProcessGate().Admission()
+	defer releaseAdmission()
+	if err := tq.startupFailure(); err != nil {
+		return err
 	}
 	if executionID == "" {
 		return repository.ErrExecutionOwnership
@@ -116,7 +119,7 @@ func (tq *TaskQueue) cancelPersistedExecution(ctx context.Context, jobID, reason
 	if err := recovery.CancelExecution(ctx, jobID, candidate.ID, reason); err != nil {
 		return false, err
 	}
-	if tq.startupError == nil {
+	if tq.startupFailure() == nil {
 		delete(tq.protectedJobs, jobID)
 	}
 	return true, nil

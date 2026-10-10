@@ -92,7 +92,7 @@ func TestRuntimeQualification(t *testing.T) {
 		t.Fatal("cannot link read-only audio into qualification workspace")
 	}
 	input := interfaces.AudioInput{FilePath: privateAudio, Format: strings.TrimPrefix(filepath.Ext(audio), "."), Size: stat.Size(), Duration: time.Duration(seconds * float64(time.Second))}
-	input, err = (&pipeline.AudioFormatPreprocessor{}).Process(ctx, input)
+	input, err = (&pipeline.AudioFormatPreprocessor{}).Process(ctx, input, interfaces.ModelCapabilities{})
 	if err != nil {
 		t.Fatal("qualification audio conversion failed")
 	}

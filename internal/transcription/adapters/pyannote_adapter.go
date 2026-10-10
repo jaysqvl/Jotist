@@ -47,6 +47,7 @@ func NewPyAnnoteAdapter(envPath string) *PyAnnoteAdapter {
 			"flexible_speakers":   true,
 		},
 		Metadata: map[string]string{
+			"lazy_init":           "true",
 			"engine":              "pyannote_audio",
 			"framework":           "pytorch",
 			"license":             "CC-BY-4.0",

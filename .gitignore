@@ -93,3 +93,5 @@ __pycache__/
 /docs/scriberr-thumb.png
 
 /output/
+web/frontend/playwright-report/
+web/frontend/test-results/

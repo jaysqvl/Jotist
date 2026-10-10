@@ -334,7 +334,7 @@ func TestLocalASREmbeddedEnvironment(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(a.envPath, "uv.lock")); !os.IsNotExist(err) {
 		t.Fatal("local ASR upgrade retained old dependency resolutions")
 	}
-	for _, name := range []string{"models.json", "transcribe.py", "backends.py", "qwen_backend.py", "pyproject.toml"} {
+	for _, name := range []string{"models.json", "transcribe.py", "backends.py", "qwen_backend.py", "speech_detection.py", "speech_detection.json", "pyproject.toml"} {
 		if _, err := os.Stat(filepath.Join(a.envPath, name)); err != nil {
 			t.Fatal(err)
 		}

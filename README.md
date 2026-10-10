@@ -440,12 +440,12 @@ Parakeet + Sortformer completed in **2:49 per audio hour**, with **6.29 GiB peak
 
 ## Run with Docker
 
-**Jotist 1.7.3** provides CPU and CUDA 12.6 container variants. It recovers a Cohere Auto decoder cutoff by retrying only the affected audio window as two shorter parts. See the [release notes](https://github.com/jaysqvl/Jotist/releases/tag/v1.7.3) for details.
+**Jotist 2.2.0** provides CPU and CUDA 12.6 container variants. See the [release notes](https://github.com/jaysqvl/Jotist/releases/tag/v2.2.0) for the published release and the [release guide](docs/jotist-releases.md) for image qualification.
 
 | Hardware | Versioned image |
 | --- | --- |
-| CPU | `ghcr.io/jaysqvl/jotist:1.7.3` |
-| CUDA 12.6-compatible NVIDIA GPU | `ghcr.io/jaysqvl/jotist:1.7.3-cuda` |
+| CPU | `ghcr.io/jaysqvl/jotist:2.2.0` |
+| CUDA 12.6-compatible NVIDIA GPU | `ghcr.io/jaysqvl/jotist:2.2.0-cuda` |
 | Blackwell / RTX 50-series | Local CUDA 13 source build only; actual inference remains unqualified |
 
 Selected CPU and CUDA 12.6 model pipelines passed prior runtime qualification, including retained-environment migration checks. Qualify the selected released image with your own data and runtimes before cutover. Blackwell source builds have dependency-resolution and native-library checks, but no actual Blackwell inference qualification; they are excluded from the default stable image publication.
@@ -495,6 +495,16 @@ The server reads environment variables and an optional `.env` file in its workin
 The existing upload, authentication, media concurrency, timeout, and runtime environment settings remain supported. Keep your current values when migrating. Gated models may require both a token and acceptance of their model terms.
 
 Recording runs share one worker by default. Set **Simultaneous recordings** in **Settings → Transcription → Processing queue** to change the limit across recordings. One is recommended for a single GPU. Changes are saved across restarts; lowering the limit lets active runs finish before starting more work. Each recording keeps its own run order. The run queue shows active work and the two latest queued runs across recordings. Every row names its recording, model and what it is waiting on. **Show all queued runs** expands the same list. Newest-first display does not change each recording’s processing order. New runs record the active stage number against their enabled execution boundaries; older runs without that metadata show the stage name.
+
+### Downloaded model storage
+
+Open **Settings → Models** to see downloaded recognition, word timing and speaker models, their disk usage, cached revisions, saved profile references and most recent run. Search or sort by size, name or last use.
+
+The inventory updates from run and model preparation events, without idle polling or a filesystem watcher. Jotist checks affected model files after preparation and stage completion, including partial downloads from failed runs. A full metadata check runs on the first inventory request, then on the next request after 72 hours, or when you select **Refresh**. Runtime and package totals come from that full check. External cache changes are picked up by a full check; weight contents are never read for this audit.
+
+**Remove** deletes the selected model's cached files across its recognized cache locations. Saved profiles, recordings and run history stay intact. Active runs and downloads block removal; Jotist checks again when you confirm. Queued runs do not block removal and download missing files before processing. The confirmation warns if a queued run uses cached files only, because that request can fail after removal. Runtime environments and package caches are shown separately for auditing and retained.
+
+The next run downloads missing model files again, using the same saved profile. It needs network access and any required model access token. Profiles configured to use cached files only need downloading enabled first; the confirmation dialog warns when such profiles reference the model. Unknown cache repositories remain visible for auditing and cannot be removed through Jotist. Disk usage estimates account for shared files, but filesystem compression and shared storage can affect the space actually freed. A model cached on disk is not necessarily loaded in GPU memory.
 
 ## Server binary and CLI
 

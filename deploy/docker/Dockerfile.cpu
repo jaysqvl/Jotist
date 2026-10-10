@@ -21,7 +21,7 @@ RUN cd frontend \
 ########################
 # Go build stage
 ########################
-FROM golang:1.26.6-bookworm AS go-builder
+FROM golang:1.26.9-bookworm AS go-builder
 WORKDIR /src
 ARG VERSION=dev
 ARG COMMIT=none
@@ -129,6 +129,8 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh \
 # Expose port and declare volume for persistence
 EXPOSE 8080
 VOLUME ["/app/data"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=3 \
+  CMD curl --fail --silent --max-time 3 "http://127.0.0.1:${PORT:-8080}/ready" >/dev/null || exit 1
 
 # Start as root to allow user ID changes, entrypoint script will switch users
 # Verify uv is available

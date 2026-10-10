@@ -90,7 +90,8 @@ func (u *UnifiedTranscriptionService) SetBroadcaster(b *sse.Broadcaster) {
 	u.broadcaster = b
 }
 
-// Initialize prepares all registered models for use
+// Initialize prepares the service and registry. Local runtimes and weights are
+// prepared by the selected stage on first use, so a restart does not undo removal.
 func (u *UnifiedTranscriptionService) Initialize(ctx context.Context) error {
 	ctx = processutil.WithSupervision(ctx, processutil.DefaultSupervisionPolicy())
 	if u.recoveryInitError != nil {
@@ -324,8 +325,10 @@ func (u *UnifiedTranscriptionService) processSingleTrackJob(ctx context.Context,
 	// Apply preprocessing
 	preprocessedInput, err = u.pipeline.ProcessAudio(ctx, audioInput, capabilities)
 	if err != nil {
-		logger.Warn("Audio preprocessing failed, using original", "error", err)
-		preprocessedInput = audioInput
+		if preprocessedInput.TempFilePath != "" && preprocessedInput.TempFilePath != audioInput.FilePath {
+			_ = os.Remove(preprocessedInput.TempFilePath)
+		}
+		return fmt.Errorf("audio preparation failed: %w", err)
 	} else {
 		// Track temporary file for cleanup if preprocessing created one
 		if preprocessedInput.TempFilePath != "" && preprocessedInput.TempFilePath != audioInput.FilePath {

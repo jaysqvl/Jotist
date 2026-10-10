@@ -62,6 +62,7 @@ func NewWhisperXAdapter(envPath string) *WhisperXAdapter {
 			"vad":                true,
 		},
 		Metadata: map[string]string{
+			"lazy_init":  "true",
 			"engine":     "faster-whisper",
 			"framework":  "whisperx",
 			"license":    "BSD-2-Clause",

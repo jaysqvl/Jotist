@@ -28,6 +28,7 @@ func NewProcessingPipeline() *ProcessingPipeline {
 
 	// Register default preprocessors
 	pipeline.RegisterPreprocessor(&AudioFormatPreprocessor{})
+	pipeline.RegisterPreprocessor(&VoiceActivityDetectionPreprocessor{})
 
 	return pipeline
 }
@@ -49,8 +50,11 @@ func (p *ProcessingPipeline) ProcessAudio(ctx context.Context, input interfaces.
 	for _, preprocessor := range p.preprocessors {
 		if preprocessor.AppliesTo(capabilities) {
 			logger.Info("Applying preprocessor", "type", fmt.Sprintf("%T", preprocessor))
-			processedInput, err := preprocessor.Process(ctx, currentInput)
+			processedInput, err := preprocessor.Process(ctx, currentInput, capabilities)
 			if err != nil {
+				if required, ok := preprocessor.(interface{ Required() bool }); ok && required.Required() {
+					return currentInput, fmt.Errorf("required audio preparation failed: %w", err)
+				}
 				logger.Warn("Preprocessor failed, continuing with original input", "error", err)
 				continue
 			}
@@ -76,7 +80,7 @@ func (a *AudioFormatPreprocessor) GetRequiredFormats() []string {
 }
 
 // Process converts audio to the required format
-func (a *AudioFormatPreprocessor) Process(ctx context.Context, input interfaces.AudioInput) (interfaces.AudioInput, error) {
+func (a *AudioFormatPreprocessor) Process(ctx context.Context, input interfaces.AudioInput, _ interfaces.ModelCapabilities) (interfaces.AudioInput, error) {
 	// Check if conversion is needed
 	requiredFormat := "wav"
 	requiredSampleRate := 16000
@@ -119,16 +123,10 @@ func (a *AudioFormatPreprocessor) Process(ctx context.Context, input interfaces.
 	}
 
 	// Create new audio input
-	convertedInput := interfaces.AudioInput{
-		FilePath:     outputPath,
-		Format:       requiredFormat,
-		SampleRate:   requiredSampleRate,
-		Channels:     requiredChannels,
-		Duration:     input.Duration, // Preserve duration
-		Size:         0,              // Will be set when file is read
-		Metadata:     input.Metadata,
-		TempFilePath: outputPath, // Mark as temporary
-	}
+	convertedInput := input
+	convertedInput.FilePath, convertedInput.TempFilePath = outputPath, outputPath
+	convertedInput.Format, convertedInput.SampleRate, convertedInput.Channels = requiredFormat, requiredSampleRate, requiredChannels
+	convertedInput.Size = 0
 
 	// Get file size
 	if stat, err := os.Stat(outputPath); err == nil {
@@ -147,8 +145,9 @@ type VoiceActivityDetectionPreprocessor struct{}
 
 // AppliesTo checks if this preprocessor should be used
 func (v *VoiceActivityDetectionPreprocessor) AppliesTo(capabilities interfaces.ModelCapabilities) bool {
-	// Apply to models that benefit from VAD preprocessing
-	return capabilities.Features["vad"]
+	// WhisperX's "vad" feature describes its internal detector. Only an explicit
+	// external preparation contract activates this hook.
+	return capabilities.SpeechDetection != nil
 }
 
 // GetRequiredFormats returns the output formats this preprocessor can produce
@@ -157,10 +156,19 @@ func (v *VoiceActivityDetectionPreprocessor) GetRequiredFormats() []string {
 }
 
 // Process applies voice activity detection preprocessing
-func (v *VoiceActivityDetectionPreprocessor) Process(ctx context.Context, input interfaces.AudioInput) (interfaces.AudioInput, error) {
-	// For now, this is a placeholder
-	// In a real implementation, this would apply VAD to remove silence
-	logger.Info("VAD preprocessing (placeholder)", "file", input.FilePath)
+func (v *VoiceActivityDetectionPreprocessor) Required() bool { return true }
+
+func (v *VoiceActivityDetectionPreprocessor) Process(ctx context.Context, input interfaces.AudioInput, capabilities interfaces.ModelCapabilities) (interfaces.AudioInput, error) {
+	if err := ctx.Err(); err != nil {
+		return input, err
+	}
+	if capabilities.SpeechDetection == nil {
+		return input, fmt.Errorf("speech detection contract is missing")
+	}
+	contract := *capabilities.SpeechDetection
+	input.SpeechDetection = &contract
+	// The worker executes detection inside the recognition resource gate, before
+	// loading ASR. Keep the full waveform for alignment and speaker detection.
 	return input, nil
 }
 
@@ -179,7 +187,7 @@ func (n *NoiseReductionPreprocessor) GetRequiredFormats() []string {
 }
 
 // Process applies noise reduction preprocessing
-func (n *NoiseReductionPreprocessor) Process(ctx context.Context, input interfaces.AudioInput) (interfaces.AudioInput, error) {
+func (n *NoiseReductionPreprocessor) Process(ctx context.Context, input interfaces.AudioInput, _ interfaces.ModelCapabilities) (interfaces.AudioInput, error) {
 	// For now, this is a placeholder
 	// In a real implementation, this would apply noise reduction using FFmpeg or other tools
 	logger.Info("Noise reduction preprocessing (placeholder)", "file", input.FilePath)

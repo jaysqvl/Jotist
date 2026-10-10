@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jaysqvl/Jotist/internal/modelstorage"
 	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 	"github.com/jaysqvl/Jotist/pkg/logger"
 )
@@ -404,8 +405,17 @@ func (r *ModelRegistry) IsInitialized() bool {
 	return r.initialized
 }
 
-// InitializeModels ensures all registered models are ready to use (parallel)
+// InitializeModels completes registry startup. Adapters marked lazy prepare
+// their runtime and weights at the existing per-stage preparation boundary.
 func (r *ModelRegistry) InitializeModels(ctx context.Context) error {
+	// An already initialized registry does not touch cached model files.
+	if r.IsInitialized() {
+		return nil
+	}
+	// Bootstrap may prepare multiple runtimes and their shared model dependencies.
+	// Reserve before registry locks, using the same order as normal stage starts.
+	releaseModelFiles := modelstorage.ProcessGate().BeginUse(modelstorage.Use{All: true, Stage: "Runtime setup", State: "downloading"})
+	defer releaseModelFiles()
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
