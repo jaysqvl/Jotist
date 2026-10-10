@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.0](https://github.com/jaysqvl/Jotist/compare/v2.2.0...v2.3.0) (2026-10-10)
+
+
+### Features
+
+* manage cached models and harden release qualification ([#37](https://github.com/jaysqvl/Jotist/issues/37)) ([60abc89](https://github.com/jaysqvl/Jotist/commit/60abc89f3c5d5e1d0f67f26dd32248f77e5254cc))
+
 ## [2.2.0](https://github.com/jaysqvl/Jotist/compare/v2.1.0...v2.2.0) (2026-10-02)
 
 
