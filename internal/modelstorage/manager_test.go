@@ -71,6 +71,94 @@ func TestInventoryCountsSnapshotLinksOnceAndMergesLocations(t *testing.T) {
 	}
 }
 
+func TestHubTreeCacheIsCountedAndRemovedWithItsModel(t *testing.T) {
+	root := t.TempDir()
+	repo := cacheFixture(t, root, "org/model", "weights")
+	other := cacheFixture(t, root, "org/other", "other weights")
+	// snapshot_download caches immutable repository listings beside snapshots.
+	// See huggingface_hub's _tree_cache.py and manage-cache guide.
+	trees := filepath.Join(repo, "trees")
+	require.NoError(t, os.Mkdir(trees, 0755))
+	listing := []byte(`{"files":{"model.bin":{"size":7,"blob_id":"weights"}}}`)
+	require.NoError(t, os.WriteFile(filepath.Join(trees, "revision-a.json"), listing, 0644))
+	m := fixtureManager(root)
+	inv, err := m.Inventory(context.Background(), true)
+	require.NoError(t, err)
+	require.Empty(t, inv.Warnings)
+	e := entryFor(t, m, "org/model")
+	require.True(t, e.CanRemove)
+	require.Equal(t, 2, e.Revisions, "tree listings are not additional model revisions")
+	require.EqualValues(t, len("weights")+len(listing), e.Bytes)
+	require.Equal(t, e.Bytes, e.RemovableBytes)
+	require.EqualValues(t, len("weights")+len(listing)+len("other weights"), inv.ModelBytes)
+	// A newly cached listing invalidates an earlier removal confirmation too.
+	require.NoError(t, os.WriteFile(filepath.Join(trees, "revision-b.json"), listing, 0644))
+	_, err = m.Remove(context.Background(), e.ID, e.Version)
+	require.ErrorIs(t, err, ErrChanged)
+	require.DirExists(t, repo)
+	e = entryFor(t, m, "org/model")
+	removed, err := m.Remove(context.Background(), e.ID, e.Version)
+	require.NoError(t, err)
+	require.Equal(t, e.RemovableBytes, removed.RemovedBytes)
+	require.NoDirExists(t, repo)
+	data, err := os.ReadFile(filepath.Join(other, "snapshots/revision-a/model.bin"))
+	require.NoError(t, err)
+	require.Equal(t, "other weights", string(data))
+}
+
+func TestHubTreeCacheStillRejectsUnsafeLinks(t *testing.T) {
+	for _, kind := range []string{"absolute", "escaping", "broken"} {
+		t.Run(kind, func(t *testing.T) {
+			root := t.TempDir()
+			repo := cacheFixture(t, root, "org/model", "weights")
+			trees := filepath.Join(repo, "trees")
+			require.NoError(t, os.Mkdir(trees, 0755))
+			external := filepath.Join(root, "external.json")
+			require.NoError(t, os.WriteFile(external, []byte("preserve me"), 0644))
+			target := external
+			if kind == "escaping" {
+				var err error
+				target, err = filepath.Rel(trees, external)
+				require.NoError(t, err)
+			} else if kind == "broken" {
+				target = "missing.json"
+			}
+			require.NoError(t, os.Symlink(target, filepath.Join(trees, "revision-a.json")))
+			m := fixtureManager(root)
+			e := entryFor(t, m, "org/model")
+			require.False(t, e.CanRemove)
+			_, err := m.Remove(context.Background(), e.ID, e.Version)
+			require.ErrorIs(t, err, ErrReadOnly)
+			data, err := os.ReadFile(external)
+			require.NoError(t, err)
+			require.Equal(t, "preserve me", string(data))
+			require.DirExists(t, repo)
+		})
+	}
+}
+
+func TestInventoryDeduplicatesWarningsWithoutRemovingSafetyGuards(t *testing.T) {
+	root := t.TempDir()
+	for _, source := range []string{"org/model", "org/other"} {
+		repo := cacheFixture(t, root, source, "weights")
+		require.NoError(t, os.WriteFile(filepath.Join(repo, "unowned-file"), []byte("preserve me"), 0644))
+	}
+	m := fixtureManager(root)
+	m.options.Uses = func(context.Context) ([]Use, error) { return nil, errors.New("activity unavailable") }
+	for _, refresh := range []bool{true, false} {
+		inv, err := m.Inventory(context.Background(), refresh)
+		require.NoError(t, err)
+		require.ElementsMatch(t, []string{
+			"Some model files could not be fully inspected.",
+			"Run activity could not be verified. Removal is temporarily unavailable.",
+		}, inv.Warnings)
+		require.Len(t, inv.Entries, 2)
+		for _, entry := range inv.Entries {
+			require.False(t, entry.CanRemove)
+		}
+	}
+}
+
 func TestInventoryAlwaysSerializesEmptyCollectionsAsArrays(t *testing.T) {
 	root := t.TempDir()
 	m := fixtureManager(root)

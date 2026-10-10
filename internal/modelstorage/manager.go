@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -114,6 +115,10 @@ func (m *Manager) Inventory(ctx context.Context, refresh bool) (Inventory, error
 			entry.LastUsed, entry.Profiles, entry.CachedOnlyProfiles = d.LastUsed, d.Profiles, d.CachedOnlyProfiles
 		}
 	}
+	// One cache-layout problem may affect several repositories. Keep each
+	// warning visible once without changing the removal guards above.
+	sort.Strings(result.Warnings)
+	result.Warnings = slices.Compact(result.Warnings)
 	return result, nil
 }
 
@@ -647,7 +652,7 @@ func inspectAsset(ctx context.Context, a asset, entry *Entry) error {
 		entry.signatures = append(entry.signatures, fmt.Sprintf("%s:%s:%d:%d:%s", path, inode, info.Size(), info.ModTime().UnixNano(), info.Mode()))
 		if a.kind == "hub" && path != a.path && filepath.Dir(path) == a.path {
 			switch d.Name() {
-			case "blobs", "snapshots", "refs", ".no_exist":
+			case "blobs", "snapshots", "refs", "trees", ".no_exist":
 			default:
 				return ErrReadOnly
 			}
