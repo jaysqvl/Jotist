@@ -22,6 +22,11 @@ var (
 	envCache               = make(map[string]bool)
 )
 
+// Advance this generation for a coordinated transitive dependency security
+// refresh, including runtimes whose project recipes did not change. Ordinary
+// application releases must not force every environment to resolve again.
+const pythonRuntimeDependencyGeneration = "2026-10-10.1"
+
 // lockPythonPreparation serializes the entire preparation of shared runtime
 // directories. uv locks its own writes, but cannot protect our script/project
 // refreshes from another adapter preparing the same environment.
@@ -152,12 +157,14 @@ func refreshPythonProjectData(data []byte, envPath string) error {
 		return err
 	}
 	hashInput := append(append([]byte{}, data...), 0)
-	projectHash := fmt.Sprintf("%x\n", sha256.Sum256(append(hashInput, pin...)))
+	hashInput = append(append(hashInput, pin...), 0)
+	projectHash := fmt.Sprintf("%x\n", sha256.Sum256(append(hashInput, pythonRuntimeDependencyGeneration...)))
 	resetLock := projectChanged || string(marker) != projectHash
 	// uv normally retains previously allowed transitive versions. Re-resolve
-	// once when adopting an old runtime or changing its project, so a security
-	// upgrade cannot silently keep the old dependency graph. Remove the derived
-	// lock before writing the new project/marker: interruption at any point leaves
+	// once when adopting an old runtime or changing its project, interpreter or
+	// dependency generation, so a security upgrade cannot silently keep the old
+	// dependency graph. Remove the derived lock before writing the new project/
+	// marker: interruption at any point leaves
 	// either a pending migration or no lock, both safe to retry. Keep actual venvs,
 	// cached models and unchanged, previously refreshed locks intact.
 	if resetLock {

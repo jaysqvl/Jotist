@@ -4,11 +4,11 @@ Jotist uses a shared PyTorch implementation across its model adapters. Separate
 Python environments isolate conflicting package requirements; they are not
 security sandboxes. Several models already share each environment.
 
-The published RC3 preview corrects an existing-install upgrade problem found
-while staging RC2: retained lockfiles kept older dependencies, and readiness
-left obsolete packages installed. Its preparation code passed migration of
-retained environments as well as fresh-install checks. Deployment acceptance
-still requires qualification of the actual published image and installed state.
+Preparation must refresh retained dependency graphs during coordinated security
+updates, including environments whose recipes did not change. Readiness also
+removes obsolete installed packages. Deployment acceptance requires testing the
+actual preparation methods on retained environments in the published image;
+manually deleting a copied lockfile does not establish that an upgrade works.
 
 ## Runtime groups
 
@@ -104,13 +104,21 @@ it. Original licenses are included in
 
 ## Upgrading an existing environment
 
-A hash marker identifies each managed runtime's embedded project definition and
-reconciled Python pin. On first adoption, or when either changes, preparation
-removes the derived `uv.lock` so uv resolves the updated recipe. The marker is
-written atomically. uv synchronizes the existing environment and may rebuild it
+A hash marker identifies each managed runtime's embedded project definition,
+reconciled Python pin and dependency generation. On first adoption, or when any
+of these changes, preparation removes the derived `uv.lock` so uv resolves the
+updated recipe. The marker is written atomically. uv synchronizes the existing
+environment and may rebuild it
 when its Python interpreter changes. Downloaded models and application data are
 preserved; ordinary preparation with unchanged inputs retains the resolved lock
 rather than refreshing all dependencies on every restart.
+
+Advance `pythonRuntimeDependencyGeneration` in
+`internal/transcription/adapters/adapter_python_environment.go` for coordinated
+transitive security updates, even when a runtime's direct requirements remain
+unchanged. A previously valid project/pin marker must not preserve old
+transitive versions through that update. Keep the generation stable for ordinary
+application releases, and qualify all affected runtime groups after advancing it.
 
 Readiness synchronizes the installed environment exactly. Where readiness uses
 `uv run`, it passes `--exact`, removing packages that are no longer part of the
@@ -146,8 +154,10 @@ does not establish readiness and must not be accepted for deployment.
    CPU recovery where relevant. Preserve precision, model revisions, alignment
    and chunking settings. A short smoke test establishes integration, not WER,
    DER, or accuracy on a user's meetings.
-6. Test migration using a private copy of existing runtime volumes as well as a
-   fresh environment. After exact readiness, compare the complete installed
+6. Test migration using the application's actual preparation methods on a
+   private copy of existing runtime volumes, retaining their old project,
+   interpreter pin, adoption marker and lockfile. Also test a fresh environment.
+   After exact readiness, compare the complete installed
    package/version graph with the reviewed qualification graph and run the
    installed audit. Review and requalify any difference, including extra
    packages; checking only the directly pinned versions is insufficient.
