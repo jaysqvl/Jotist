@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: jotist-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   python-adapter-envs:
     name: python adapter envs (${{ matrix.python-version }}, ${{ matrix.torch-index }})

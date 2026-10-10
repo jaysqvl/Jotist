@@ -43,6 +43,19 @@ def request(base: str, path: str, *, token: str = "", body: bytes | None = None,
     return data
 
 
+def container_base_url(name: str) -> str:
+    ports = json.loads(docker("inspect", "--format", "{{json .NetworkSettings.Ports}}", name))
+    bindings = ports.get("8080/tcp") if isinstance(ports, dict) else None
+    if not isinstance(bindings, list) or len(bindings) != 1 or not isinstance(bindings[0], dict):
+        raise AssertionError("smoke container has no unique published HTTP port")
+    binding = bindings[0]
+    port = binding.get("HostPort", "")
+    if (binding.get("HostIp") != "127.0.0.1" or not isinstance(port, str)
+            or not port.isascii() or not port.isdecimal() or not 1 <= int(port) <= 65535):
+        raise AssertionError("smoke container HTTP port is not a valid loopback binding")
+    return f"http://127.0.0.1:{int(port)}"
+
+
 def wait_ready(name: str, base: str, timeout: int) -> None:
     deadline = time.monotonic() + timeout
     diagnostic: dict = {}
@@ -126,8 +139,7 @@ def qualify(args: argparse.Namespace) -> dict:
                    "--mount", f"type=volume,src={volumes[0]},dst=/app/data",
                    "--mount", f"type=volume,src={volumes[1]},dst=/app/whisperx-env",
                    "--mount", f"type=volume,src={volumes[2]},dst=/home/appuser", args.image)
-            port = json.loads(docker("inspect", "--format", "{{json .NetworkSettings.Ports}}", name))["8080/tcp"][0]["HostPort"]
-            base = f"http://127.0.0.1:{port}"
+            base = container_base_url(name)
             wait_ready(name, base, args.timeout)
             health = json.loads(request(base, "/health"))
             assert health.get("version") == args.version, "runtime release version differs"
@@ -154,6 +166,9 @@ def qualify(args: argparse.Namespace) -> dict:
             docker("exec", name, "gosu", "appuser", "/app/bin/cli/jotist-linux-amd64", "--help")
             # The same files must survive an actual stop/start, including the signing secret.
             docker("restart", "--time", "40", name)
+            # Docker may assign a different ephemeral host port on restart.
+            # Qualify the current binding, while retaining the pre-restart JWT.
+            base = container_base_url(name)
             wait_ready(name, base, args.timeout)
             request(base, f"/api/v1/transcription/{recording_id}", token=token)
             report["cases"].append({"identity": label, "uid": int(uid), "gid": int(gid),
