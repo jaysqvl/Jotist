@@ -80,7 +80,7 @@ test('queued-model removal confirms download behavior and preserves active files
     await expect(dialog.getByText('Queued runs may need these files. They will download missing files before processing.')).toBeVisible();
     await noOverflow(page);
     expect((await new AxeBuilder({ page }).include('[role="dialog"]').withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()).violations).toEqual([]);
-    await page.screenshot({ path: testInfo.outputPath('model-removal.png'), fullPage: true });
+    await page.screenshot({ path: testInfo.outputPath('model-removal.png') });
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Remove Cohere Transcribe 2B', exact: true })).toBeFocused();
@@ -115,7 +115,14 @@ test('model storage and removal remain readable in dark mode', async ({ page }, 
     await page.screenshot({ path: testInfo.outputPath('model-storage-dark.png'), fullPage: true });
     await page.getByRole('button', { name: 'Remove Cohere Transcribe 2B', exact: true }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page.getByRole('dialog')).toHaveCSS('animation-name', 'none');
+    await expect(page.locator('[data-slot="dialog-overlay"]')).toHaveCSS('animation-name', 'none');
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await expect(page.getByRole('dialog')).toHaveCSS('animation-name', 'enter');
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await expect(page.getByRole('dialog')).toHaveCSS('animation-name', 'none');
     expect((await new AxeBuilder({ page }).include('[role="dialog"]').withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()).violations).toEqual([]);
+    await page.screenshot({ path: testInfo.outputPath('model-removal-dark.png') });
     expect(state.unexpected).toEqual([]);
     expect(state.errors).toEqual([]);
 });
