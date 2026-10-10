@@ -45,18 +45,48 @@ def request(base: str, path: str, *, token: str = "", body: bytes | None = None,
 
 def wait_ready(name: str, base: str, timeout: int) -> None:
     deadline = time.monotonic() + timeout
+    diagnostic: dict = {}
     while time.monotonic() < deadline:
         state = json.loads(docker("inspect", "--format", "{{json .State}}", name))
         if not state.get("Running"):
             raise AssertionError(f"container exited (exit {state.get('ExitCode')})")
+        health = state.get("Health", {})
+        health_status = health.get("Status", "missing")
+        diagnostic = {
+            "docker_health": (
+                health_status
+                if health_status in ("healthy", "unhealthy", "starting", "missing")
+                else "unknown"
+            ),
+            "health_failures": health.get("FailingStreak", 0),
+        }
+        # Healthcheck output and container logs can contain private data. Keep
+        # only the exit code, never Output, environment or response bodies.
+        if health.get("Log"):
+            diagnostic["last_health_exit_code"] = health["Log"][-1].get("ExitCode")
         try:
             data = json.loads(request(base, "/ready"))
-            if data.get("status") == "ready" and state.get("Health", {}).get("Status") == "healthy":
+            ready_status = data.get("status")
+            diagnostic["ready_status"] = (
+                ready_status if ready_status in ("ready", "not_ready") else "unknown"
+            )
+            checks = data.get("checks", {})
+            for component in ("database", "queue"):
+                value = checks.get(component)
+                diagnostic[component] = value if value in ("ready", "unavailable") else "unknown"
+            if ready_status == "ready" and health_status == "healthy":
                 return
-        except (OSError, AssertionError, ValueError):
-            pass
+        except AssertionError as error:
+            # request() constructs this message from the known path and HTTP
+            # status only; it does not include an authenticated response body.
+            diagnostic["readiness_http_result"] = str(error)
+        except (OSError, ValueError) as error:
+            diagnostic["readiness_probe_error"] = type(error).__name__
         time.sleep(2)
-    raise TimeoutError("built image did not become ready and Docker healthy")
+    raise TimeoutError(
+        "built image did not become ready and Docker healthy: "
+        + json.dumps(diagnostic, sort_keys=True)
+    )
 
 
 def multipart_audio() -> tuple[bytes, str]:
