@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.1](https://github.com/jaysqvl/Jotist/compare/v2.3.0...v2.3.1) (2026-10-10)
+
+
+### Bug Fixes
+
+* **ci:** promote releases after reused validation ([#39](https://github.com/jaysqvl/Jotist/issues/39)) ([22f9ae4](https://github.com/jaysqvl/Jotist/commit/22f9ae45d3e3e94bb017eb2a05439e6bde4659e6))
+
 ## [2.3.0](https://github.com/jaysqvl/Jotist/compare/v2.2.0...v2.3.0) (2026-10-10)
 
 
