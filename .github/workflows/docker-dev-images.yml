@@ -189,6 +189,8 @@ jobs:
         with:
           context: .
           file: ${{ matrix.dockerfile }}
+          pull: true
+          no-cache-filters: runtime
           platforms: linux/amd64
           push: true
           tags: ${{ steps.metadata.outputs.candidate }}

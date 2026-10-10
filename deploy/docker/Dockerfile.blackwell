@@ -84,6 +84,7 @@ WORKDIR /app
 # https://github.com/OpenNMT/CTranslate2/blob/v4.8.2/python/tools/prepare_build_environment_linux.sh
 ARG CTRANSLATE2_CUBLAS12_VERSION=12.9.2.10-1
 RUN apt-get update \
+  && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y --no-install-recommends \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
        curl ca-certificates ffmpeg git gosu unzip \
        build-essential gcc g++ make cmake python3-dev \
@@ -95,8 +96,8 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 # Install uv (fast Python package manager) directly to system PATH
-ARG UV_VERSION=0.11.25
-ARG UV_SHA256=1db18b5e76fa645a7f3865773139bdec8e2d46adbdbb35e7410b34fa8015ccd2
+ARG UV_VERSION=0.12.5
+ARG UV_SHA256=68a509da24b06b4223a1c0175fb5eb5bc79342b76cbeff0cfe51ac3f5b17b6b2
 RUN curl -fL "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-x86_64-unknown-linux-gnu.tar.gz" -o /tmp/uv.tar.gz \
   && echo "${UV_SHA256}  /tmp/uv.tar.gz" | sha256sum -c - \
   && tar -xzf /tmp/uv.tar.gz -C /tmp \

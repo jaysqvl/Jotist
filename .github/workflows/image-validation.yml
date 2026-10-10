@@ -32,6 +32,8 @@ jobs:
         with:
           context: .
           file: deploy/docker/Dockerfile.${{ matrix.variant }}
+          pull: true
+          no-cache-filters: runtime
           load: true
           tags: jotist-ci:${{ matrix.variant }}
           build-args: |

@@ -44,6 +44,16 @@ guidance. The Blackwell image uses CUDA 13.0 and requires a compatible NVIDIA
 driver. Package resolution alone does not establish that a GPU architecture was
 tested.
 
+All container variants use Ubuntu 24.04 and its Python 3.12 packages. Runtime
+image builds apply the distribution's available package updates before adding
+audio and compiler dependencies. The compiler and Python development headers
+remain available for first-use native builds. CI pulls the current base images
+and bypasses the runtime stage cache so cached APT layers cannot retain old
+security packages. The checksum-pinned uv 0.12.5 binary includes Quinn 0.11.15,
+fixing [GHSA-4w2j-m93h-cj5j](https://github.com/advisories/GHSA-4w2j-m93h-cj5j)
+in the older embedded QUIC implementation. Image vulnerability checks cover the actual installed
+system packages and bundled binaries separately from the adapter audits.
+
 ## Coordinated compatibility changes
 
 WhisperX and DiariZen contain small, explicitly documented compatibility ports.

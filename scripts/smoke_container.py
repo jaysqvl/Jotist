@@ -115,6 +115,62 @@ def multipart_audio() -> tuple[bytes, str]:
     return body + audio.getvalue() + f"\r\n--{boundary}--\r\n".encode(), f"multipart/form-data; boundary={boundary}"
 
 
+def qualify_runtime_tools(name: str) -> dict:
+    # Native setup runs as the application account on first use. Qualify both
+    # the Python headers and the CMake/C++ path, not just executable presence.
+    program = r'''
+import importlib.util
+import json
+from pathlib import Path
+import subprocess
+import sys
+import sysconfig
+import tempfile
+
+assert sys.version_info[:2] == (3, 12), "unexpected runtime Python baseline"
+
+def run(*args):
+    subprocess.run(args, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+for command in (("uv", "--version"), ("yt-dlp", "--version"), ("deno", "--version"),
+                ("ffmpeg", "-version"), ("ffprobe", "-version"), ("git", "--version")):
+    run(*command)
+
+with tempfile.TemporaryDirectory(prefix="jotist-native-smoke-") as temporary:
+    root = Path(temporary)
+    (root / "main.cpp").write_text("#include <iostream>\nint main() { return 0; }\n")
+    (root / "CMakeLists.txt").write_text(
+        "cmake_minimum_required(VERSION 3.16)\nproject(smoke LANGUAGES CXX)\nadd_executable(smoke main.cpp)\n"
+    )
+    run("cmake", "-S", str(root), "-B", str(root / "build"))
+    run("cmake", "--build", str(root / "build"), "--target", "smoke")
+    run(str(root / "build" / "smoke"))
+
+    source = root / "native_smoke.c"
+    source.write_text(
+        '#include <Python.h>\n'
+        'static struct PyModuleDef module = {PyModuleDef_HEAD_INIT, "native_smoke", NULL, -1, NULL};\n'
+        'PyMODINIT_FUNC PyInit_native_smoke(void) {\n'
+        '  PyObject *m = PyModule_Create(&module);\n'
+        '  if (m && PyModule_AddIntConstant(m, "answer", 23) < 0) { Py_DECREF(m); return NULL; }\n'
+        '  return m;\n}\n'
+    )
+    extension = root / ("native_smoke" + sysconfig.get_config_var("EXT_SUFFIX"))
+    run("cc", "-shared", "-fPIC", "-I" + sysconfig.get_path("include"), str(source), "-o", str(extension))
+    spec = importlib.util.spec_from_file_location("native_smoke", extension)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.answer == 23, "native Python extension failed"
+
+print(json.dumps({"python": "3.12", "native_python_extension": True, "cmake_cpp": True,
+                  "runtime_binaries": True}))
+'''
+    result = json.loads(docker("exec", name, "gosu", "appuser", "python3", "-c", program))
+    assert result == {"python": "3.12", "native_python_extension": True, "cmake_cpp": True,
+                      "runtime_binaries": True}, "runtime tool qualification incomplete"
+    return result
+
+
 def qualify(args: argparse.Namespace) -> dict:
     prefix = "jotist-smoke-" + uuid.uuid4().hex
     volumes = [prefix + "-" + suffix for suffix in ("data", "runtime", "home")]
@@ -146,6 +202,7 @@ def qualify(args: argparse.Namespace) -> dict:
             assert health.get("commit") == args.revision, "runtime source revision differs"
             identity = docker("exec", name, "awk", "/^Uid:|^Gid:/ { print $1, $2 }", "/proc/1/status").splitlines()
             assert identity == [f"Uid: {uid}", f"Gid: {gid}"], "runtime UID/GID differs from request"
+            runtime_tools = qualify_runtime_tools(name)
             request(base, "/api/v1/settings/models", status=401)
             if not recording_id:
                 request(base, "/api/v1/auth/register", body=json.dumps(credentials).encode(), status=201)
@@ -173,7 +230,7 @@ def qualify(args: argparse.Namespace) -> dict:
             request(base, f"/api/v1/transcription/{recording_id}", token=token)
             report["cases"].append({"identity": label, "uid": int(uid), "gid": int(gid),
                                     "ready": True, "docker_healthy": True, "authenticated_upload": True,
-                                    "restart_persistence": True, "cli": True})
+                                    "restart_persistence": True, "cli": True, "runtime_tools": runtime_tools})
             docker("rm", "--force", name)
             containers.remove(name)
         report["passed"] = True
