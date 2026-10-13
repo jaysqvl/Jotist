@@ -1,21 +1,29 @@
 {
   "schema_version": 1,
-  "reviewed_at": "2026-10-10T04:09:06Z",
+  "reviewed_at": "2026-10-13T09:16:31Z",
   "review_by": "2026-11-09",
   "package": {
     "name": "linux-libc-dev",
-    "version": "6.8.0-146.146",
-    "purl": "pkg:deb/ubuntu/linux-libc-dev@6.8.0-146.146?arch=amd64&distro=ubuntu-24.04",
+    "version": "6.8.0-147.147",
+    "purl": "pkg:deb/ubuntu/linux-libc-dev@6.8.0-147.147?arch=amd64&distro=ubuntu-24.04",
     "installed_files": 990,
     "headers": 988,
-    "installed_paths_sha256": "ab0b28e0f17afee8d182697823f7ef5c7e7c34fa614b013e5d0b9f6fed575c33"
+    "installed_paths_sha256": "ab0b28e0f17afee8d182697823f7ef5c7e7c34fa614b013e5d0b9f6fed575c33",
+    "installed_payload_sha256": "9ecc68604f033fce8d4fa7a3a4a618b1e5b40d785998f3c97c5be791742f3f0e"
   },
   "justification": "vulnerable_code_not_present",
-  "impact": "The listed CVEs affect Linux kernel implementation code. This exact Ubuntu package contains exported userspace development headers and two documentation files, without kernel implementation, modules or executables. The headers remain required for first-use native model builds. Each upstream fix below was compared with the 990 installed package paths. Runtime image qualification independently verifies the files are regular headers/documentation and that the path manifest matches. This assessment covers this image package only; it makes no assertion about the host kernel.",
+  "impact": "The listed CVEs affect Linux kernel implementation code. This exact Ubuntu package contains exported userspace development headers and two documentation files, without kernel implementation, modules or executables. The headers remain required for first-use native model builds. Each upstream fix below was compared with the 990 installed package paths. Runtime image qualification independently verifies the files are regular headers/documentation and that both the path manifest and complete file-content hash match the reviewed Ubuntu package. This assessment covers this image package only; it makes no assertion about the host kernel.",
   "references": [
     "https://packages.ubuntu.com/noble/linux-libc-dev",
     "https://packages.ubuntu.com/noble/amd64/linux-libc-dev/filelist",
-    "https://www.kernel.org/doc/html/latest/kbuild/headers_install.html"
+    "https://www.kernel.org/doc/html/latest/kbuild/headers_install.html",
+    "https://archive.ubuntu.com/ubuntu/pool/main/l/linux/linux-libc-dev_6.8.0-147.147_amd64.deb",
+    "https://archive.ubuntu.com/ubuntu/pool/main/l/linux/linux-libc-dev_6.8.0-146.146_amd64.deb",
+    "https://ubuntu.com/security/CVE-2024-58098",
+    "https://ubuntu.com/security/CVE-2024-58100",
+    "https://ubuntu.com/security/CVE-2025-37743",
+    "https://ubuntu.com/security/CVE-2025-37776",
+    "https://ubuntu.com/security/CVE-2025-38204"
   ],
   "exported_header_change": {
     "cve": "CVE-2026-80668",
@@ -88,10 +96,38 @@
         "drivers/infiniband/sw/siw/siw_verbs.c"
       ]
     },
+    "CVE-2024-58098": {
+      "commit": "51081a3f25c742da5a659d7fc6fd77ebfdd555be",
+      "paths": [
+        "include/linux/bpf_verifier.h",
+        "kernel/bpf/verifier.c"
+      ]
+    },
+    "CVE-2024-58100": {
+      "commit": "81f6d0530ba031b5f038a091619bf2ff29568852",
+      "paths": [
+        "include/linux/bpf.h",
+        "kernel/bpf/verifier.c"
+      ]
+    },
     "CVE-2025-22043": {
       "commit": "542027e123fc0bfd61dd59e21ae0ee4ef2101b29",
       "paths": [
         "fs/smb/server/smb2pdu.c"
+      ]
+    },
+    "CVE-2025-37743": {
+      "commit": "ecfc131389923405be8e7a6f4408fd9321e4d19b",
+      "paths": [
+        "drivers/net/wireless/ath/ath12k/dp_mon.c",
+        "drivers/net/wireless/ath/ath12k/hal_rx.h"
+      ]
+    },
+    "CVE-2025-37776": {
+      "commit": "18b4fac5ef17f77fed9417d22210ceafd6525fc7",
+      "paths": [
+        "fs/smb/server/oplock.c",
+        "fs/smb/server/oplock.h"
       ]
     },
     "CVE-2025-37906": {
@@ -104,6 +140,12 @@
       "commit": "9802f0a63b641f4cddb2139c814c2e95cb825099",
       "paths": [
         "drivers/gpu/drm/nouveau/nvkm/subdev/gsp/rm/r535/rpc.c"
+      ]
+    },
+    "CVE-2025-38204": {
+      "commit": "5dff41a86377563f7a2b968aae00d25b4ceb37c9",
+      "paths": [
+        "fs/jfs/jfs_dtree.c"
       ]
     },
     "CVE-2025-38563": {
@@ -959,5 +1001,19 @@
         "net/ipv6/ip6_offload.c"
       ]
     }
+  },
+  "package_refresh": {
+    "previous_version": "6.8.0-146.146",
+    "previous_deb_sha256": "1a7bb04132d01cd14bea3d615e5861096ca1f70c4659902eb14b36c21993cadc",
+    "reviewed_deb_sha256": "fec8e4a308c03cd98dace67370a8d5a8031c36741796065c9f6e3f9548ab0cd2",
+    "source": "https://archive.ubuntu.com/ubuntu/pool/main/l/linux/linux-libc-dev_6.8.0-147.147_amd64.deb",
+    "changed_payload": [
+      "/usr/include/linux/bpf.h",
+      "/usr/include/linux/btrfs.h",
+      "/usr/include/linux/dpll.h",
+      "/usr/share/doc/linux-libc-dev/changelog.Debian.gz"
+    ],
+    "exported_header_review": "bpf.h adds explicit padding to bpf_prog_info; btrfs.h changes a flexible array element type; dpll.h adds clock-quality enum and attribute declarations. These are userspace API declarations, with no kernel implementation or executable payload.",
+    "new_findings_review": "The five newly reported CVEs affect the kernel BPF verifier, ath12k driver, ksmbd server and JFS implementation. Their upstream fix paths are absent from this package. CVE-2024-58100 changes the kernel-internal include/linux/bpf.h, not the exported include/uapi/linux/bpf.h installed as /usr/include/linux/bpf.h; its bpf_prog_aux and changes_pkt_data code is absent from the packaged header."
   }
 }

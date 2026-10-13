@@ -202,10 +202,13 @@ for value in paths:
     files.append(value)
 assert files and len(files) == len(set(files)), "missing or duplicate package payload"
 manifest = "\n".join(sorted(files)) + "\n"
+payload = "\n".join(hashlib.sha256(Path(value).read_bytes()).hexdigest() + "  " + value
+                    for value in sorted(files)) + "\n"
 print(json.dumps({"name": "linux-libc-dev", "version": version,
                   "installed_files": len(files), "headers": headers,
                   "regular_headers_and_docs_only": True,
-                  "installed_paths_sha256": hashlib.sha256(manifest.encode()).hexdigest()}))
+                  "installed_paths_sha256": hashlib.sha256(manifest.encode()).hexdigest(),
+                  "installed_payload_sha256": hashlib.sha256(payload.encode()).hexdigest()}))
 '''
     return json.loads(docker("exec", name, "gosu", "appuser", "python3", "-c", program))
 

@@ -37,6 +37,9 @@ def build_vex(policy, report, smoke, today=None):
     require(reviewed_at.tzinfo is not None and reviewed_at.astimezone(timezone.utc).date() <= today,
             "package review is future dated")
     package = policy["package"]
+    payload_hash = package.get("installed_payload_sha256")
+    require(isinstance(payload_hash, str) and re.fullmatch(r"[0-9a-f]{64}", payload_hash),
+            "missing reviewed package content hash")
     require(re.fullmatch(r"pkg:deb/ubuntu/linux-libc-dev@6\.8\.0-\d+\.\d+\?arch=amd64&distro=ubuntu-24\.04",
                          package["purl"]) is not None, "unbounded package scope")
     require(policy["justification"] == "vulnerable_code_not_present" and policy["impact"]
@@ -67,7 +70,8 @@ def build_vex(policy, report, smoke, today=None):
         evidence = case.get("kernel_headers", {})
         require(evidence.get("regular_headers_and_docs_only") is True
                 and all(evidence.get(key) == package[key] for key in
-                        ("name", "version", "installed_files", "headers", "installed_paths_sha256")),
+                        ("name", "version", "installed_files", "headers", "installed_paths_sha256",
+                         "installed_payload_sha256")),
                 "actual image header payload proof missing or changed")
 
     exported = policy["exported_header_change"]
