@@ -75,3 +75,67 @@ and source commit. See [release maintenance](../docs/jotist-releases.md).
 Docker health checks use `/ready`. Models prepare on first use under the run's model-file lease, so starting the server does not restore intentionally deleted weights. The first run after a model removal may take longer while downloading it again.
 
 The root entrypoint applies both `PUID` and `PGID`, including an existing host group, and refuses to launch with a mismatched identity. When using Docker's explicit `--user`, that identity takes precedence. Keep persistent mount permissions compatible with the selected user. Configure restart/autostart behavior in your deployment manager; a Docker health check reports health and does not itself restart an unhealthy container.
+
+## Required cleanup after an accepted deployment
+
+Agents and maintainers must complete this step for manual Compose, Portainer and
+native Docker deployments. Image publication alone does not run NAS cleanup.
+The helper requires Python 3.9+ on the client and Docker access locally or through
+an existing SSH alias; the Docker host does not need Python.
+
+Before pulling/replacing the service, capture its immutable identity in a new,
+private journal. Replace `nas`, `jotist` and the unique journal name with the
+actual SSH alias, existing container name and deployment ID:
+
+```sh
+python3 scripts/deployment_cleanup.py --ssh-host nas capture \
+  --service jotist --state tmp/deployment-UNIQUE.json
+```
+
+Keep the manager's configuration and a consistent data/key backup separately.
+Record the previous registry digest or preserve its build artifact for recovery;
+do not add a permanent local rollback tag. Track only disposable resources you
+created, using full IDs returned by Docker, for example:
+
+```sh
+python3 scripts/deployment_cleanup.py --ssh-host nas track \
+  --state tmp/deployment-UNIQUE.json --container-id FULL_64_CHARACTER_CANARY_ID
+python3 scripts/deployment_cleanup.py --ssh-host nas track \
+  --state tmp/deployment-UNIQUE.json --image-id sha256:FULL_64_CHARACTER_IMAGE_ID
+```
+
+After recreation, record the replacement's full container ID and image ID before
+running acceptance checks. Verify the intended image/revision, `/ready`, `/health`, the UI, existing database/audio, model-cache mounts and the qualified installed Python runtime graph. Exercise the selected model pipeline when the update affects inference. A ready endpoint alone does not qualify model inference.
+Keep the old container stopped and available until acceptance. Stop any owned
+qualification containers by their recorded IDs. Then run:
+
+```sh
+python3 scripts/deployment_cleanup.py --ssh-host nas finish \
+  --state tmp/deployment-UNIQUE.json --container-id ACCEPTED_FULL_CONTAINER_ID \
+  --image-id sha256:ACCEPTED_FULL_IMAGE_ID --verified --dry-run
+# Review the preview, then repeat without --dry-run to perform cleanup.
+python3 scripts/deployment_cleanup.py --ssh-host nas finish \
+  --state tmp/deployment-UNIQUE.json --container-id ACCEPTED_FULL_CONTAINER_ID \
+  --image-id sha256:ACCEPTED_FULL_IMAGE_ID --verified
+```
+
+`--verified` declares that the project-specific checks above passed; it does not
+run them. The helper independently requires the exact accepted service to remain
+running (and healthy when Docker has a health check), and rechecks it before
+removal. It removes only recorded stopped/Created containers and unreferenced
+images by immutable ID. Every container state counts as an image reference;
+namespace, volume and writable-root dependencies are protected, including Unraid
+Btrfs bind aliases. Shared images stay. Mutable tags are never deletion targets.
+Native Docker may refuse a multi-tag image; report that blocker rather than force
+removal. Avoid creating extra rollback tags in the first place.
+
+If acceptance fails, preserve recovery resources and follow the rollback
+procedure. If cleanup fails after acceptance, keep the verified service running,
+report the blocker and retry the same journal after resolving it. A retry is
+idempotent. Include actual removed/protected IDs and cleanup status in the
+receipt. A dry run is a preview, not completed cleanup.
+
+This does not delete persistent data, keys, model caches, volumes, backups, VMs,
+ISOs or build caches. It never runs a host-wide prune. Do not delete Docker's
+internal storage paths manually. Existing unrecorded leftovers need a separate
+ownership/reference audit; this workflow prevents new untracked leftovers.
