@@ -139,3 +139,8 @@ exact synchronization. Follow the [migration guide](jotist-migration.md), preser
 the existing stack's data/configuration, and verify the running image and
 application behavior. Keep the old fork and pre-upgrade backup until the preview
 and cutover are accepted.
+
+After live cutover acceptance, complete the recorded resource cleanup in
+[container deployment](../deploy/README.md#required-cleanup-after-an-accepted-deployment).
+Keep matching external data backups and immutable recovery references; retired
+containers and qualification copies must not accumulate as indefinite backups.

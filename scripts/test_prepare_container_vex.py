@@ -12,22 +12,26 @@ from prepare_container_vex import POLICY, build_vex, manifest_hash
 class ContainerVexTests(unittest.TestCase):
     def setUp(self):
         self.policy = json.loads(POLICY.read_text())
+        # Keep date-boundary fixtures stable when the real package review changes.
+        self.policy.update(reviewed_at="2026-10-10T04:09:06Z", review_by="2026-11-09")
         self.cve = "CVE-2026-53398"
         self.policy["upstream_fixes"] = {self.cve: self.policy["upstream_fixes"][self.cve]}
         self.package = self.policy["package"]
         paths = ["/usr/include/linux/example.h", "/usr/share/doc/linux-libc-dev/copyright"]
         self.package.update(installed_paths_sha256=manifest_hash(paths), installed_files=2, headers=1)
+        version, release = self.package["version"].rsplit("-", 1)
         self.report = {
             "SchemaVersion": 2, "ArtifactType": "container_image", "ArtifactName": "owned-image",
             "Metadata": {"OS": {"Family": "ubuntu", "Name": "24.04"}},
             "Results": [{"Class": "os-pkgs", "Type": "ubuntu", "Packages": [{
-                "Name": self.package["name"], "Version": "6.8.0", "Release": "146.146",
+                "Name": self.package["name"], "Version": version, "Release": release,
                 "Identifier": {"PURL": self.package["purl"]}, "InstalledFiles": paths,
             }], "Vulnerabilities": [{"VulnerabilityID": self.cve, "PkgName": "linux-libc-dev",
                                       "Severity": "CRITICAL", "Status": "affected"}]}],
         }
         evidence = {key: self.package[key] for key in
-                    ("name", "version", "installed_files", "headers", "installed_paths_sha256")}
+                    ("name", "version", "installed_files", "headers", "installed_paths_sha256",
+                     "installed_payload_sha256")}
         evidence["regular_headers_and_docs_only"] = True
         self.smoke = {"passed": True, "image": "owned-image",
                       "cases": [{"kernel_headers": evidence}, {"kernel_headers": deepcopy(evidence)}]}
@@ -57,7 +61,7 @@ class ContainerVexTests(unittest.TestCase):
 
     def test_changed_package_version_distro_or_architecture_does_not_match(self):
         installed = self.report["Results"][0]["Packages"][0]
-        for old, new in (("146.146", "147.147"), ("amd64", "arm64"), ("ubuntu-24.04", "ubuntu-26.04")):
+        for old, new in ((self.package["version"], "6.8.0-999.999"), ("amd64", "arm64"), ("ubuntu-24.04", "ubuntu-26.04")):
             with self.subTest(new=new):
                 installed["Identifier"]["PURL"] = self.package["purl"].replace(old, new)
                 with self.assertRaises(ValueError):
@@ -73,7 +77,7 @@ class ContainerVexTests(unittest.TestCase):
     def test_missing_or_changed_scan_or_actual_payload_fails_closed(self):
         cases = [
             lambda r, s: r["Results"][0]["Packages"].clear(),
-            lambda r, s: r["Results"][0]["Packages"][0].update(Release="147.147"),
+            lambda r, s: r["Results"][0]["Packages"][0].update(Release="999.999"),
             lambda r, s: r["Results"][0]["Packages"][0]["InstalledFiles"].append("/boot/vmlinuz"),
             lambda r, s: r.update(ArtifactName="another-image"),
             lambda r, s: s.update(passed=False),
@@ -81,12 +85,19 @@ class ContainerVexTests(unittest.TestCase):
             lambda r, s: s["cases"][0].pop("kernel_headers"),
             lambda r, s: s["cases"][1]["kernel_headers"].update(regular_headers_and_docs_only=False),
             lambda r, s: s["cases"][1]["kernel_headers"].update(installed_paths_sha256="0" * 64),
+            lambda r, s: s["cases"][1]["kernel_headers"].update(installed_payload_sha256="0" * 64),
+            lambda r, s: s["cases"][1]["kernel_headers"].pop("installed_payload_sha256"),
         ]
         for mutation in cases:
             report, smoke = deepcopy(self.report), deepcopy(self.smoke)
             mutation(report, smoke)
             with self.subTest(mutation=mutation), self.assertRaises(ValueError):
                 build_vex(self.policy, report, smoke, date(2026, 10, 10))
+
+    def test_policy_cannot_omit_reviewed_file_content_proof(self):
+        self.package.pop("installed_payload_sha256")
+        with self.assertRaisesRegex(ValueError, "content hash"):
+            self.prepare()
 
     def test_new_cve_and_same_cve_on_another_package_receive_no_exemption(self):
         self.report["Results"][0]["Vulnerabilities"].extend([
