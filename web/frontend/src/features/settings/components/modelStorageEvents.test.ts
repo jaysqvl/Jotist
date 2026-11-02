@@ -6,6 +6,24 @@ import { modelStorageEventParser, watchModelStorage } from './modelStorageEvents
 const encoded = (value: string) => new TextEncoder().encode(value);
 const frame = (type: string) => `data: ${JSON.stringify({ type })}\n\n`;
 
+test('download progress updates jobs without invalidating or scanning storage', async () => {
+    let stream!: ReadableStreamDefaultController<Uint8Array>;
+    let storageChanges = 0;
+    let downloadChanges = 0;
+    const fetcher: typeof fetch = async (_url, init) => new Response(new ReadableStream<Uint8Array>({ start(controller) {
+        stream = controller;
+        init?.signal?.addEventListener('abort', () => controller.error(new DOMException('Aborted', 'AbortError')), { once: true });
+    } }));
+    const stop = watchModelStorage('token', () => storageChanges++, () => {}, fetcher, 90000, () => downloadChanges++);
+    try {
+        await wait(0);
+        stream.enqueue(encoded('data: ' + JSON.stringify({ type: 'model_download_changed', job: { id: 'download', model_id: 'tiny', name: 'Whisper Tiny', state: 'downloading', downloaded_bytes: 10, total_bytes: 100, completed_files: 0, total_files: 1, created_at: '2026-11-02T00:00:00Z', updated_at: '2026-11-02T00:00:01Z' } }) + '\n\n'));
+        await wait(250);
+        assert.equal(downloadChanges, 1);
+        assert.equal(storageChanges, 0, 'byte progress must not invalidate model inventory');
+    } finally { stop(); }
+});
+
 test('storage event parsing handles split frames, CRLF, keepalives and malformed messages', () => {
     const events: string[] = [];
     const parse = modelStorageEventParser(type => events.push(type));

@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"sync"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jaysqvl/Jotist/internal/config"
+	"github.com/jaysqvl/Jotist/internal/modeldownloads"
 	"github.com/jaysqvl/Jotist/internal/modelstorage"
 	"github.com/jaysqvl/Jotist/internal/repository"
 	"github.com/jaysqvl/Jotist/internal/transcription/adapters"
@@ -22,7 +24,18 @@ func newModelStorageManager(cfg *config.Config, db *gorm.DB) *modelstorage.Manag
 	for _, direct := range options.Direct {
 		catalog = append(catalog, direct.Model)
 	}
-	options.Uses = func(ctx context.Context) ([]modelstorage.Use, error) { return repository.ReadModelStorageUses(ctx, db) }
+	downloadCatalog := adapters.NewModelDownloader(cfg.WhisperXEnv).Catalog()
+	options.Uses = func(ctx context.Context) ([]modelstorage.Use, error) {
+		uses, err := repository.ReadModelStorageUses(ctx, db)
+		if err != nil {
+			return nil, err
+		}
+		downloads, err := repository.ReadModelDownloadUses(ctx, db, downloadCatalog)
+		if err != nil {
+			return nil, err
+		}
+		return append(uses, downloads...), nil
+	}
 	options.Details = func(ctx context.Context) (map[string]modelstorage.Details, error) {
 		return repository.ReadModelStorageDetails(ctx, db, catalog)
 	}
@@ -273,6 +286,12 @@ func (h *Handler) ModelStorageEvents(c *gin.Context) {
 	}
 	changes, unsubscribe := h.modelStorage.SubscribeChanges()
 	defer unsubscribe()
+	var downloads <-chan modeldownloads.Event
+	if h.modelDownloads != nil {
+		var unsubscribeDownloads func()
+		downloads, unsubscribeDownloads = h.modelDownloads.Subscribe()
+		defer unsubscribeDownloads()
+	}
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-store")
 	c.Header("X-Accel-Buffering", "no")
@@ -300,6 +319,15 @@ func (h *Handler) ModelStorageEvents(c *gin.Context) {
 			return
 		case <-changes:
 			if !write("data: {\"type\":\"model_storage_changed\"}\n\n") {
+				return
+			}
+		case event := <-downloads:
+			if event.Job != nil {
+				job := downloadForOwner(c, *event.Job)
+				event.Job = &job
+			}
+			payload, err := json.Marshal(event)
+			if err != nil || !write("data: "+string(payload)+"\n\n") {
 				return
 			}
 		case <-keepalive.C:

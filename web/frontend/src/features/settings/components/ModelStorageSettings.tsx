@@ -12,6 +12,9 @@ import type { CachedModel, ModelFilter, ModelInventory, ModelSort } from './mode
 import { watchModelStorage } from './modelStorageEvents';
 import { ModelCacheControls } from './ModelCacheControls';
 import { ModelProfileReferences } from './ModelProfileReferences';
+import { ModelDownloadActivity, ModelDownloadPicker } from './ModelDownloadControls';
+import { downloadQueryKey, updateDownloadList } from './modelDownloads';
+import type { ModelDownloadList } from './modelDownloads';
 
 const panel = 'min-w-0 rounded-[var(--radius-card)] border border-[var(--border-subtle)] bg-[var(--bg-card)]';
 
@@ -33,7 +36,13 @@ export function ModelStorageSettings() {
         setLiveDisconnected(false);
         return watchModelStorage(token,
             () => { void queryClient.invalidateQueries({ queryKey: ['modelStorage'] }); },
-            connected => setLiveDisconnected(!connected));
+            connected => {
+                setLiveDisconnected(!connected);
+                if (connected) void queryClient.invalidateQueries({ queryKey: downloadQueryKey });
+            }, fetch, 90000, event => {
+                if (event.job) queryClient.setQueryData<ModelDownloadList>(downloadQueryKey, data => updateDownloadList(data, event.job!));
+                else void queryClient.invalidateQueries({ queryKey: downloadQueryKey });
+            });
     }, [token, queryClient]);
     const query = useQuery<ModelInventory>({
         queryKey: ['modelStorage'],
@@ -74,9 +83,10 @@ export function ModelStorageSettings() {
         <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0"><h2 className="flex items-center gap-2 text-lg font-display font-semibold"><HardDrive className="h-5 w-5 text-[var(--brand-solid)]" />Model storage</h2>
                 <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">Manage downloaded models on this server. Profiles stay saved, and missing files download when a model is used again.</p></div>
+            <div className="flex flex-wrap gap-2"><ModelDownloadPicker inventory={inventory} />
             <Button variant="outline" size="sm" disabled={loading || refresh.isPending || remove.isPending} onClick={() => refresh.mutate()}>
                 <RefreshCw className={`h-4 w-4 ${refresh.isPending ? 'animate-spin' : ''}`} />Refresh
-            </Button>
+            </Button></div>
         </div>
         <div className="grid min-w-0 gap-3 sm:grid-cols-3">
             <Metric title="Model files" value={inventory ? storageSize(inventory.model_bytes) : '—'} note="Shared files counted once" />
@@ -84,6 +94,7 @@ export function ModelStorageSettings() {
             <Metric title="Available space" value={inventory?.volumes.length ? storageSize(free) : '—'} note={inventory && inventory.volumes.length > 1 ? `Across ${inventory.volumes.length} storage volumes` : 'On the cache storage volume'} />
         </div>
         <ModelCacheControls policy={inventory?.retention} unavailable={loading || query.isError || remove.isPending || keep.isPending} onNotice={setNotice} />
+        <ModelDownloadActivity />
         {notice && <p role="status" className="rounded-xl bg-[var(--success-translucent)] p-3 text-sm text-[var(--success-solid)]">{notice}</p>}
         {keep.isError && <p role="alert" className="rounded-xl bg-[var(--error-translucent)] p-3 text-sm text-[var(--error-solid)]">{keep.error.message}</p>}
         {error && <p role="alert" className="rounded-xl bg-[var(--error-translucent)] p-3 text-sm text-[var(--error-solid)]">{error} Existing data is shown until the next successful refresh.</p>}

@@ -49,6 +49,10 @@ func opaqueID(source string) string {
 	return hex.EncodeToString(sum[:16])
 }
 
+// ModelID is stable across a model's download, inventory and retention controls.
+// Callers must still resolve it against their server-owned catalog.
+func ModelID(source string) string { return opaqueID(source) }
+
 func (m *Manager) Inventory(ctx context.Context, refresh bool) (Inventory, error) {
 	m.scanMu.Lock()
 	revision, changed := m.gate.fileChangesSince(m.filesRevision)
@@ -333,7 +337,7 @@ func (m *Manager) scanSelected(ctx context.Context, otherStorage bool, selected 
 	add := func(model Model, a asset) error {
 		entry := entries[model.Source]
 		if entry == nil {
-			entry = &Entry{ID: opaqueID(model.Source), Name: model.Name, Source: model.Source, Purpose: model.Purpose, Status: "downloaded", CanRemove: len(model.Resources) > 0, resources: model.Resources, files: make(map[string]fileSize), Uses: []Use{}, ProfileReferences: []ProfileReference{}}
+			entry = &Entry{ID: opaqueID(model.Source), Name: model.Name, Source: model.Source, Purpose: model.Purpose, Status: "downloaded", CanRemove: len(model.Resources) > 0, resources: append(append([]string{}, model.Resources...), model.Source), files: make(map[string]fileSize), Uses: []Use{}, ProfileReferences: []ProfileReference{}}
 			entries[model.Source] = entry
 		}
 		for _, old := range entry.assets {

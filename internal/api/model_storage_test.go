@@ -38,7 +38,7 @@ func modelStorageTestHandler(t *testing.T) (*Handler, *gorm.DB, models.User, str
 	// maintenance and the assertions must share the same migrated database.
 	sqlDB.SetMaxOpenConns(1)
 	t.Cleanup(func() { require.NoError(t, sqlDB.Close()) })
-	require.NoError(t, db.AutoMigrate(&models.TranscriptionJobExecution{}, &models.RevokedAccessToken{}, &models.ModelCacheSetting{}, &models.ModelCacheRecord{}))
+	require.NoError(t, db.AutoMigrate(&models.TranscriptionJobExecution{}, &models.RevokedAccessToken{}, &models.ModelCacheSetting{}, &models.ModelCacheRecord{}, &models.ModelDownload{}))
 	root := t.TempDir()
 	for key, value := range map[string]string{"XDG_CACHE_HOME": filepath.Join(root, "cache"), "HF_HOME": filepath.Join(root, "hf"), "HF_HUB_CACHE": filepath.Join(root, "hf", "hub"), "TORCH_HOME": filepath.Join(root, "torch"), "UV_CACHE_DIR": filepath.Join(root, "uv"), "NEMO_CACHE_DIR": filepath.Join(root, "nemo"), "PYANNOTE_CACHE": filepath.Join(root, "pyannote"), "HF_XET_CACHE": filepath.Join(root, "xet"), "HF_ASSETS_CACHE": filepath.Join(root, "assets")} {
 		t.Setenv(key, value)

@@ -21,12 +21,22 @@ manually deleting a copied lockfile does not establish that an upgrade works.
 | Pyannote | Standard speaker diarization | pyannote.audio 4.0.7 |
 | SUPlime | Optional research diarization | SUPlime 0.2, pyannote.audio 4.0.7 |
 | DiariZen | Optional research diarization | Bundled DiariZen and its custom pyannote.audio |
+| Model downloads | File prefetch only, no inference | Hugging Face Hub 1.31, filelock 4.2.7, tqdm 4.70.1; no Torch |
 
-All seven environments pin PyTorch 2.14.0, TorchAudio 2.11.0, TorchCodec 0.16.0
+All seven inference environments pin PyTorch 2.14.0, TorchAudio 2.11.0, TorchCodec 0.16.0
 and Hugging Face Hub 1.31.0. TorchAudio 2.11 uses PyTorch's stable ABI and supports
 Torch 2.11 or later ([official compatibility table](https://docs.pytorch.org/audio/stable/installation.html)); their version numbers no longer need to match. Native
 companion wheels must still come from the same CPU/CUDA index. WhisperX also
 pins TorchVision 0.29.0.
+
+The separate `model-downloads` helper is audited on Python 3.11 and 3.12, but
+does not install/import Torch or exercise a native audio decoder. This exception
+is specific to file prefetch; all inference groups retain their import/decode
+checks. It uses the official Hub cache/locks and immutable revision resolution
+without loading publisher model code. Direct NeMo/BitNet destinations share a
+server lock with automatic preparation; their staging Hub cache lives on the
+same environment mount so weights can be hardlinked rather than duplicated.
+Both locations are included in storage/retention accounting.
 
 Every environment that uses Lightning directly pins both `lightning` and
 `pytorch-lightning` to 2.6.6. WhisperX and Canary-Qwen also directly pin NLTK

@@ -27,6 +27,7 @@ on:
           - local-asr
           - suplime
           - diarizen
+          - model-downloads
 
 permissions:
   contents: read
@@ -44,6 +45,8 @@ jobs:
           enable-cache: true
       - name: Test shared controls and native output recovery
         run: uv run --no-project --python 3.12 --with numpy --with pytest python -m pytest -q internal/transcription/adapters/py/local_asr/tests internal/transcription/adapters/py/nvidia/tests/test_canary_stages.py internal/transcription/adapters/py/nvidia/tests/test_nvidia_compat.py internal/transcription/adapters/py/test_runtime_controls.py internal/transcription/adapters/py/research/test_research_diarize.py internal/transcription/adapters/py/whisperx/test_vad_asset.py
+      - name: Test model file downloads without an inference runtime
+        run: uv run --project internal/transcription/adapters/py/model_downloads --python 3.12 python -I -m unittest discover -s internal/transcription/adapters/py/model_downloads -p test_download.py -v
 
   imports:
     name: import ${{ matrix.adapter }} on Python ${{ matrix.python-version }}
@@ -53,10 +56,11 @@ jobs:
       fail-fast: false
       max-parallel: 3
       matrix:
-        adapter: [nvidia-asr, canary-qwen, pyannote, whisperx, local-asr, suplime, diarizen]
+        adapter: [nvidia-asr, canary-qwen, pyannote, whisperx, local-asr, suplime, diarizen, model-downloads]
         python-version: ['3.12']
         include:
           - {adapter: pyannote, python-version: '3.11'}
+          - {adapter: model-downloads, python-version: '3.11'}
     steps:
       - name: Checkout code
         if: github.event_name != 'workflow_dispatch' || inputs.adapter == 'all' || inputs.adapter == matrix.adapter
@@ -81,14 +85,14 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg libsndfile1
 
       - name: Setup Go for real CPU inference
-        if: matrix.adapter == 'whisperx' && (github.event_name != 'workflow_dispatch' || inputs.adapter == 'all' || inputs.adapter == matrix.adapter)
+        if: (matrix.adapter == 'whisperx' || (matrix.adapter == 'model-downloads' && matrix.python-version == '3.12')) && (github.event_name != 'workflow_dispatch' || inputs.adapter == 'all' || inputs.adapter == matrix.adapter)
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
           cache: true
 
       - name: Build shared runtime qualification test
-        if: matrix.adapter == 'whisperx' && (github.event_name != 'workflow_dispatch' || inputs.adapter == 'all' || inputs.adapter == matrix.adapter)
+        if: (matrix.adapter == 'whisperx' || (matrix.adapter == 'model-downloads' && matrix.python-version == '3.12')) && (github.event_name != 'workflow_dispatch' || inputs.adapter == 'all' || inputs.adapter == matrix.adapter)
         run: go test -c ./internal/transcription/adapters -o /tmp/jotist-runtime.test
 
       - name: Import adapter, decode audio and qualify shared CPU inference
@@ -102,6 +106,12 @@ jobs:
             inference=(--inference-smoke-binary /tmp/jotist-runtime.test)
           fi
           python scripts/verify-python-adapter-envs.py --mode import --torch-index cpu --python "$ADAPTER_PYTHON" --adapter "$ADAPTER" --audit --audit-output-dir artifacts/python-audit "${inference[@]}"
+
+      - name: Qualify manual prefetch and offline cache reuse
+        if: matrix.adapter == 'model-downloads' && matrix.python-version == '3.12' && (github.event_name != 'workflow_dispatch' || inputs.adapter == 'all' || inputs.adapter == matrix.adapter)
+        env:
+          JOTIST_MODEL_DOWNLOAD_SMOKE: '1'
+        run: /tmp/jotist-runtime.test -test.run '^TestManualModelDownloadQualification$' -test.v -test.timeout=5m
 
       - name: Preserve installed dependency audit
         if: always() && hashFiles('artifacts/python-audit/*.json') != ''

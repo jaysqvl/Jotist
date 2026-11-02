@@ -1,4 +1,7 @@
-// The stream carries invalidations only. It never polls inventory or transmits
+import { downloadEvent } from './modelDownloads.ts';
+import type { ModelDownloadEvent } from './modelDownloads';
+
+// The stream carries invalidations and bounded download progress. It never polls inventory or transmits
 // paths, recording details, model parameters or credentials in event payloads.
 export function watchModelStorage(
     token: string,
@@ -6,6 +9,7 @@ export function watchModelStorage(
     onConnection: (connected: boolean) => void,
     fetcher: typeof fetch = fetch,
     inactivityMs = 90000,
+    onDownload?: (event: ModelDownloadEvent) => void,
 ): () => void {
     const controller = new AbortController();
     let retry: ReturnType<typeof setTimeout> | undefined;
@@ -50,6 +54,9 @@ export function watchModelStorage(
                     // Reconcile events missed before connection or reconnect.
                     changed();
                 } else if (type === 'model_storage_changed') changed();
+            }, value => {
+                const event = downloadEvent(value);
+                if (event && !controller.signal.aborted) onDownload?.(event);
             });
             while (!controller.signal.aborted) {
                 const { done, value } = await reader.read();
@@ -80,7 +87,7 @@ export function watchModelStorage(
     };
 }
 
-export function modelStorageEventParser(onEvent: (type: string) => void): (chunk: string) => void {
+export function modelStorageEventParser(onEvent: (type: string) => void, onData?: (value: unknown) => void): (chunk: string) => void {
     let buffer = '';
     return chunk => {
         buffer += chunk;
@@ -93,6 +100,7 @@ export function modelStorageEventParser(onEvent: (type: string) => void): (chunk
             if (!data) continue;
             try {
                 const event: unknown = JSON.parse(data);
+                onData?.(event);
                 if (event && typeof event === 'object' && 'type' in event && typeof event.type === 'string') onEvent(event.type);
             } catch { /* Ignore malformed events and transport keepalives. */ }
         }

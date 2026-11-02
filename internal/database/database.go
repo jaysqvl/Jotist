@@ -100,6 +100,7 @@ func Initialize(dbPath string) error {
 		&models.QueueSetting{},
 		&models.ModelCacheSetting{},
 		&models.ModelCacheRecord{},
+		&models.ModelDownload{},
 		&models.SpeakerMapping{},
 		&models.MultiTrackFile{},
 		&models.User{},

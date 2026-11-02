@@ -31,6 +31,8 @@ async function setup(page: Page, rejectRemoval = false, rejectCleanup = false, r
         }
         if (url.pathname === '/api/v1/llm/config') return route.fulfill({ json: { is_active: false } });
         if (url.pathname === '/api/v1/profiles/') return route.fulfill({ json: [] });
+        if (url.pathname === '/api/v1/settings/models/downloads') return route.fulfill({ json: { downloads: [] } });
+        if (url.pathname === '/api/v1/settings/models/catalog') return route.fulfill({ json: { models: [] } });
         if (url.pathname === '/api/v1/settings/models/events') return route.fulfill({ status: 403, json: { error: 'Synthetic fixture has no event stream' } });
         if (url.pathname === '/api/v1/settings/models/retention' && request.method() === 'PUT') {
             const value = request.postDataJSON();
