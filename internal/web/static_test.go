@@ -16,6 +16,8 @@ func TestFrontendRoutes(t *testing.T) {
 		"assets/app.js":        {Data: []byte("console.log('jotist')")},
 		"jotist-logo.svg":      {Data: []byte(`<svg xmlns="http://www.w3.org/2000/svg"/>`)},
 		"manifest.webmanifest": {Data: []byte(`{"name":"Jotist"}`)},
+		"service-worker.js":    {Data: []byte(`self.skipWaiting()`)},
+		"registerSW.js":        {Data: []byte(`navigator.serviceWorker.register('/service-worker.js')`)},
 	}
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
@@ -35,7 +37,9 @@ func TestFrontendRoutes(t *testing.T) {
 		{"missing bundle", "GET", "/assets/old.js", "text/plain", 404},
 		{"missing asset without extension", "GET", "/assets/missing", "text/plain", 404},
 		{"asset directory", "GET", "/assets/", "text/plain", 404},
-		{"missing pwa file", "GET", "/sw.js", "text/plain", 404},
+		{"worker", "GET", "/service-worker.js", "javascript", 200},
+		{"legacy worker", "GET", "/sw.js", "javascript", 200},
+		{"missing pwa file", "GET", "/missing-sw.js", "text/plain", 404},
 		{"missing api", "GET", "/api/v1/missing", "application/json", 404},
 		{"api post", "POST", "/api/v1/missing", "application/json", 404},
 		{"invalid path", "GET", "/../index.html", "text/plain", 403},
@@ -54,6 +58,27 @@ func TestFrontendRoutes(t *testing.T) {
 				t.Error("HEAD returned a response body")
 			}
 		})
+	}
+
+	for _, path := range []string{"/", "/index.html", "/settings?tab=models", "/sw.js", "/service-worker.js", "/registerSW.js", "/manifest.webmanifest"} {
+		for _, method := range []string{"GET", "HEAD"} {
+			t.Run("release cache policy "+method+" "+path, func(t *testing.T) {
+				response := httptest.NewRecorder()
+				router.ServeHTTP(response, httptest.NewRequest(method, path, nil))
+				status := http.StatusOK
+				if path == "/index.html" {
+					status = http.StatusMovedPermanently // FileServer's canonical redirect to ./
+				}
+				if response.Code != status || response.Header().Get("Cache-Control") != "no-store" {
+					t.Fatalf("release response = %d, Cache-Control %q", response.Code, response.Header().Get("Cache-Control"))
+				}
+				if strings.Contains(path, "sw.js") || strings.Contains(path, "service-worker.js") {
+					if method == "GET" && response.Body.String() != "self.skipWaiting()" {
+						t.Fatalf("worker response = %q", response.Body.String())
+					}
+				}
+			})
+		}
 	}
 
 	t.Run("asset range", func(t *testing.T) {

@@ -12,6 +12,11 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Inline registration travels with the current HTML instead of a cached
+      // registerSW.js. The new worker URL also bypasses old CDN copies of sw.js.
+      injectRegister: 'inline',
+      filename: 'service-worker.js',
+      workbox: { skipWaiting: true, clientsClaim: true },
       includeAssets: ['jotist-icon.png', 'jotist-logo-light.svg', 'jotist-logo-dark.svg'],
       manifest: {
         name: 'Jotist',
