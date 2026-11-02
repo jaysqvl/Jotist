@@ -1750,6 +1750,10 @@ definitions:
         type: integer
       name:
         type: string
+      profile_references:
+        items:
+          $ref: '#/definitions/modelstorage.ProfileReference'
+        type: array
       profiles:
         type: integer
       purpose:
@@ -1799,6 +1803,19 @@ definitions:
         items:
           type: string
         type: array
+    type: object
+  modelstorage.ProfileReference:
+    properties:
+      automatic:
+        type: boolean
+      cached_only:
+        type: boolean
+      id:
+        type: string
+      name:
+        type: string
+      role:
+        type: string
     type: object
   modelstorage.Removal:
     properties:

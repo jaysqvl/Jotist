@@ -114,6 +114,7 @@ func (m *Manager) Inventory(ctx context.Context, refresh bool) (Inventory, error
 		}
 		if d, ok := details[entry.Source]; ok {
 			entry.LastUsed, entry.Profiles, entry.CachedOnlyProfiles = d.LastUsed, d.Profiles, d.CachedOnlyProfiles
+			entry.ProfileReferences = append([]ProfileReference{}, d.ProfileReferences...)
 			entry.KeepDownloaded = d.KeepDownloaded
 			if d.KeepDownloaded {
 				entry.CanKeepDownloaded = true // An unsafe or changed cache can still be unpinned.
@@ -221,6 +222,7 @@ func (m *Manager) remove(ctx context.Context, id, version string, eligible func(
 			}
 			if d, ok := details[selected.Source]; ok {
 				selected.LastUsed, selected.Profiles, selected.CachedOnlyProfiles = d.LastUsed, d.Profiles, d.CachedOnlyProfiles
+				selected.ProfileReferences = append([]ProfileReference{}, d.ProfileReferences...)
 				if d.KeepDownloaded {
 					return ErrKept
 				}
@@ -331,7 +333,7 @@ func (m *Manager) scanSelected(ctx context.Context, otherStorage bool, selected 
 	add := func(model Model, a asset) error {
 		entry := entries[model.Source]
 		if entry == nil {
-			entry = &Entry{ID: opaqueID(model.Source), Name: model.Name, Source: model.Source, Purpose: model.Purpose, Status: "downloaded", CanRemove: len(model.Resources) > 0, resources: model.Resources, files: make(map[string]fileSize), Uses: []Use{}}
+			entry = &Entry{ID: opaqueID(model.Source), Name: model.Name, Source: model.Source, Purpose: model.Purpose, Status: "downloaded", CanRemove: len(model.Resources) > 0, resources: model.Resources, files: make(map[string]fileSize), Uses: []Use{}, ProfileReferences: []ProfileReference{}}
 			entries[model.Source] = entry
 		}
 		for _, old := range entry.assets {

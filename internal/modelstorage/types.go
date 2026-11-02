@@ -47,35 +47,47 @@ type Options struct {
 }
 
 type Details struct {
-	LastUsed           *time.Time `json:"last_used,omitempty"`
-	Profiles           int        `json:"profiles"`
-	CachedOnlyProfiles int        `json:"cached_only_profiles"`
-	KeepDownloaded     bool       `json:"keep_downloaded"`
+	LastUsed           *time.Time         `json:"last_used,omitempty"`
+	Profiles           int                `json:"profiles"`
+	CachedOnlyProfiles int                `json:"cached_only_profiles"`
+	KeepDownloaded     bool               `json:"keep_downloaded"`
+	ProfileReferences  []ProfileReference `json:"profile_references"`
+}
+
+// ProfileReference exposes only the identity and model-file relationship of a
+// saved profile. Automatic references are potential runtime-selected dependencies.
+type ProfileReference struct {
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Role       string `json:"role"`
+	Automatic  bool   `json:"automatic"`
+	CachedOnly bool   `json:"cached_only"`
 }
 
 type Entry struct {
-	ID                 string     `json:"id"`
-	Name               string     `json:"name"`
-	Source             string     `json:"source"`
-	Purpose            string     `json:"purpose"`
-	Bytes              int64      `json:"bytes"`
-	RemovableBytes     int64      `json:"removable_bytes"`
-	SharedBytes        int64      `json:"shared_bytes"`
-	Revisions          int        `json:"revisions"`
-	Locations          int        `json:"locations"`
-	Status             string     `json:"status"`
-	CanRemove          bool       `json:"can_remove"`
-	CanKeepDownloaded  bool       `json:"can_keep_downloaded"`
-	KeepDownloaded     bool       `json:"keep_downloaded"`
-	Reason             string     `json:"reason,omitempty"`
-	Version            string     `json:"version"`
-	LastUsed           *time.Time `json:"last_used,omitempty"`
-	Profiles           int        `json:"profiles"`
-	CachedOnlyProfiles int        `json:"cached_only_profiles"`
-	Uses               []Use      `json:"uses"`
-	CachedSince        *time.Time `json:"cached_since,omitempty"`
-	EvictAfter         *time.Time `json:"evict_after,omitempty"`
-	RetentionReason    string     `json:"retention_reason,omitempty"`
+	ID                 string             `json:"id"`
+	Name               string             `json:"name"`
+	Source             string             `json:"source"`
+	Purpose            string             `json:"purpose"`
+	Bytes              int64              `json:"bytes"`
+	RemovableBytes     int64              `json:"removable_bytes"`
+	SharedBytes        int64              `json:"shared_bytes"`
+	Revisions          int                `json:"revisions"`
+	Locations          int                `json:"locations"`
+	Status             string             `json:"status"`
+	CanRemove          bool               `json:"can_remove"`
+	CanKeepDownloaded  bool               `json:"can_keep_downloaded"`
+	KeepDownloaded     bool               `json:"keep_downloaded"`
+	Reason             string             `json:"reason,omitempty"`
+	Version            string             `json:"version"`
+	LastUsed           *time.Time         `json:"last_used,omitempty"`
+	Profiles           int                `json:"profiles"`
+	CachedOnlyProfiles int                `json:"cached_only_profiles"`
+	ProfileReferences  []ProfileReference `json:"profile_references"`
+	Uses               []Use              `json:"uses"`
+	CachedSince        *time.Time         `json:"cached_since,omitempty"`
+	EvictAfter         *time.Time         `json:"evict_after,omitempty"`
+	RetentionReason    string             `json:"retention_reason,omitempty"`
 	assets             []asset
 	resources          []string
 	files              map[string]fileSize

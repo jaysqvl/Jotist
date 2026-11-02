@@ -7997,6 +7997,12 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "profile_references": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelstorage.ProfileReference"
+                    }
+                },
                 "profiles": {
                     "type": "integer"
                 },
@@ -8070,6 +8076,26 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "modelstorage.ProfileReference": {
+            "type": "object",
+            "properties": {
+                "automatic": {
+                    "type": "boolean"
+                },
+                "cached_only": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
                 }
             }
         },

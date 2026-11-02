@@ -11,6 +11,7 @@ import { modelStatus, modelStorageResponse, queuedRemovalWarning, storageSize, v
 import type { CachedModel, ModelFilter, ModelInventory, ModelSort } from './modelStorage';
 import { watchModelStorage } from './modelStorageEvents';
 import { ModelCacheControls } from './ModelCacheControls';
+import { ModelProfileReferences } from './ModelProfileReferences';
 
 const panel = 'min-w-0 rounded-[var(--radius-card)] border border-[var(--border-subtle)] bg-[var(--bg-card)]';
 
@@ -116,7 +117,8 @@ export function ModelStorageSettings() {
                     </div>
                     {details === model.id && <div id={`model-details-${model.id}`} className="mt-3 space-y-2 rounded-xl bg-[var(--bg-main)] p-3 text-xs leading-5 text-[var(--text-secondary)]">
                         <p className="break-all">Source: {model.source}</p>
-                        <p>{model.revisions > 0 ? `${model.revisions} cached revision${model.revisions === 1 ? '' : 's'} · ` : ''}{model.locations} cache location{model.locations === 1 ? '' : 's'} · {model.profiles} saved profile{model.profiles === 1 ? '' : 's'}</p>
+                        <p>{model.revisions > 0 ? `${model.revisions} cached revision${model.revisions === 1 ? '' : 's'} · ` : ''}{model.locations} cache location{model.locations === 1 ? '' : 's'} · {model.profiles} profile reference{model.profiles === 1 ? '' : 's'}</p>
+                        <ModelProfileReferences model={model} />
                         <p>Last matching run: {model.last_used ? new Date(model.last_used).toLocaleString() : 'No recorded use'}</p>
                         {model.retention_reason ? <p>{model.retention_reason}</p> : model.evict_after && <p>Automatic cleanup after {new Date(model.evict_after).toLocaleDateString()} if unused.</p>}
                         <p>References follow saved and run configurations. Automatically selected timing and speaker dependencies may be shared.</p>

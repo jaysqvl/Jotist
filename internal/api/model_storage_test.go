@@ -96,6 +96,7 @@ func TestModelRemovalPreservesProfilesCredentialsRecordingsAndExecutionHistory(t
 	entry := inv.Entries[0]
 	require.Equal(t, 1, entry.Profiles)
 	require.Equal(t, 1, entry.CachedOnlyProfiles)
+	require.Equal(t, []modelstorage.ProfileReference{{ID: profile.ID, Name: profile.Name, Role: "Recognition", CachedOnly: true}}, entry.ProfileReferences)
 	require.NotNil(t, entry.LastUsed)
 	encoded, err := json.Marshal(inv)
 	require.NoError(t, err)
@@ -194,12 +195,47 @@ func TestModelStorageReferencesSelectedWhisperSizeAndSpeakerCheckpoint(t *testin
 	require.NoError(t, err)
 	for _, selected := range []string{"Systran/faster-whisper-small", "pyannote/speaker-diarization-community-1"} {
 		require.Equal(t, 1, details[selected].Profiles, selected)
+		require.Len(t, details[selected].ProfileReferences, 1, selected)
+		require.Equal(t, "Whisper small and Community-1", details[selected].ProfileReferences[0].Name)
+		require.False(t, details[selected].ProfileReferences[0].Automatic)
 		require.NotNil(t, details[selected].LastUsed, selected)
 	}
 	for _, other := range []string{"Systran/faster-whisper-tiny", "Systran/faster-whisper-large-v3", "pyannote/speaker-diarization-3.1", "BUT-FIT/diarizen-wavlm-large-s80-md-v2", "rewayai/suplime-large"} {
 		require.Zero(t, details[other].Profiles, other)
+		require.Empty(t, details[other].ProfileReferences, other)
 		require.Nil(t, details[other].LastUsed, other)
 	}
+}
+
+func TestSavedModelProfileNamesAndAutomaticDependenciesStayCurrent(t *testing.T) {
+	_, db, _, _ := modelStorageTestHandler(t)
+	params := models.WhisperXParams{ModelFamily: "cohere_transcribe", Model: storageTestSource, NoAlign: true, Diarize: true, DiarizeModel: "diarizen", ModelCacheOnly: true}
+	profile := models.TranscriptionProfile{Name: "English with DiariZen", Parameters: params}
+	require.NoError(t, db.Create(&profile).Error)
+	catalog := adapters.ModelStorageCatalog()
+	details, err := repository.ReadModelStorageDetails(context.Background(), db, catalog)
+	require.NoError(t, err)
+	primary := "BUT-FIT/diarizen-wavlm-large-s80-md-v2"
+	shared := "pyannote/wespeaker-voxceleb-resnet34-LM"
+	for _, source := range []string{primary, shared} {
+		require.Equal(t, 1, details[source].Profiles)
+		require.Equal(t, 1, details[source].CachedOnlyProfiles)
+		require.Len(t, details[source].ProfileReferences, 1)
+		require.Equal(t, profile.ID, details[source].ProfileReferences[0].ID)
+		require.Equal(t, profile.Name, details[source].ProfileReferences[0].Name)
+		require.True(t, details[source].ProfileReferences[0].CachedOnly)
+	}
+	require.False(t, details[primary].ProfileReferences[0].Automatic)
+	require.True(t, details[shared].ProfileReferences[0].Automatic)
+	require.NoError(t, db.Model(&profile).Update("name", "Renamed profile").Error)
+	details, err = repository.ReadModelStorageDetails(context.Background(), db, catalog)
+	require.NoError(t, err)
+	require.Equal(t, "Renamed profile", details[primary].ProfileReferences[0].Name)
+	require.NoError(t, db.Delete(&profile).Error)
+	details, err = repository.ReadModelStorageDetails(context.Background(), db, catalog)
+	require.NoError(t, err)
+	require.Empty(t, details[primary].ProfileReferences)
+	require.Zero(t, details[primary].Profiles)
 }
 
 func TestResumedExecutionReservesItsActualModelAndSpeakerDependencies(t *testing.T) {
