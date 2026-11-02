@@ -32,13 +32,20 @@ const storageTestSource = "CohereLabs/cohere-transcribe-03-2026"
 func modelStorageTestHandler(t *testing.T) (*Handler, *gorm.DB, models.User, string) {
 	t.Helper()
 	h, db, user := hfTokenTestHandler(t)
-	require.NoError(t, db.AutoMigrate(&models.TranscriptionJobExecution{}, &models.RevokedAccessToken{}))
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	// SQLite :memory: databases belong to one connection. Background cache
+	// maintenance and the assertions must share the same migrated database.
+	sqlDB.SetMaxOpenConns(1)
+	t.Cleanup(func() { require.NoError(t, sqlDB.Close()) })
+	require.NoError(t, db.AutoMigrate(&models.TranscriptionJobExecution{}, &models.RevokedAccessToken{}, &models.ModelCacheSetting{}, &models.ModelCacheRecord{}))
 	root := t.TempDir()
 	for key, value := range map[string]string{"XDG_CACHE_HOME": filepath.Join(root, "cache"), "HF_HOME": filepath.Join(root, "hf"), "HF_HUB_CACHE": filepath.Join(root, "hf", "hub"), "TORCH_HOME": filepath.Join(root, "torch"), "UV_CACHE_DIR": filepath.Join(root, "uv"), "NEMO_CACHE_DIR": filepath.Join(root, "nemo"), "PYANNOTE_CACHE": filepath.Join(root, "pyannote"), "HF_XET_CACHE": filepath.Join(root, "xet"), "HF_ASSETS_CACHE": filepath.Join(root, "assets")} {
 		t.Setenv(key, value)
 	}
 	h.config = &config.Config{WhisperXEnv: filepath.Join(root, "env"), Environment: "development"}
 	h.modelStorage = newModelStorageManager(h.config, db)
+	h.modelRetention = modelstorage.NewRetainer(h.modelStorage, repository.NewModelCacheRepository(db))
 	h.authService = auth.NewAuthService("isolated-storage-test")
 	repo := filepath.Join(root, "hf", "hub", "models--CohereLabs--cohere-transcribe-03-2026")
 	require.NoError(t, os.MkdirAll(filepath.Join(repo, "snapshots", "revision"), 0755))

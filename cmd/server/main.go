@@ -183,6 +183,8 @@ func main() {
 	)
 
 	// Set up router
+	stopModelCacheMaintenance := handler.StartModelCacheMaintenance()
+	defer stopModelCacheMaintenance()
 	router := api.SetupRoutes(handler, authService)
 
 	// Create server
@@ -238,6 +240,7 @@ func main() {
 		logger.Error("Server forced to shutdown", "error", err)
 		os.Exit(1)
 	}
+	stopModelCacheMaintenance()
 	taskQueue.Stop()
 	quickTranscriptionService.Close()
 	if err := serverLease.MarkWorkersStopped(); err != nil {

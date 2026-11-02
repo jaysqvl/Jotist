@@ -9,6 +9,7 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 import { modelStatus, modelStorageResponse, queuedRemovalWarning, storageSize, visibleModels } from './modelStorage';
 import type { CachedModel, ModelFilter, ModelInventory, ModelSort } from './modelStorage';
 import { watchModelStorage } from './modelStorageEvents';
+import { ModelCacheControls } from './ModelCacheControls';
 
 const panel = 'min-w-0 rounded-[var(--radius-card)] border border-[var(--border-subtle)] bg-[var(--bg-card)]';
 
@@ -72,6 +73,7 @@ export function ModelStorageSettings() {
             <Metric title="Cached models" value={inventory ? String(inventory.entries.length) : '—'} note="Recognition, timing and speakers" />
             <Metric title="Available space" value={inventory?.volumes.length ? storageSize(free) : '—'} note={inventory && inventory.volumes.length > 1 ? `Across ${inventory.volumes.length} storage volumes` : 'On the cache storage volume'} />
         </div>
+        <ModelCacheControls policy={inventory?.retention} unavailable={loading || query.isError || remove.isPending} onNotice={setNotice} />
         {notice && <p role="status" className="rounded-xl bg-[var(--success-translucent)] p-3 text-sm text-[var(--success-solid)]">{notice}</p>}
         {error && <p role="alert" className="rounded-xl bg-[var(--error-translucent)] p-3 text-sm text-[var(--error-solid)]">{error} Existing data is shown until the next successful refresh.</p>}
         {liveDisconnected && <p role="status" className="text-sm text-[var(--warning-solid)]">Live updates are disconnected. Use Refresh to check the latest files and run activity.</p>}
@@ -101,6 +103,7 @@ export function ModelStorageSettings() {
                         <p className="break-all">Source: {model.source}</p>
                         <p>{model.revisions > 0 ? `${model.revisions} cached revision${model.revisions === 1 ? '' : 's'} · ` : ''}{model.locations} cache location{model.locations === 1 ? '' : 's'} · {model.profiles} saved profile{model.profiles === 1 ? '' : 's'}</p>
                         <p>Last matching run: {model.last_used ? new Date(model.last_used).toLocaleString() : 'No recorded use'}</p>
+                        {model.retention_reason ? <p>{model.retention_reason}</p> : model.evict_after && <p>Automatic cleanup after {new Date(model.evict_after).toLocaleDateString()} if unused.</p>}
                         <p>References follow saved and run configurations. Automatically selected timing and speaker dependencies may be shared.</p>
                         <p>Estimated space freed: {storageSize(model.removable_bytes)}{model.shared_bytes > 0 ? ` · ${storageSize(model.shared_bytes)} shared with other files` : ''}. Filesystem compression and shared storage may change the amount freed.</p>
                     </div>}

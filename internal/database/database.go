@@ -98,6 +98,8 @@ func Initialize(dbPath string) error {
 		&models.AdaptiveProfileRevision{},
 		&models.TranscriptionQueueItem{},
 		&models.QueueSetting{},
+		&models.ModelCacheSetting{},
+		&models.ModelCacheRecord{},
 		&models.SpeakerMapping{},
 		&models.MultiTrackFile{},
 		&models.User{},

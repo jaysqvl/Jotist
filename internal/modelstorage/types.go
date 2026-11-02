@@ -69,6 +69,9 @@ type Entry struct {
 	Profiles           int        `json:"profiles"`
 	CachedOnlyProfiles int        `json:"cached_only_profiles"`
 	Uses               []Use      `json:"uses"`
+	CachedSince        *time.Time `json:"cached_since,omitempty"`
+	EvictAfter         *time.Time `json:"evict_after,omitempty"`
+	RetentionReason    string     `json:"retention_reason,omitempty"`
 	assets             []asset
 	resources          []string
 	files              map[string]fileSize
@@ -81,13 +84,14 @@ type Volume struct {
 }
 
 type Inventory struct {
-	ScannedAt         time.Time `json:"scanned_at"`
-	ModelBytes        int64     `json:"model_bytes"`
-	RuntimeBytes      int64     `json:"runtime_bytes"`
-	PackageCacheBytes int64     `json:"package_cache_bytes"`
-	Volumes           []Volume  `json:"volumes"`
-	Entries           []Entry   `json:"entries"`
-	Warnings          []string  `json:"warnings"`
+	ScannedAt         time.Time             `json:"scanned_at"`
+	ModelBytes        int64                 `json:"model_bytes"`
+	RuntimeBytes      int64                 `json:"runtime_bytes"`
+	PackageCacheBytes int64                 `json:"package_cache_bytes"`
+	Volumes           []Volume              `json:"volumes"`
+	Entries           []Entry               `json:"entries"`
+	Warnings          []string              `json:"warnings"`
+	Retention         *CacheRetentionPolicy `json:"retention,omitempty"`
 	volumeRoots       []string
 }
 

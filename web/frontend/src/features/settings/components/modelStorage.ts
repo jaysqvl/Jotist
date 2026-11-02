@@ -21,6 +21,9 @@ export interface CachedModel {
     reason?: string;
     version: string;
     last_used?: string;
+    cached_since?: string;
+    evict_after?: string;
+    retention_reason?: string;
     profiles: number;
     cached_only_profiles: number;
     uses: ModelUse[];
@@ -34,6 +37,36 @@ export interface ModelInventory {
     volumes: { total_bytes: number; available_bytes: number }[];
     entries: CachedModel[];
     warnings: string[];
+    retention?: ModelRetentionPolicy;
+}
+
+export interface ModelRetentionPolicy {
+    enabled: boolean;
+    retention_days: number;
+    last_checked_at?: string;
+    next_check_at?: string;
+    last_removed_models: number;
+    last_removed_bytes: number;
+    last_skipped_models: number;
+    last_failed_models: number;
+}
+
+export interface ModelCleanupPlan {
+    mode: 'all' | 'expired';
+    version: string;
+    models: { id: string; name: string; version: string; bytes: number }[];
+    removable_bytes: number;
+    skipped_models: number;
+    cached_only_profiles: boolean;
+}
+
+export interface ModelCleanupResult {
+    checked_at: string;
+    removed_models: number;
+    removed_bytes: number;
+    skipped_models: number;
+    failed_models: number;
+    message: string;
 }
 
 export type ModelSort = 'size' | 'name' | 'last_used';

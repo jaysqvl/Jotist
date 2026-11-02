@@ -65,6 +65,7 @@ type Handler struct {
 	outboundHTTPClient  *http.Client
 	resourceAdmission   *resourceAdmission
 	modelStorage        *modelstorage.Manager
+	modelRetention      *modelstorage.Retainer
 }
 
 // NewHandler creates a new handler
@@ -94,6 +95,7 @@ func NewHandler(
 		quickTranscription.UseSharedMediaSlots(resourceAdmission.mediaSlots)
 	}
 
+	modelStorage := newModelStorageManager(cfg, database.DB)
 	return &Handler{
 		config:              cfg,
 		authService:         authService,
@@ -118,7 +120,8 @@ func NewHandler(
 		cliAuthStore:        newCLIAuthorizationStore(),
 		outboundHTTPClient:  netpolicy.NewPublicHTTPClient(5 * time.Minute),
 		resourceAdmission:   resourceAdmission,
-		modelStorage:        newModelStorageManager(cfg, database.DB),
+		modelStorage:        modelStorage,
+		modelRetention:      modelstorage.NewRetainer(modelStorage, repository.NewModelCacheRepository(database.DB)),
 	}
 }
 

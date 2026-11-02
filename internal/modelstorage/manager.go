@@ -153,6 +153,13 @@ func matchingUses(keys []string, uses []Use) []Use {
 }
 
 func (m *Manager) Remove(ctx context.Context, id, version string) (Removal, error) {
+	return m.remove(ctx, id, version, nil)
+}
+
+// remove checks policy eligibility inside the same barrier as fresh activity,
+// metadata and download-lock verification. A recently used model cannot be
+// evicted using an earlier inventory's last-use timestamp.
+func (m *Manager) remove(ctx context.Context, id, version string, eligible func(Entry) error) (Removal, error) {
 	var result Removal
 	err := m.gate.removing(ctx, func() error {
 		m.scanMu.Lock()
@@ -201,8 +208,18 @@ func (m *Manager) Remove(ctx context.Context, id, version string) (Removal, erro
 			}
 		}
 		if m.options.Details != nil {
-			if _, err := m.options.Details(ctx); err != nil {
+			details, err := m.options.Details(ctx)
+			if err != nil {
 				return errors.Join(ErrUnverified, err)
+			}
+			if d, ok := details[selected.Source]; ok {
+				selected.LastUsed, selected.Profiles, selected.CachedOnlyProfiles = d.LastUsed, d.Profiles, d.CachedOnlyProfiles
+			}
+		}
+		selected.Uses = matchingUses(selected.resources, uses)
+		if eligible != nil {
+			if err := eligible(*selected); err != nil {
+				return err
 			}
 		}
 		var unlocks []func()
