@@ -1,5 +1,21 @@
 # Changelog
 
+## [3.0.0](https://github.com/jaysqvl/Jotist/compare/v2.3.2...v3.0.0) (2026-11-02)
+
+### Changes
+
+- Automatically remove unused downloaded model weights after 14 days by default. Change the retention period or turn cleanup off in Settings → Models.
+- Mark individual models **Keep downloaded** to protect them from automatic cleanup and manual cache clears.
+- Preview eligible models before clearing their downloaded weights. Active models stay protected; ordinary profiles download missing weights when needed. Recordings, profiles and run history remain available.
+- Update build and model-runtime dependencies with coordinated security fixes.
+
+### Upgrade notes
+
+- Native model runtimes now require Python 3.11 or newer; DiariZen requires Python 3.12. Docker continues to use Python 3.12.
+- Managed runtimes refresh their dependency locks on first use. Older managed Pyannote environments move from Python 3.10 to 3.12 automatically, preserving downloaded weights.
+
+[Full changes](https://github.com/jaysqvl/Jotist/compare/v2.3.2...v3.0.0)
+
 ## [2.3.2](https://github.com/jaysqvl/Jotist/compare/v2.3.1...v2.3.2) (2026-10-10)
 
 
