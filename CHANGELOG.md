@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.0](https://github.com/jaysqvl/Jotist/compare/v3.0.1...v3.1.0) (2026-11-02)
+
+
+### Features
+
+* **models:** add weight downloads and profile details in Settings ([#54](https://github.com/jaysqvl/Jotist/issues/54)) ([aca7cad](https://github.com/jaysqvl/Jotist/commit/aca7cad16c3c363837bfb45473a2ab8a7b7b5765))
+
 ## [3.0.1](https://github.com/jaysqvl/Jotist/compare/v3.0.0...v3.0.1) (2026-11-02)
 
 
