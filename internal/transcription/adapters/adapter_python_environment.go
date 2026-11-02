@@ -25,7 +25,7 @@ var (
 // Advance this generation for a coordinated transitive dependency security
 // refresh, including runtimes whose project recipes did not change. Ordinary
 // application releases must not force every environment to resolve again.
-const pythonRuntimeDependencyGeneration = "2026-10-10.1"
+const pythonRuntimeDependencyGeneration = "2026-11-02.1"
 
 // lockPythonPreparation serializes the entire preparation of shared runtime
 // directories. uv locks its own writes, but cannot protect our script/project
@@ -228,8 +228,6 @@ func reconcilePythonVersion(envPath string, project []byte) (bool, error) {
 		minimum = 12
 	case ">=3.11,<3.13":
 		minimum = 11
-	case ">=3.10,<3.13":
-		minimum = 10
 	default:
 		return false, nil
 	}

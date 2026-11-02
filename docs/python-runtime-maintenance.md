@@ -35,7 +35,12 @@ recipes that leave security pins to transitive resolution or keep an older
 derived lockfile.
 
 Python 3.12 supports all groups. DiariZen requires it. The other groups retain
-Python 3.11 support, and the Pyannote recipe also permits 3.10. Modern PyTorch
+Python 3.11 support. Native model runtimes require Python 3.11 or newer; Python
+3.10 is no longer supported because its Pillow and filelock versions retain
+unpatched advisories. The Docker images continue to use Python 3.12. Existing
+managed Pyannote pins on 3.10 move to 3.12 before exact synchronization, while
+supported 3.11/3.12 pins and custom interpreter requests are preserved. The
+coordinated dependency generation refreshes old derived locks once. Modern PyTorch
 wheels are unavailable for Intel macOS; run those workers on a supported Linux
 host. CPU, CUDA 12.6 (`cu126`), and CUDA 13 (`cu130`) are the supported backends.
 Torch 2.14 has no CUDA 12.8 wheel, so that configuration fails with migration

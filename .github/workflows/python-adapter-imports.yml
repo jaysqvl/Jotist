@@ -56,7 +56,7 @@ jobs:
         adapter: [nvidia-asr, canary-qwen, pyannote, whisperx, local-asr, suplime, diarizen]
         python-version: ['3.12']
         include:
-          - {adapter: pyannote, python-version: '3.10'}
+          - {adapter: pyannote, python-version: '3.11'}
     steps:
       - name: Checkout code
         if: github.event_name != 'workflow_dispatch' || inputs.adapter == 'all' || inputs.adapter == matrix.adapter

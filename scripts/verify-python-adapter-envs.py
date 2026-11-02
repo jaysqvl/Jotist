@@ -140,7 +140,7 @@ ADAPTERS: tuple[AdapterSpec, ...] = (
         label="Pyannote diarization adapter",
         pyproject=ROOT / "internal/transcription/adapters/py/pyannote/pyproject.toml",
         import_code="from pyannote.audio import Pipeline",
-        requires_python=">=3.10,<3.13",
+        requires_python=">=3.11,<3.13",
         package_pins=(
             PackagePin("pyannote.audio", version="4.0.7"),
             PackagePin("lightning", version="2.6.6"),

@@ -514,7 +514,7 @@ The next run downloads missing model files again, using the same saved profile. 
 
 ## Server binary and CLI
 
-Download a platform archive from [Jotist Releases](https://github.com/jaysqvl/Jotist/releases), extract it, and run the server as `./jotist-server` from its directory. Keep the included `bin/cli` directory beside the server so Settings can serve CLI downloads. Model execution also needs the appropriate Python, uv, FFmpeg, and optional accelerator/runtime dependencies; Docker includes the common system dependencies.
+Download a platform archive from [Jotist Releases](https://github.com/jaysqvl/Jotist/releases), extract it, and run the server as `./jotist-server` from its directory. Keep the included `bin/cli` directory beside the server so Settings can serve CLI downloads. Model execution needs Python 3.11 or newer (3.12 for DiariZen), uv, FFmpeg, and the selected accelerator/runtime dependencies. Python 3.10 model runtimes are no longer supported; managed Pyannote pins are migrated to 3.12 before synchronization. Docker includes Python 3.12 and the common system dependencies.
 
 The CLI uses **`jotist`**. Install or update it from the Jotist application's **Settings → CLI** page. It uses `~/.jotist.yaml`, `JOTIST_*` environment variables, and the `jotist-watcher` service. See [CLI controls](docs/cli-controls.md) for commands and configuration. Existing installations should follow the [migration guide](docs/jotist-migration.md) before switching to the Jotist defaults.
 
