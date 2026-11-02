@@ -101,7 +101,7 @@ func (h *Handler) StartModelCacheMaintenance() func() {
 
 type UpdateModelRetentionRequest struct {
 	Enabled       *bool `json:"enabled" binding:"required"`
-	RetentionDays *int  `json:"retention_days" binding:"required"`
+	RetentionDays *int  `json:"retention_days" binding:"required" minimum:"1" maximum:"365"`
 }
 
 // UpdateModelRetention saves the owner's server-wide model-cache policy.
@@ -168,8 +168,8 @@ func (h *Handler) PreviewModelCleanup(c *gin.Context) {
 }
 
 type CleanupModelCacheRequest struct {
-	Mode    string `json:"mode" binding:"required,oneof=all expired"`
-	Version string `json:"version" binding:"required,len=64"`
+	Mode    string `json:"mode" binding:"required,oneof=all expired" enums:"all,expired"`
+	Version string `json:"version" binding:"required,len=64" minLength:"64" maxLength:"64"`
 }
 
 // CleanupModelCache rechecks the confirmed set and protects newly active models.

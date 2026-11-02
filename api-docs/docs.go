@@ -1925,6 +1925,87 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/settings/models/cleanup": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "settings"
+                ],
+                "summary": "Preview model cache cleanup",
+                "parameters": [
+                    {
+                        "enum": [
+                            "all",
+                            "expired"
+                        ],
+                        "type": "string",
+                        "description": "Cleanup scope",
+                        "name": "mode",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/modelstorage.CleanupPlan"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "settings"
+                ],
+                "summary": "Clear confirmed downloaded model files",
+                "parameters": [
+                    {
+                        "description": "Confirmed cleanup version",
+                        "name": "confirmation",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.CleanupModelCacheRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/modelstorage.CleanupResult"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/settings/models/events": {
             "get": {
                 "security": [
@@ -1944,6 +2025,44 @@ const docTemplate = `{
                         "description": "Model storage invalidations",
                         "schema": {
                             "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/settings/models/retention": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "settings"
+                ],
+                "summary": "Set automatic model cache retention",
+                "parameters": [
+                    {
+                        "description": "Automatic cleanup policy",
+                        "name": "policy",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.UpdateModelRetentionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/modelstorage.CacheRetentionPolicy"
                         }
                     }
                 }
@@ -5463,6 +5582,27 @@ const docTemplate = `{
                 }
             }
         },
+        "api.CleanupModelCacheRequest": {
+            "type": "object",
+            "required": [
+                "mode",
+                "version"
+            ],
+            "properties": {
+                "mode": {
+                    "type": "string",
+                    "enum": [
+                        "all",
+                        "expired"
+                    ]
+                },
+                "version": {
+                    "type": "string",
+                    "maxLength": 64,
+                    "minLength": 64
+                }
+            }
+        },
         "api.CreateAPIKeyRequest": {
             "type": "object",
             "required": [
@@ -6107,6 +6247,23 @@ const docTemplate = `{
                 },
                 "job_id": {
                     "type": "string"
+                }
+            }
+        },
+        "api.UpdateModelRetentionRequest": {
+            "type": "object",
+            "required": [
+                "enabled",
+                "retention_days"
+            ],
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "retention_days": {
+                    "type": "integer",
+                    "maximum": 365,
+                    "minimum": 1
                 }
             }
         },
@@ -7627,6 +7784,101 @@ const docTemplate = `{
                 }
             }
         },
+        "modelstorage.CacheRetentionPolicy": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "last_checked_at": {
+                    "type": "string"
+                },
+                "last_failed_models": {
+                    "type": "integer"
+                },
+                "last_removed_bytes": {
+                    "type": "integer"
+                },
+                "last_removed_models": {
+                    "type": "integer"
+                },
+                "last_skipped_models": {
+                    "type": "integer"
+                },
+                "next_check_at": {
+                    "type": "string"
+                },
+                "retention_days": {
+                    "type": "integer"
+                }
+            }
+        },
+        "modelstorage.CleanupPlan": {
+            "type": "object",
+            "properties": {
+                "cached_only_profiles": {
+                    "type": "boolean"
+                },
+                "mode": {
+                    "type": "string"
+                },
+                "models": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelstorage.CleanupTarget"
+                    }
+                },
+                "removable_bytes": {
+                    "type": "integer"
+                },
+                "skipped_models": {
+                    "type": "integer"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "modelstorage.CleanupResult": {
+            "type": "object",
+            "properties": {
+                "checked_at": {
+                    "type": "string"
+                },
+                "failed_models": {
+                    "type": "integer"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "removed_bytes": {
+                    "type": "integer"
+                },
+                "removed_models": {
+                    "type": "integer"
+                },
+                "skipped_models": {
+                    "type": "integer"
+                }
+            }
+        },
+        "modelstorage.CleanupTarget": {
+            "type": "object",
+            "properties": {
+                "bytes": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
         "modelstorage.Entry": {
             "type": "object",
             "properties": {
@@ -7636,8 +7888,14 @@ const docTemplate = `{
                 "cached_only_profiles": {
                     "type": "integer"
                 },
+                "cached_since": {
+                    "type": "string"
+                },
                 "can_remove": {
                     "type": "boolean"
+                },
+                "evict_after": {
+                    "type": "string"
                 },
                 "id": {
                     "type": "string"
@@ -7662,6 +7920,9 @@ const docTemplate = `{
                 },
                 "removable_bytes": {
                     "type": "integer"
+                },
+                "retention_reason": {
+                    "type": "string"
                 },
                 "revisions": {
                     "type": "integer"
@@ -7700,6 +7961,9 @@ const docTemplate = `{
                 },
                 "package_cache_bytes": {
                     "type": "integer"
+                },
+                "retention": {
+                    "$ref": "#/definitions/modelstorage.CacheRetentionPolicy"
                 },
                 "runtime_bytes": {
                     "type": "integer"
