@@ -10,11 +10,16 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
+	"github.com/glebarez/sqlite"
 	"github.com/jaysqvl/Jotist/internal/models"
 	"github.com/jaysqvl/Jotist/internal/modelstorage"
+	"github.com/jaysqvl/Jotist/internal/repository"
 	"github.com/jaysqvl/Jotist/pkg/downloader"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 type zeroWeights struct{}
@@ -23,7 +28,7 @@ func (zeroWeights) Read(data []byte) (int, error) { clear(data); return len(data
 
 // This uses the real HTTP-to-temp-file downloader and the real initialized
 // adapter preparation path. Weights are synthetic; no inference is claimed.
-func TestBitNetProfileDownloadsAgainAfterRemovalWithoutRestart(t *testing.T) {
+func TestBitNetProfileDownloadsAgainAfterAutomaticEvictionWithoutRestart(t *testing.T) {
 	const size = 100_000_001 // Must pass the adapter's existing cache-size check.
 	var requests atomic.Int64
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -65,11 +70,21 @@ func TestBitNetProfileDownloadsAgainAfterRemovalWithoutRestart(t *testing.T) {
 	options.PackageRoot = ""
 	options.Gate = modelstorage.NewGate()
 	m := modelstorage.New(options)
-	inv, err := m.Inventory(context.Background(), false)
+	db, err := gorm.Open(sqlite.Open(filepath.Join(root, "cache-policy.db")), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&models.ModelCacheSetting{}, &models.ModelCacheRecord{}))
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, sqlDB.Close()) })
+	retainer := modelstorage.NewRetainer(m, repository.NewModelCacheRepository(db))
+	inv, err := retainer.Inventory(context.Background(), false)
 	require.NoError(t, err)
 	require.Len(t, inv.Entries, 1)
-	_, err = m.Remove(context.Background(), inv.Entries[0].ID, inv.Entries[0].Version)
+	require.NoError(t, db.Model(&models.ModelCacheRecord{}).Where("id = ?", inv.Entries[0].ID).
+		Update("cached_since", time.Now().UTC().Add(-15*24*time.Hour)).Error)
+	collected, err := retainer.Collect(context.Background(), "expired", "")
 	require.NoError(t, err)
+	require.Equal(t, 1, collected.RemovedModels)
 	for _, name := range []string{vibeBitNetVAE, vibeBitNetLM} {
 		_, err = os.Stat(filepath.Join(adapter.envPath, "models", name))
 		require.ErrorIs(t, err, os.ErrNotExist)
@@ -83,6 +98,13 @@ func TestBitNetProfileDownloadsAgainAfterRemovalWithoutRestart(t *testing.T) {
 		require.NoError(t, err)
 		require.EqualValues(t, size, info.Size())
 	}
+	fresh, err := retainer.Inventory(context.Background(), false)
+	require.NoError(t, err)
+	require.Len(t, fresh.Entries, 1)
+	require.WithinDuration(t, time.Now(), *fresh.Entries[0].CachedSince, time.Minute)
+	collected, err = retainer.Collect(context.Background(), "expired", "")
+	require.NoError(t, err)
+	require.Zero(t, collected.RemovedModels, "re-downloaded weights receive a fresh retention window")
 	binary, err := os.ReadFile(adapter.binaryPath())
 	require.NoError(t, err)
 	require.Equal(t, "preserve compiled runtime", string(binary))

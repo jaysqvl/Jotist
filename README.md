@@ -500,6 +500,14 @@ Recording runs share one worker by default. Set **Simultaneous recordings** in *
 
 Open **Settings → Models** to see downloaded recognition, word timing and speaker models, their disk usage, cached revisions, saved profile references and most recent run. Search or sort by size, name or last use.
 
+**Automatic cleanup** is enabled by default and keeps unused model files for **14 days**. Change the retention period from 1 to 365 days, or turn cleanup off, in the same tab. The policy is shared across the server and saved across restarts. Cleanup checks run daily; ordinary model activity updates the inventory without a polling job. Active runs, downloads and models referenced by cached-only profiles or cached-only queued requests are protected from automatic eviction.
+
+Retention starts from the later of the most recent matching run and the time the cache was discovered or changed. A newly discovered or re-downloaded cache gets a full retention window. Recorded usage survives removal of old run history. Shared dependencies are matched conservatively when their runtime selection is automatic.
+
+Turn on **Keep downloaded** beside models you want to retain, such as a frequently used speaker model. This server-wide preference survives restarts and model updates, and excludes those files from automatic cleanup, **Clear downloaded models**, and individual removal. Turn it off to resume the normal retention policy. The **Kept downloaded** filter shows your retained models.
+
+To start fresh, choose **Clear downloaded models** and review the estimated space and protected models before confirming. This removes recognized downloaded weights while keeping saved profiles, recordings, completed runs, installed runtimes and package caches. A stale confirmation is rejected, and models that become active are kept. Cached-only queued requests remain protected; the dialog warns about saved profiles that need downloading enabled after a manual clear.
+
 The inventory updates from run and model preparation events, without idle polling or a filesystem watcher. Jotist checks affected model files after preparation and stage completion, including partial downloads from failed runs. A full metadata check runs on the first inventory request, then on the next request after 72 hours, or when you select **Refresh**. Runtime and package totals come from that full check. External cache changes are picked up by a full check; weight contents are never read for this audit.
 
 **Remove** deletes the selected model's cached files across its recognized cache locations. Saved profiles, recordings and run history stay intact. Active runs and downloads block removal; Jotist checks again when you confirm. Queued runs do not block removal and download missing files before processing. The confirmation warns if a queued run uses cached files only, because that request can fail after removal. Runtime environments and package caches are shown separately for auditing and retained.
@@ -508,7 +516,7 @@ The next run downloads missing model files again, using the same saved profile. 
 
 ## Server binary and CLI
 
-Download a platform archive from [Jotist Releases](https://github.com/jaysqvl/Jotist/releases), extract it, and run the server as `./jotist-server` from its directory. Keep the included `bin/cli` directory beside the server so Settings can serve CLI downloads. Model execution also needs the appropriate Python, uv, FFmpeg, and optional accelerator/runtime dependencies; Docker includes the common system dependencies.
+Download a platform archive from [Jotist Releases](https://github.com/jaysqvl/Jotist/releases), extract it, and run the server as `./jotist-server` from its directory. Keep the included `bin/cli` directory beside the server so Settings can serve CLI downloads. Model execution needs Python 3.11 or newer (3.12 for DiariZen), uv, FFmpeg, and the selected accelerator/runtime dependencies. Python 3.10 model runtimes are no longer supported; managed Pyannote pins are migrated to 3.12 before synchronization. Docker includes Python 3.12 and the common system dependencies.
 
 The CLI uses **`jotist`**. Install or update it from the Jotist application's **Settings → CLI** page. It uses `~/.jotist.yaml`, `JOTIST_*` environment variables, and the `jotist-watcher` service. See [CLI controls](docs/cli-controls.md) for commands and configuration. Existing installations should follow the [migration guide](docs/jotist-migration.md) before switching to the Jotist defaults.
 

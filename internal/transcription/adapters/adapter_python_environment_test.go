@@ -134,7 +134,7 @@ func TestPythonPinMigrationPreservesSupportedAndCustomInterpreters(t *testing.T)
 		{"newer_unsupported", ">=3.11,<3.13", "3.13.2\n", "3.12\n"},
 		{"supported_3_11", ">=3.11,<3.13", "3.11.9\n", "3.11.9\n"},
 		{"supported_3_12", ">=3.11,<3.13", "3.12.11\n", "3.12.11\n"},
-		{"pyannote_3_10", ">=3.10,<3.13", "3.10.20\n", "3.10.20\n"},
+		{"pyannote_old_3_10", ">=3.11,<3.13", "3.10.20\n", "3.12\n"},
 		{"custom_interpreter", ">=3.11,<3.13", "/custom/python3.12\n", "/custom/python3.12\n"},
 		{"custom_implementation", ">=3.11,<3.13", "pypy@3.11\n", "pypy@3.11\n"},
 		{"custom_requirement", ">=3.10,<3.11", "3.10.20\n", "3.10.20\n"},
@@ -160,6 +160,54 @@ func TestPythonPinMigrationPreservesSupportedAndCustomInterpreters(t *testing.T)
 				t.Fatalf("Python pin = %q (%v), want %q", data, err, tc.want)
 			}
 		})
+	}
+}
+
+func TestPyannotePreparationMigratesPython310BeforeExactSync(t *testing.T) {
+	environment := t.TempDir()
+	bin := filepath.Join(t.TempDir(), "bin")
+	if err := os.MkdirAll(bin, 0755); err != nil {
+		t.Fatal(err)
+	}
+	for name, contents := range map[string]string{
+		".python-version":  "3.10.20\n",
+		"uv.lock":          "old dependency graph",
+		"cached-model.bin": "keep downloaded weights",
+	} {
+		if err := os.WriteFile(filepath.Join(environment, name), []byte(contents), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	stub := `#!/bin/sh
+test "$(cat "$CHECK_ENV/.python-version")" = "3.12" || exit 41
+test ! -e "$CHECK_ENV/uv.lock" || exit 42
+case "$*" in
+  *"run --exact"*"from pyannote.audio import Pipeline"*) touch "$CHECK_ENV/imported"; exit 0 ;;
+  *) exit 43 ;;
+esac
+`
+	if err := os.WriteFile(filepath.Join(bin, "uv"), []byte(stub), 0755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("CHECK_ENV", environment)
+	key := environment + ":from pyannote.audio import Pipeline"
+	envCacheMutex.Lock()
+	envCache[key] = true
+	envCacheMutex.Unlock()
+	t.Cleanup(func() { envCacheMutex.Lock(); delete(envCache, key); envCacheMutex.Unlock() })
+	adapter := NewPyAnnoteAdapter(environment)
+	if err := adapter.PrepareEnvironment(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if !adapter.initialized {
+		t.Fatal("migrated Pyannote runtime was not initialized")
+	}
+	if _, err := os.Stat(filepath.Join(environment, "imported")); err != nil {
+		t.Fatal("migration reused stale readiness instead of exact synchronization")
+	}
+	if data, err := os.ReadFile(filepath.Join(environment, "cached-model.bin")); err != nil || string(data) != "keep downloaded weights" {
+		t.Fatal("Python migration disturbed cached weights")
 	}
 }
 

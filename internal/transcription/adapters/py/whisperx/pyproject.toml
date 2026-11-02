@@ -14,7 +14,7 @@ dependencies = [
     # Keep existing lockfiles on the source-reviewed security-policy versions.
     "lightning==2.6.6",
     "pytorch-lightning==2.6.6",
-    "nltk==3.10.3",
+    "nltk==3.10.4",
     "faster-whisper==1.2.1",
     "ctranslate2==4.8.2",
     "yt-dlp[default]",

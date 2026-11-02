@@ -30,13 +30,17 @@ pins TorchVision 0.29.0.
 
 Every environment that uses Lightning directly pins both `lightning` and
 `pytorch-lightning` to 2.6.6. WhisperX and Canary-Qwen also directly pin NLTK
-3.10.3. Successful resolution must select these reviewed versions; the verifier
-rejects recipes that leave them to transitive resolution. The NLTK pin does not
-fix its remaining advisory: the caller-specific audit conditions below still
-apply.
+3.10.4. Successful resolution must select these versions; the verifier rejects
+recipes that leave security pins to transitive resolution or keep an older
+derived lockfile.
 
 Python 3.12 supports all groups. DiariZen requires it. The other groups retain
-Python 3.11 support, and the Pyannote recipe also permits 3.10. Modern PyTorch
+Python 3.11 support. Native model runtimes require Python 3.11 or newer; Python
+3.10 is no longer supported because its Pillow and filelock versions retain
+unpatched advisories. The Docker images continue to use Python 3.12. Existing
+managed Pyannote pins on 3.10 move to 3.12 before exact synchronization, while
+supported 3.11/3.12 pins and custom interpreter requests are preserved. The
+coordinated dependency generation refreshes old derived locks once. Modern PyTorch
 wheels are unavailable for Intel macOS; run those workers on a supported Linux
 host. CPU, CUDA 12.6 (`cu126`), and CUDA 13 (`cu130`) are the supported backends.
 Torch 2.14 has no CUDA 12.8 wheel, so that configuration fails with migration
@@ -63,10 +67,13 @@ executables. This does not establish the security of the host's kernel.
 
 `scripts/container-header-review.json` records the exact Ubuntu package PURL,
 version, architecture, path manifest and individually reviewed CVE fix commits.
-The current review covers 143 CVEs on `6.8.0-146.146`: their changed kernel
-implementation files are absent from the package. The only changed exported
-header adds a definition inside `__KERNEL__`; the upstream header-export step
-removes it, producing identical pre/post userspace bytes.
+The current package is `6.8.0-147.147`. The November 2 review checked the
+additional findings against Linux CNA records and their linked upstream fixes:
+the changed implementation and internal build/header files are absent from the
+package, with no additional exported userspace header changes. The previously
+reviewed exported-header change adds a definition inside `__KERNEL__`; the
+upstream header-export step removes it, producing identical pre/post userspace
+bytes. The package identity and payload proof remain unchanged.
 
 Each built image must independently verify the actual 990 payload files are
 regular headers or the two expected documentation files, and that their path
@@ -90,8 +97,9 @@ loading uses restricted deserialization with scoped, known local types.
 
 NeMo 3.0 requests Lightning <=2.4 and Hydra <=1.3.2, which retain published
 vulnerabilities. The NVIDIA recipes explicitly override only these dependency
-bounds, pinning Lightning and PyTorch Lightning 2.6.6 and Hydra 1.3.7. Hydra 1.3.7
-also fixes the mutable target-policy bypass in CVE-2026-106439. This is a
+bounds, pinning Lightning and PyTorch Lightning 2.6.6 and Hydra 1.3.8. Hydra 1.3.8
+also closes the unsafe YAML target gap in GHSA-wf6j-7hvr-gr93 while retaining the
+mutable target-policy fix. This is a
 Jotist-maintained compatibility choice, not a claim that the stock NeMo metadata
 supports these versions. Native imports and actual inference must be repeated
 when these bounds change. The two-file OneLogger Lightning integration is
@@ -180,11 +188,11 @@ dependencies. It runs one qualification worker per host and retains only numeric
 output evidence. Listing a supported path does not mean it has passed on the
 current release.
 
-NLTK 3.10.3 still has an unpatched model-persistence advisory. Its exceptions
-apply only to the reviewed WhisperX and Canary-Qwen paths and require matching
-hashes of both installed library code and the actual materialized Jotist caller
-scripts. Missing or changed callers invalidate the exceptions. This differs
-from the Lightning 2.6.6 exception for a malformed advisory version range.
+The expired NLTK and Lightning exceptions have been removed. Installed dependency
+audits run against the actual materialized Jotist callers and currently have no
+advisory exceptions. The NLTK 3.10.4 update includes model-path guards, including
+the Weka model path missed by the earlier release; the application continues to
+use fixed Punkt resources for alignment.
 
 Direct security-sensitive dependencies are pinned. Other transitive requirements
 still resolve through uv at installation; the saved validation graphs describe

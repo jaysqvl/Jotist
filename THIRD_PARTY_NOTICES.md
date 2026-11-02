@@ -353,3 +353,32 @@ The original file is available at https://github.com/wenet-e2e/wespeaker/blob/c2
 
 Neither Shuai Wang (@wsstriving on Github) nor myself (Hervé Bredin, or @hbredin on Github) are lawyers, but we both agreed that putting this license file in this directory is enough to comply with the license. See https://github.com/pyannote/pyannote-audio/issues/1537#issuecomment-1808029836. If you know better about this potential MIT/Apache 2.0 compatibility issue, please let us know.
 ```
+
+
+## Deepmerge build dependency
+
+Source: `web/frontend/vendor/deepmerge`, based on the official `deepmerge@4.3.1` npm archive. Jotist applies the documented prototype-key guard for GHSA-gcqx-w48m-w2h4. This dependency runs during the frontend build and is not part of model inference. Provenance is recorded in its `UPSTREAM.md`.
+
+```text
+The MIT License (MIT)
+
+Copyright (c) 2012 James Halliday, Josh Duff, and other contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+```

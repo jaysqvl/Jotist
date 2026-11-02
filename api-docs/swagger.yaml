@@ -147,6 +147,21 @@ definitions:
       updated_at:
         type: string
     type: object
+  api.CleanupModelCacheRequest:
+    properties:
+      mode:
+        enum:
+        - all
+        - expired
+        type: string
+      version:
+        maxLength: 64
+        minLength: 64
+        type: string
+    required:
+    - mode
+    - version
+    type: object
   api.CreateAPIKeyRequest:
     properties:
       description:
@@ -596,6 +611,37 @@ definitions:
         type: array
       job_id:
         type: string
+    type: object
+  api.UpdateModelKeepDownloadedRequest:
+    properties:
+      keep_downloaded:
+        type: boolean
+      version:
+        maxLength: 64
+        minLength: 64
+        type: string
+    required:
+    - keep_downloaded
+    - version
+    type: object
+  api.UpdateModelKeepDownloadedResponse:
+    properties:
+      id:
+        type: string
+      keep_downloaded:
+        type: boolean
+    type: object
+  api.UpdateModelRetentionRequest:
+    properties:
+      enabled:
+        type: boolean
+      retention_days:
+        maximum: 365
+        minimum: 1
+        type: integer
+    required:
+    - enabled
+    - retention_days
     type: object
   api.UpdateQueueSettingsRequest:
     properties:
@@ -1618,16 +1664,86 @@ definitions:
       verbose:
         type: boolean
     type: object
+  modelstorage.CacheRetentionPolicy:
+    properties:
+      enabled:
+        type: boolean
+      last_checked_at:
+        type: string
+      last_failed_models:
+        type: integer
+      last_removed_bytes:
+        type: integer
+      last_removed_models:
+        type: integer
+      last_skipped_models:
+        type: integer
+      next_check_at:
+        type: string
+      retention_days:
+        type: integer
+    type: object
+  modelstorage.CleanupPlan:
+    properties:
+      cached_only_profiles:
+        type: boolean
+      mode:
+        type: string
+      models:
+        items:
+          $ref: '#/definitions/modelstorage.CleanupTarget'
+        type: array
+      removable_bytes:
+        type: integer
+      skipped_models:
+        type: integer
+      version:
+        type: string
+    type: object
+  modelstorage.CleanupResult:
+    properties:
+      checked_at:
+        type: string
+      failed_models:
+        type: integer
+      message:
+        type: string
+      removed_bytes:
+        type: integer
+      removed_models:
+        type: integer
+      skipped_models:
+        type: integer
+    type: object
+  modelstorage.CleanupTarget:
+    properties:
+      bytes:
+        type: integer
+      id:
+        type: string
+      name:
+        type: string
+      version:
+        type: string
+    type: object
   modelstorage.Entry:
     properties:
       bytes:
         type: integer
       cached_only_profiles:
         type: integer
+      cached_since:
+        type: string
+      can_keep_downloaded:
+        type: boolean
       can_remove:
         type: boolean
+      evict_after:
+        type: string
       id:
         type: string
+      keep_downloaded:
+        type: boolean
       last_used:
         type: string
       locations:
@@ -1642,6 +1758,8 @@ definitions:
         type: string
       removable_bytes:
         type: integer
+      retention_reason:
+        type: string
       revisions:
         type: integer
       shared_bytes:
@@ -1667,6 +1785,8 @@ definitions:
         type: integer
       package_cache_bytes:
         type: integer
+      retention:
+        $ref: '#/definitions/modelstorage.CacheRetentionPolicy'
       runtime_bytes:
         type: integer
       scanned_at:
@@ -2989,6 +3109,90 @@ paths:
       summary: Remove a downloaded model
       tags:
       - settings
+  /api/v1/settings/models/{id}/retention:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Opaque cache entry ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Keep downloaded preference and current file version
+        in: body
+        name: preference
+        required: true
+        schema:
+          $ref: '#/definitions/api.UpdateModelKeepDownloadedRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.UpdateModelKeepDownloadedResponse'
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Keep a model downloaded or resume its retention policy
+      tags:
+      - settings
+  /api/v1/settings/models/cleanup:
+    get:
+      parameters:
+      - description: Cleanup scope
+        enum:
+        - all
+        - expired
+        in: query
+        name: mode
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/modelstorage.CleanupPlan'
+      security:
+      - BearerAuth: []
+      summary: Preview model cache cleanup
+      tags:
+      - settings
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Confirmed cleanup version
+        in: body
+        name: confirmation
+        required: true
+        schema:
+          $ref: '#/definitions/api.CleanupModelCacheRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/modelstorage.CleanupResult'
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Clear confirmed downloaded model files
+      tags:
+      - settings
   /api/v1/settings/models/events:
     get:
       produces:
@@ -3001,6 +3205,29 @@ paths:
       security:
       - BearerAuth: []
       summary: Subscribe to model storage changes
+      tags:
+      - settings
+  /api/v1/settings/models/retention:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Automatic cleanup policy
+        in: body
+        name: policy
+        required: true
+        schema:
+          $ref: '#/definitions/api.UpdateModelRetentionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/modelstorage.CacheRetentionPolicy'
+      security:
+      - BearerAuth: []
+      summary: Set automatic model cache retention
       tags:
       - settings
   /api/v1/summaries:

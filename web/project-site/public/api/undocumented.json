@@ -421,6 +421,34 @@
       "tag": "settings"
     },
     {
+      "method": "PUT",
+      "path": "/api/v1/settings/models/retention",
+      "summary": "Set automatic model cache retention",
+      "description": "",
+      "tag": "settings"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/settings/models/{id}/retention",
+      "summary": "Keep a model downloaded or resume its retention policy",
+      "description": "",
+      "tag": "settings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/settings/models/cleanup",
+      "summary": "Preview model cache cleanup",
+      "description": "",
+      "tag": "settings"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/settings/models/cleanup",
+      "summary": "Clear confirmed downloaded model files",
+      "description": "",
+      "tag": "settings"
+    },
+    {
       "method": "GET",
       "path": "/api/v1/settings/models/events",
       "summary": "Subscribe to model storage changes",

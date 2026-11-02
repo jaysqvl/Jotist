@@ -62,10 +62,6 @@ jobs:
       matrix:
         python-version: ['3.11', '3.12']
         torch-index: ['cpu', 'cu126', 'cu130']
-        include:
-          - {python-version: '3.10', torch-index: cpu}
-          - {python-version: '3.10', torch-index: cu126}
-          - {python-version: '3.10', torch-index: cu130}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -85,9 +81,7 @@ jobs:
           TORCH_INDEX: ${{ matrix.torch-index }}
         run: |
           adapters=()
-          if [ "$ADAPTER_PYTHON" = "3.10" ]; then
-            adapters=(--adapter pyannote)
-          elif [ "$ADAPTER_PYTHON" = "3.11" ]; then
+          if [ "$ADAPTER_PYTHON" = "3.11" ]; then
             # DiariZen requires Python 3.12 after the coordinated runtime update.
             for adapter in nvidia-asr canary-qwen pyannote whisperx suplime local-asr; do
               adapters+=(--adapter "$adapter")

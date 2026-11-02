@@ -93,7 +93,7 @@ func ReadModelStorageDetails(ctx context.Context, db *gorm.DB, catalog []modelst
 		return result, err
 	}
 	var executions []models.TranscriptionJobExecution
-	if err := db.WithContext(ctx).Select("started_at, " + prefixedStorageColumns("actual_")).Order("started_at DESC").Find(&executions).Error; err != nil {
+	if err := db.WithContext(ctx).Select("started_at, completed_at, " + prefixedStorageColumns("actual_")).Find(&executions).Error; err != nil {
 		return result, err
 	}
 	for _, model := range catalog {
@@ -109,11 +109,24 @@ func ReadModelStorageDetails(ctx context.Context, db *gorm.DB, catalog []modelst
 		for _, execution := range executions {
 			if modelstorage.ReferencesSelection(model, execution.ActualParameters) {
 				stamp := execution.StartedAt
-				details.LastUsed = &stamp
-				break
+				if execution.CompletedAt != nil && execution.CompletedAt.After(stamp) {
+					stamp = *execution.CompletedAt
+				}
+				if details.LastUsed == nil || stamp.After(*details.LastUsed) {
+					details.LastUsed = &stamp
+				}
 			}
 		}
 		result[model.Source] = details
+	}
+	var kept []models.ModelCacheRecord
+	if err := db.WithContext(ctx).Select("source").Where("keep_downloaded = ?", true).Find(&kept).Error; err != nil {
+		return result, err
+	}
+	for _, record := range kept {
+		details := result[record.Source]
+		details.KeepDownloaded = true
+		result[record.Source] = details
 	}
 	return result, nil
 }

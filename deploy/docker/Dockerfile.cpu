@@ -9,6 +9,7 @@ WORKDIR /web
 
 # Install deps and build web/frontend
 COPY web/frontend/package*.json web/frontend/.npmrc ./frontend/
+COPY web/frontend/vendor ./frontend/vendor
 RUN cd frontend \
   && npm ci \
   && npm audit
@@ -21,7 +22,7 @@ RUN cd frontend \
 ########################
 # Go build stage
 ########################
-FROM golang:1.26.9-bookworm AS go-builder
+FROM golang:1.26.10-bookworm AS go-builder
 WORKDIR /src
 ARG VERSION=dev
 ARG COMMIT=none

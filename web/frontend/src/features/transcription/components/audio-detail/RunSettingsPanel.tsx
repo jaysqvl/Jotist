@@ -106,7 +106,7 @@ function CuratedParamsDisplay({ params }: { params: any }) {
 		'hf_token_source'
 	];
 
-	let specificKeys: string[] = [];
+	let specificKeys: string[];
 
 	if (params.model_family === 'whisper') {
 		specificKeys = [
