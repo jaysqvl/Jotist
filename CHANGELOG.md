@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.1](https://github.com/jaysqvl/Jotist/compare/v3.0.0...v3.0.1) (2026-11-02)
+
+
+### Bug fixes
+
+* Fix installed apps showing an outdated interface after a server upgrade, including missing model-storage controls. [Details](https://github.com/jaysqvl/Jotist/pull/52).
+
 ## [3.0.0](https://github.com/jaysqvl/Jotist/compare/v2.3.2...v3.0.0) (2026-11-02)
 
 ### Changes
