@@ -7,6 +7,8 @@ import json
 import os
 from pathlib import Path
 import tempfile
+import subprocess
+import sys
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -119,6 +121,46 @@ class DownloadTests(unittest.TestCase):
             (real / "escape").symlink_to(root, target_is_directory=True)
             with self.assertRaises(ValueError):
                 download.destination_parent(alias / "escape" / "weights", alias)
+
+    def test_child_exits_when_its_owning_server_pipe_closes(self):
+        code = """import importlib.util,sys,time
+spec=importlib.util.spec_from_file_location('worker',sys.argv[1])
+worker=importlib.util.module_from_spec(spec);spec.loader.exec_module(worker)
+worker.hub_artifact=lambda *args: time.sleep(60)
+worker.main()
+"""
+        process = subprocess.Popen([sys.executable, "-I", "-c", code, str(Path(__file__).with_name("download.py"))], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            process.stdin.write(json.dumps({"watch_parent": True, "artifacts": [{"source": "synthetic/unused"}]})+"\n")
+            process.stdin.flush()
+            self.assertEqual(json.loads(process.stdout.readline())["type"], "progress")
+            process.stdin.close()
+            self.assertEqual(process.wait(timeout=5), 130)
+        finally:
+            if process.poll() is None:
+                process.kill()
+                process.wait()
+            process.stdout.close()
+            process.stderr.close()
+
+    def test_completed_child_exits_normally_while_parent_pipe_stays_open(self):
+        code = """import importlib.util,sys
+spec=importlib.util.spec_from_file_location('worker',sys.argv[1])
+worker=importlib.util.module_from_spec(spec);spec.loader.exec_module(worker)
+worker.main()
+"""
+        process = subprocess.Popen([sys.executable, "-I", "-c", code, str(Path(__file__).with_name("download.py"))], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            process.stdin.write(json.dumps({"watch_parent": True, "artifacts": []})+"\n")
+            process.stdin.flush()
+            self.assertEqual(process.wait(timeout=5), 0)
+        finally:
+            if process.poll() is None:
+                process.kill()
+                process.wait()
+            process.stdin.close()
+            process.stdout.close()
+            process.stderr.close()
 
 
 if __name__ == "__main__":

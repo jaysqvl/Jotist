@@ -193,15 +193,23 @@ func (d *ModelDownloader) Download(ctx context.Context, model modeldownloads.Mod
 
 func (d *ModelDownloader) run(ctx context.Context, path string, plan []downloadArtifact, token string, progress func(modeldownloads.Progress)) error {
 	data, err := json.Marshal(struct {
-		Artifacts []downloadArtifact `json:"artifacts"`
-		Token     string             `json:"token"`
-	}{plan, token})
+		Artifacts   []downloadArtifact `json:"artifacts"`
+		Token       string             `json:"token"`
+		WatchParent bool               `json:"watch_parent"`
+	}{plan, token, true})
 	if err != nil {
 		return err
 	}
 	cmd := processutil.CommandContext(ctx, "uv", "run", "--no-sync", "--project", path, "python", "-I", filepath.Join(path, "download.py"))
 	cmd.Env = withEnvironmentValue(withEnvironmentValue(os.Environ(), "CUDA_VISIBLE_DEVICES", ""), "PYTHONUNBUFFERED", "1")
-	cmd.Stdin = strings.NewReader(string(data)) // No token in argv, files, logs or job rows.
+	// Keep stdin open as a lifetime pipe. The helper exits on EOF if this server
+	// disappears, including platforms where canceling uv alone leaves a child.
+	// The token is sent once through this pipe, never argv/files/logs/job rows.
+	input, err := cmd.StdinPipe()
+	if err != nil {
+		return err
+	}
+	defer input.Close()
 	cmd.Stderr = io.Discard
 	output, err := cmd.StdoutPipe()
 	if err != nil {
@@ -210,6 +218,21 @@ func (d *ModelDownloader) run(ctx context.Context, path string, plan []downloadA
 	if err := cmd.Start(); err != nil {
 		return modeldownloads.DownloadError{Code: "runtime_setup"}
 	}
+	if _, err := input.Write(append(data, '\n')); err != nil {
+		_ = input.Close()
+		_ = cmd.Cancel()
+		_ = cmd.Wait()
+		return modeldownloads.DownloadError{Code: "runtime_setup"}
+	}
+	watchDone := make(chan struct{})
+	defer close(watchDone)
+	go func() {
+		select {
+		case <-ctx.Done():
+			_ = input.Close()
+		case <-watchDone:
+		}
+	}()
 	code := "download_failed"
 	verified := false
 	scanner := bufio.NewScanner(output)

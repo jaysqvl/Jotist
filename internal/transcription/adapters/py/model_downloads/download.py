@@ -15,6 +15,7 @@ from pathlib import Path
 import shutil
 import sys
 import tempfile
+import threading
 import time
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
@@ -264,7 +265,16 @@ def classify(error):
 
 
 def main():
-    request = json.load(sys.stdin)
+    request = json.loads(sys.stdin.readline())
+    if request.get("watch_parent"):
+        def parent_lifetime():
+            # Blocking pipe read: no polling or filesystem watcher. EOF means
+            # the owning server exited/canceled, so don't leave an orphan
+            # writing weights after its reservation has disappeared.
+            while os.read(sys.stdin.fileno(), 1):
+                pass
+            os._exit(130)
+        threading.Thread(target=parent_lifetime, daemon=True).start()
     progress = Progress()
     progress.report("checking", force=True)
     token = request.get("token") or None  # normal HF environment/login fallback
