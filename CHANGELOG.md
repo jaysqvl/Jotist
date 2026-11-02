@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.0.0](https://github.com/jaysqvl/Jotist/compare/v2.3.2...v3.0.0) (2026-11-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* **models:** Native model runtimes require Python 3.11 or newer; DiariZen requires Python 3.12. Existing managed Pyannote pins on Python 3.10 migrate to 3.12 before exact synchronization. Refresh derived runtime locks once for the coordinated security update; preserve downloaded weights. Docker continues to use Python 3.12.
+
+### Features
+
+* **models:** add cache retention and keep-downloaded controls ([ed93bfa](https://github.com/jaysqvl/Jotist/commit/ed93bfa84910d4207c7573a7ade4f3e7781f27e9))
+
 ## [2.3.2](https://github.com/jaysqvl/Jotist/compare/v2.3.1...v2.3.2) (2026-10-10)
 
 
