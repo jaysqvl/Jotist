@@ -67,10 +67,13 @@ executables. This does not establish the security of the host's kernel.
 
 `scripts/container-header-review.json` records the exact Ubuntu package PURL,
 version, architecture, path manifest and individually reviewed CVE fix commits.
-The current review covers 143 CVEs on `6.8.0-146.146`: their changed kernel
-implementation files are absent from the package. The only changed exported
-header adds a definition inside `__KERNEL__`; the upstream header-export step
-removes it, producing identical pre/post userspace bytes.
+The current package is `6.8.0-147.147`. The November 2 review checked the
+additional findings against Linux CNA records and their linked upstream fixes:
+the changed implementation and internal build/header files are absent from the
+package, with no additional exported userspace header changes. The previously
+reviewed exported-header change adds a definition inside `__KERNEL__`; the
+upstream header-export step removes it, producing identical pre/post userspace
+bytes. The package identity and payload proof remain unchanged.
 
 Each built image must independently verify the actual 990 payload files are
 regular headers or the two expected documentation files, and that their path
