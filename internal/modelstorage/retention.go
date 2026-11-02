@@ -36,10 +36,11 @@ func ValidateRetentionDays(days int) error {
 }
 
 type CacheRecord struct {
-	Source       string
-	CacheVersion string
-	CachedSince  time.Time
-	LastUsed     *time.Time
+	Source         string
+	CacheVersion   string
+	CachedSince    time.Time
+	LastUsed       *time.Time
+	KeepDownloaded bool
 }
 
 type RetentionStore interface {
@@ -47,6 +48,7 @@ type RetentionStore interface {
 	SavePolicy(context.Context, bool, int) error
 	Observe(context.Context, []Entry, time.Time) (map[string]CacheRecord, error)
 	ReadRecord(context.Context, string) (CacheRecord, error)
+	SaveKeepDownloaded(context.Context, string, string, string, bool) error
 	SaveCleanup(context.Context, CleanupResult) error
 }
 
@@ -143,7 +145,13 @@ func (r *Retainer) Inventory(ctx context.Context, refresh bool) (Inventory, erro
 		}
 		e.CachedSince = &record.CachedSince
 		e.LastUsed = later(e.LastUsed, record.LastUsed)
-		if !e.CanRemove {
+		e.KeepDownloaded = record.KeepDownloaded
+		if record.KeepDownloaded {
+			e.CanKeepDownloaded = true
+			e.CanRemove = false
+			e.Reason = "Keep downloaded is on. Turn it off before removing this model."
+			e.RetentionReason = e.Reason
+		} else if !e.CanRemove {
 			e.RetentionReason = e.Reason
 		} else if e.CachedOnlyProfiles > 0 || cachedOnlyQueued(e.Uses) {
 			e.RetentionReason = "Kept for a cached-only profile or queued run."
@@ -154,6 +162,38 @@ func (r *Retainer) Inventory(ctx context.Context, refresh bool) (Inventory, erro
 	}
 	inv.Retention = &p
 	return inv, nil
+}
+
+// SetKeepDownloaded shares the deletion barrier. A pin cannot be acknowledged
+// while a previously admitted removal is still deleting the same files.
+func (r *Retainer) SetKeepDownloaded(ctx context.Context, id, version string, keep bool) error {
+	err := r.manager.gate.removing(ctx, func() error {
+		r.manager.scanMu.Lock()
+		defer r.manager.scanMu.Unlock()
+		fresh, err := r.manager.scan(ctx, false)
+		if err != nil {
+			return err
+		}
+		for _, entry := range fresh.Entries {
+			if entry.ID != id {
+				continue
+			}
+			if version == "" || entry.Version != version {
+				return ErrChanged
+			}
+			if keep && (!entry.CanRemove || entry.Status == "removal_pending") {
+				return ErrReadOnly
+			}
+			if _, err := r.store.Observe(ctx, []Entry{entry}, r.now().UTC()); err != nil {
+				return err
+			}
+			return r.store.SaveKeepDownloaded(ctx, entry.ID, entry.Source, entry.Version, keep)
+		}
+		return ErrNotFound
+	})
+	// Refresh the UI even after an uncertain response or a stale file identity.
+	r.manager.gate.ActivityChanged()
+	return err
 }
 
 func later(a, b *time.Time) *time.Time {
@@ -239,6 +279,13 @@ func (r *Retainer) Collect(ctx context.Context, mode, confirmedVersion string) (
 			if cachedOnlyQueued(entry.Uses) {
 				return ErrBusy
 			}
+			record, err := r.store.ReadRecord(ctx, entry.ID)
+			if err != nil || record.Source != entry.Source || record.CacheVersion != entry.Version {
+				return ErrUnverified
+			}
+			if record.KeepDownloaded {
+				return ErrKept
+			}
 			if mode == "all" {
 				return nil
 			}
@@ -249,10 +296,6 @@ func (r *Retainer) Collect(ctx context.Context, mode, confirmedVersion string) (
 			if !policy.Enabled || entry.CachedOnlyProfiles > 0 {
 				return ErrNotExpired
 			}
-			record, err := r.store.ReadRecord(ctx, entry.ID)
-			if err != nil || record.Source != entry.Source || record.CacheVersion != entry.Version {
-				return ErrUnverified
-			}
 			if entry.Status != "removal_pending" && cacheDeadline(record, entry, policy.RetentionDays).After(r.now()) {
 				return ErrNotExpired
 			}
@@ -262,7 +305,7 @@ func (r *Retainer) Collect(ctx context.Context, mode, confirmedVersion string) (
 		case err == nil:
 			result.RemovedModels++
 			result.RemovedBytes += removed.RemovedBytes
-		case errors.Is(err, ErrBusy), errors.Is(err, ErrChanged), errors.Is(err, ErrNotFound), errors.Is(err, ErrNotExpired):
+		case errors.Is(err, ErrBusy), errors.Is(err, ErrChanged), errors.Is(err, ErrNotFound), errors.Is(err, ErrNotExpired), errors.Is(err, ErrKept):
 			result.SkippedModels++
 		default:
 			result.FailedModels++

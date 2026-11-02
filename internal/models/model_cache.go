@@ -19,9 +19,10 @@ type ModelCacheSetting struct {
 // ModelCacheRecord survives deletion of a recording's execution history. Cache
 // versions describe model metadata, never model contents or user documents.
 type ModelCacheRecord struct {
-	ID           string `gorm:"primaryKey;size:32"`
-	Source       string `gorm:"not null"`
-	CacheVersion string `gorm:"not null;size:64"`
-	CachedSince  time.Time
-	LastUsedAt   *time.Time
+	ID             string `gorm:"primaryKey;size:32"`
+	Source         string `gorm:"not null"`
+	CacheVersion   string `gorm:"not null;size:64"`
+	CachedSince    time.Time
+	LastUsedAt     *time.Time
+	KeepDownloaded bool `gorm:"not null;default:false"`
 }

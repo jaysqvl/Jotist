@@ -18,6 +18,8 @@ export interface CachedModel {
     locations: number;
     status: string;
     can_remove: boolean;
+    can_keep_downloaded?: boolean;
+    keep_downloaded?: boolean;
     reason?: string;
     version: string;
     last_used?: string;
@@ -70,13 +72,13 @@ export interface ModelCleanupResult {
 }
 
 export type ModelSort = 'size' | 'name' | 'last_used';
-export type ModelFilter = 'all' | 'available' | 'busy';
+export type ModelFilter = 'all' | 'available' | 'busy' | 'kept';
 
 export function visibleModels(models: CachedModel[], search: string, filter: ModelFilter, sort: ModelSort) {
     const needle = search.trim().toLocaleLowerCase();
     return models.filter(model =>
         (!needle || `${model.name} ${model.source} ${model.purpose}`.toLocaleLowerCase().includes(needle)) &&
-        (filter === 'all' || (filter === 'available' ? model.can_remove : model.uses.some(use => use.state !== 'queued'))))
+        (filter === 'all' || (filter === 'available' ? model.can_remove : filter === 'kept' ? model.keep_downloaded : model.uses.some(use => use.state !== 'queued'))))
         .sort((a, b) => {
             if (sort === 'size') return b.bytes - a.bytes || a.name.localeCompare(b.name);
             if (sort === 'last_used') return Date.parse(b.last_used ?? '') - Date.parse(a.last_used ?? '') ||
@@ -96,7 +98,7 @@ export function modelStatus(model: CachedModel): string {
     if (model.status === 'queued') return 'Queued';
     if (model.status === 'downloading') return 'Downloading';
     if (model.status === 'removal_pending') return 'Cleanup needed';
-    if (!model.can_remove && model.status !== 'partial') return 'Audit only';
+    if (!model.can_remove && !model.keep_downloaded && model.status !== 'partial') return 'Audit only';
     return model.status === 'partial' ? 'Partial download' : 'Downloaded';
 }
 

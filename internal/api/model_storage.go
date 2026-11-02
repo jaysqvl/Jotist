@@ -138,6 +138,57 @@ func (h *Handler) UpdateModelRetention(c *gin.Context) {
 	c.JSON(http.StatusOK, policy)
 }
 
+type UpdateModelKeepDownloadedRequest struct {
+	KeepDownloaded *bool  `json:"keep_downloaded" binding:"required"`
+	Version        string `json:"version" binding:"required,len=64" minLength:"64" maxLength:"64"`
+}
+
+type UpdateModelKeepDownloadedResponse struct {
+	ID             string `json:"id"`
+	KeepDownloaded bool   `json:"keep_downloaded"`
+}
+
+// UpdateModelKeepDownloaded keeps a selected model out of all cache removals.
+// @Summary Keep a model downloaded or resume its retention policy
+// @Tags settings
+// @Accept json
+// @Produce json
+// @Param id path string true "Opaque cache entry ID"
+// @Param preference body UpdateModelKeepDownloadedRequest true "Keep downloaded preference and current file version"
+// @Success 200 {object} UpdateModelKeepDownloadedResponse
+// @Failure 409 {object} map[string]string
+// @Router /api/v1/settings/models/{id}/retention [put]
+// @Security BearerAuth
+func (h *Handler) UpdateModelKeepDownloaded(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
+	if h.modelRetention == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Model cache settings are unavailable."})
+		return
+	}
+	var req UpdateModelKeepDownloadedRequest
+	if err := c.ShouldBindJSON(&req); err != nil || req.KeepDownloaded == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Choose whether to keep this model downloaded and include its current file version."})
+		return
+	}
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
+	defer cancel()
+	err := h.modelRetention.SetKeepDownloaded(ctx, c.Param("id"), req.Version, *req.KeepDownloaded)
+	if err != nil {
+		status, message := http.StatusServiceUnavailable, "Could not confirm this preference. Refresh to check whether the model is kept."
+		switch {
+		case errors.Is(err, modelstorage.ErrChanged):
+			status, message = http.StatusConflict, "These model files changed. Refresh before changing this preference."
+		case errors.Is(err, modelstorage.ErrNotFound):
+			status, message = http.StatusNotFound, "These model files are no longer cached. Refresh the inventory."
+		case errors.Is(err, modelstorage.ErrReadOnly):
+			status, message = http.StatusConflict, "Only managed model files without pending cleanup can be kept downloaded."
+		}
+		c.JSON(status, gin.H{"error": message})
+		return
+	}
+	c.JSON(http.StatusOK, UpdateModelKeepDownloadedResponse{ID: c.Param("id"), KeepDownloaded: *req.KeepDownloaded})
+}
+
 // PreviewModelCleanup returns the exact eligible set to confirm before a clear.
 // @Summary Preview model cache cleanup
 // @Tags settings
@@ -291,6 +342,8 @@ func (h *Handler) RemoveModelFiles(c *gin.Context) {
 	if err != nil {
 		status, message := http.StatusInternalServerError, "Removal could not finish. Refresh to check for remaining files."
 		switch {
+		case errors.Is(err, modelstorage.ErrKept):
+			status, message = http.StatusConflict, "Keep downloaded is on. Turn it off before removing this model."
 		case errors.Is(err, modelstorage.ErrBusy):
 			status, message = http.StatusConflict, "This model is now in use or downloading. No files were removed."
 		case errors.Is(err, modelstorage.ErrChanged):

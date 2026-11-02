@@ -24,6 +24,14 @@ test('search covers checkpoint source and stage purpose', () => {
     assert.equal(visibleModels(models, 'missing', 'all', 'size').length, 0);
 });
 
+test('kept models remain downloaded and can be filtered without becoming audit-only', () => {
+    const kept = model('DiariZen', 10, { can_remove: false, can_keep_downloaded: true, keep_downloaded: true });
+    const models = [kept, model('other', 5)];
+    assert.deepEqual(visibleModels(models, '', 'kept', 'name').map(model => model.name), ['DiariZen']);
+    assert.deepEqual(visibleModels(models, '', 'available', 'name').map(model => model.name), ['other']);
+    assert.equal(modelStatus(kept), 'Downloaded');
+});
+
 test('last-use sort places unknown use last and orders actual run timestamps', () => {
     const models = [model('never', 1), model('old', 1, { last_used: '2026-10-01T00:00:00Z' }), model('new', 1, { last_used: '2026-10-02T00:00:00Z' })];
     assert.deepEqual(visibleModels(models, '', 'all', 'last_used').map(model => model.name), ['new', 'old', 'never']);

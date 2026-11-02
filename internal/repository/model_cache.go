@@ -95,7 +95,7 @@ func (r *ModelCacheRepository) Observe(ctx context.Context, entries []modelstora
 					return err
 				}
 			}
-			result[entry.ID] = modelstorage.CacheRecord{Source: row.Source, CacheVersion: row.CacheVersion, CachedSince: row.CachedSince, LastUsed: row.LastUsedAt}
+			result[entry.ID] = modelstorage.CacheRecord{Source: row.Source, CacheVersion: row.CacheVersion, CachedSince: row.CachedSince, LastUsed: row.LastUsedAt, KeepDownloaded: row.KeepDownloaded}
 		}
 		return nil
 	})
@@ -108,7 +108,25 @@ func (r *ModelCacheRepository) ReadRecord(ctx context.Context, id string) (model
 	}
 	var row models.ModelCacheRecord
 	err := r.db.WithContext(ctx).First(&row, "id = ?", id).Error
-	return modelstorage.CacheRecord{Source: row.Source, CacheVersion: row.CacheVersion, CachedSince: row.CachedSince, LastUsed: row.LastUsedAt}, err
+	return modelstorage.CacheRecord{Source: row.Source, CacheVersion: row.CacheVersion, CachedSince: row.CachedSince, LastUsed: row.LastUsedAt, KeepDownloaded: row.KeepDownloaded}, err
+}
+
+func (r *ModelCacheRepository) SaveKeepDownloaded(ctx context.Context, id, source, version string, keep bool) error {
+	if r.db == nil {
+		return modelstorage.ErrUnverified
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	result := r.db.WithContext(ctx).Model(&models.ModelCacheRecord{}).
+		Where("id = ? AND source = ? AND cache_version = ?", id, source, version).
+		Update("keep_downloaded", keep)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return modelstorage.ErrChanged
+	}
+	return nil
 }
 
 func (r *ModelCacheRepository) SaveCleanup(ctx context.Context, result modelstorage.CleanupResult) error {

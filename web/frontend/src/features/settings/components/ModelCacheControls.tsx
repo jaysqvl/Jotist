@@ -73,13 +73,13 @@ export function ModelCacheControls({ policy, unavailable, onNotice }: {
                     <Button variant="outline" size="sm" disabled={unavailable || pending || !dirty || !valid} onClick={() => save.mutate()}>{save.isPending ? <><Loader2 className="h-4 w-4 animate-spin" />Saving…</> : 'Save changes'}</Button>
                     {save.isSuccess && !dirty && <span role="status" className="text-xs text-[var(--success-solid)]">Saved</span>}
                 </div>
-                <p id="cache-retention-help" className="text-xs leading-5 text-[var(--text-secondary)]">Checked daily. Active runs, downloads and cached-only profiles are protected. Missing models download again when needed.</p>
+                <p id="cache-retention-help" className="text-xs leading-5 text-[var(--text-secondary)]">Checked daily. Models marked Keep downloaded, active runs, downloads and cached-only profiles are protected. Missing models download again when needed.</p>
                 {dirty && !valid && <p role="alert" className="text-sm text-[var(--error-solid)]">Choose a whole number from 1 to 365 days.</p>}
                 {save.isError && <p role="alert" className="text-sm text-[var(--error-solid)]">{save.error.message}</p>}
                 {lastCheck && <p className="text-xs text-[var(--text-tertiary)]">Last cleanup check {lastCheck}{policy.last_removed_models > 0 ? ` · ${policy.last_removed_models} models removed` : ''}{policy.last_failed_models > 0 ? ' · Some removals need attention' : ''}</p>}
             </div>
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-subtle)] p-4 sm:px-5">
-                <div className="min-w-0"><p className="text-sm font-medium">Start fresh</p><p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">Clear downloaded model files and keep your profiles and completed runs.</p></div>
+                <div className="min-w-0"><p className="text-sm font-medium">Start fresh</p><p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">Clear downloaded files except models marked Keep downloaded. Your profiles and completed runs stay saved.</p></div>
                 <Button ref={clearTrigger} variant="outline" size="sm" disabled={unavailable || pending || preview.isPending} onClick={() => preview.mutate()}>{preview.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}Clear downloaded models</Button>
                 {preview.isError && <p role="alert" className="w-full text-sm text-[var(--error-solid)]">{preview.error.message}</p>}
                 {cleanup.data && cleanup.data.failed_models > 0 && <p role="alert" className="w-full text-sm text-[var(--warning-solid)]">{cleanup.data.message}</p>}
@@ -87,7 +87,7 @@ export function ModelCacheControls({ policy, unavailable, onNotice }: {
         </section>
         <Dialog open={!!plan} onOpenChange={open => { if (!open && !cleanup.isPending) setPlan(null); }}>
             <DialogContent className="max-h-[90dvh] overflow-y-auto" showCloseButton={!cleanup.isPending} onCloseAutoFocus={event => { event.preventDefault(); clearTrigger.current?.focus(); }} onEscapeKeyDown={event => { if (cleanup.isPending) event.preventDefault(); }} onInteractOutside={event => { if (cleanup.isPending) event.preventDefault(); }}>
-                <DialogHeader><DialogTitle>Clear downloaded models?</DialogTitle><DialogDescription>Remove {plan?.models.length ?? 0} cached models. Saved profiles, recordings and completed runs stay intact.</DialogDescription></DialogHeader>
+                <DialogHeader><DialogTitle>Clear downloaded models?</DialogTitle><DialogDescription>Remove {plan?.models.length ?? 0} cached models. Models marked Keep downloaded, saved profiles, recordings and completed runs stay intact.</DialogDescription></DialogHeader>
                 <div className="space-y-3 text-sm leading-6">
                     <p>Estimated space freed: <strong>{storageSize(plan?.removable_bytes ?? 0)}</strong></p>
                     <p className="text-[var(--text-secondary)]">Models download again the next time they are used. This needs network access and any required model access token. Installed runtimes stay in place.</p>

@@ -428,6 +428,13 @@
       "tag": "settings"
     },
     {
+      "method": "PUT",
+      "path": "/api/v1/settings/models/{id}/retention",
+      "summary": "Keep a model downloaded or resume its retention policy",
+      "description": "",
+      "tag": "settings"
+    },
+    {
       "method": "GET",
       "path": "/api/v1/settings/models/cleanup",
       "summary": "Preview model cache cleanup",

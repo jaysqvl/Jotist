@@ -119,6 +119,15 @@ func ReadModelStorageDetails(ctx context.Context, db *gorm.DB, catalog []modelst
 		}
 		result[model.Source] = details
 	}
+	var kept []models.ModelCacheRecord
+	if err := db.WithContext(ctx).Select("source").Where("keep_downloaded = ?", true).Find(&kept).Error; err != nil {
+		return result, err
+	}
+	for _, record := range kept {
+		details := result[record.Source]
+		details.KeepDownloaded = true
+		result[record.Source] = details
+	}
 	return result, nil
 }
 

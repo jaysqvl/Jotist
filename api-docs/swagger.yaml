@@ -612,6 +612,25 @@ definitions:
       job_id:
         type: string
     type: object
+  api.UpdateModelKeepDownloadedRequest:
+    properties:
+      keep_downloaded:
+        type: boolean
+      version:
+        maxLength: 64
+        minLength: 64
+        type: string
+    required:
+    - keep_downloaded
+    - version
+    type: object
+  api.UpdateModelKeepDownloadedResponse:
+    properties:
+      id:
+        type: string
+      keep_downloaded:
+        type: boolean
+    type: object
   api.UpdateModelRetentionRequest:
     properties:
       enabled:
@@ -1715,12 +1734,16 @@ definitions:
         type: integer
       cached_since:
         type: string
+      can_keep_downloaded:
+        type: boolean
       can_remove:
         type: boolean
       evict_after:
         type: string
       id:
         type: string
+      keep_downloaded:
+        type: boolean
       last_used:
         type: string
       locations:
@@ -3084,6 +3107,40 @@ paths:
       security:
       - BearerAuth: []
       summary: Remove a downloaded model
+      tags:
+      - settings
+  /api/v1/settings/models/{id}/retention:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Opaque cache entry ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Keep downloaded preference and current file version
+        in: body
+        name: preference
+        required: true
+        schema:
+          $ref: '#/definitions/api.UpdateModelKeepDownloadedRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.UpdateModelKeepDownloadedResponse'
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Keep a model downloaded or resume its retention policy
       tags:
       - settings
   /api/v1/settings/models/cleanup:

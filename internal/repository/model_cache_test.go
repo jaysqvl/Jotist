@@ -79,3 +79,31 @@ func TestModelCacheObservationDoesNotExtendRetentionOnReads(t *testing.T) {
 	_, err = r.Observe(ctx, []modelstorage.Entry{entry}, now)
 	require.ErrorIs(t, err, modelstorage.ErrUnverified)
 }
+
+func TestModelKeepDownloadedSurvivesReloadAndChangedWeights(t *testing.T) {
+	r, db := cacheRepositoryFixture(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	entry := modelstorage.Entry{ID: "kept", Source: "org/diarizer", Version: "first"}
+	_, err := r.Observe(ctx, []modelstorage.Entry{entry}, now)
+	require.NoError(t, err)
+	require.NoError(t, r.SaveKeepDownloaded(ctx, entry.ID, entry.Source, entry.Version, true))
+	r = NewModelCacheRepository(db) // A restart must not lose the owner's preference.
+	entry.Version = "replacement"
+	used := now.Add(time.Hour)
+	entry.LastUsed = &used
+	rows, err := r.Observe(ctx, []modelstorage.Entry{entry}, used)
+	require.NoError(t, err)
+	require.True(t, rows[entry.ID].KeepDownloaded)
+	require.Equal(t, entry.Version, rows[entry.ID].CacheVersion)
+	require.ErrorIs(t, r.SaveKeepDownloaded(ctx, entry.ID, "different/source", entry.Version, false), modelstorage.ErrChanged)
+	require.ErrorIs(t, r.SaveKeepDownloaded(ctx, entry.ID, entry.Source, "stale", false), modelstorage.ErrChanged)
+	record, err := r.ReadRecord(ctx, entry.ID)
+	require.NoError(t, err)
+	require.True(t, record.KeepDownloaded, "stale or mismatched identities cannot clear a pin")
+	require.NoError(t, r.SaveKeepDownloaded(ctx, entry.ID, entry.Source, entry.Version, false))
+	record, err = NewModelCacheRepository(db).ReadRecord(ctx, entry.ID)
+	require.NoError(t, err)
+	require.False(t, record.KeepDownloaded, "false must persist rather than being skipped as a zero value")
+	require.WithinDuration(t, used, *record.LastUsed, time.Millisecond)
+}

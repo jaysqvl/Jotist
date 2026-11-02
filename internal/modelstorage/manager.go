@@ -99,6 +99,7 @@ func (m *Manager) Inventory(ctx context.Context, refresh bool) (Inventory, error
 	}
 	for i := range result.Entries {
 		entry := &result.Entries[i]
+		entry.CanKeepDownloaded = entry.CanRemove && entry.Status != "removal_pending"
 		entry.Uses = matchingUses(entry.resources, uses)
 		if len(entry.Uses) > 0 && blocksRemoval(entry.Uses[0]) {
 			entry.CanRemove = false
@@ -113,6 +114,12 @@ func (m *Manager) Inventory(ctx context.Context, refresh bool) (Inventory, error
 		}
 		if d, ok := details[entry.Source]; ok {
 			entry.LastUsed, entry.Profiles, entry.CachedOnlyProfiles = d.LastUsed, d.Profiles, d.CachedOnlyProfiles
+			entry.KeepDownloaded = d.KeepDownloaded
+			if d.KeepDownloaded {
+				entry.CanKeepDownloaded = true // An unsafe or changed cache can still be unpinned.
+				entry.CanRemove = false
+				entry.Reason = "Keep downloaded is on. Turn it off before removing this model."
+			}
 		}
 	}
 	// One cache-layout problem may affect several repositories. Keep each
@@ -214,6 +221,9 @@ func (m *Manager) remove(ctx context.Context, id, version string, eligible func(
 			}
 			if d, ok := details[selected.Source]; ok {
 				selected.LastUsed, selected.Profiles, selected.CachedOnlyProfiles = d.LastUsed, d.Profiles, d.CachedOnlyProfiles
+				if d.KeepDownloaded {
+					return ErrKept
+				}
 			}
 		}
 		selected.Uses = matchingUses(selected.resources, uses)

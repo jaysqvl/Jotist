@@ -2113,6 +2113,60 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/settings/models/{id}/retention": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "settings"
+                ],
+                "summary": "Keep a model downloaded or resume its retention policy",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Opaque cache entry ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Keep downloaded preference and current file version",
+                        "name": "preference",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.UpdateModelKeepDownloadedRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.UpdateModelKeepDownloadedResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/summaries": {
             "get": {
                 "security": [
@@ -6250,6 +6304,34 @@ const docTemplate = `{
                 }
             }
         },
+        "api.UpdateModelKeepDownloadedRequest": {
+            "type": "object",
+            "required": [
+                "keep_downloaded",
+                "version"
+            ],
+            "properties": {
+                "keep_downloaded": {
+                    "type": "boolean"
+                },
+                "version": {
+                    "type": "string",
+                    "maxLength": 64,
+                    "minLength": 64
+                }
+            }
+        },
+        "api.UpdateModelKeepDownloadedResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "keep_downloaded": {
+                    "type": "boolean"
+                }
+            }
+        },
         "api.UpdateModelRetentionRequest": {
             "type": "object",
             "required": [
@@ -7891,6 +7973,9 @@ const docTemplate = `{
                 "cached_since": {
                     "type": "string"
                 },
+                "can_keep_downloaded": {
+                    "type": "boolean"
+                },
                 "can_remove": {
                     "type": "boolean"
                 },
@@ -7899,6 +7984,9 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
+                },
+                "keep_downloaded": {
+                    "type": "boolean"
                 },
                 "last_used": {
                     "type": "string"

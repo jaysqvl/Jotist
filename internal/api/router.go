@@ -93,6 +93,7 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 		modelFiles.PUT("/retention", handler.UpdateModelRetention)
 		modelFiles.GET("/cleanup", handler.PreviewModelCleanup)
 		modelFiles.POST("/cleanup", handler.CleanupModelCache)
+		modelFiles.PUT("/:id/retention", handler.UpdateModelKeepDownloaded)
 		modelFiles.DELETE("/:id", handler.RemoveModelFiles)
 		// Authentication routes (no auth required)
 		auth := v1.Group("/auth")
