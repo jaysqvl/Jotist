@@ -45,6 +45,21 @@ func newSPAHandler(files fs.FS) http.Handler {
 			http.Error(w, "Invalid asset path", http.StatusForbidden)
 			return
 		}
+		// Older installations registered /sw.js. Keep those registrations able to
+		// update while new pages use a URL that bypasses previously cached workers.
+		if name == "sw.js" {
+			if _, err := fs.Stat(files, "service-worker.js"); err == nil {
+				r = r.Clone(r.Context())
+				r.URL.Path, r.URL.RawPath = "/service-worker.js", ""
+				name = "service-worker.js"
+			}
+		}
+		switch name {
+		case "index.html", "service-worker.js", "sw.js", "registerSW.js", "manifest.webmanifest":
+			// These stable URLs change between releases. CDN caching a worker can
+			// keep an old UI installed even when the server has already upgraded.
+			w.Header().Set("Cache-Control", "no-store")
+		}
 		if info, err := fs.Stat(files, name); err == nil && !info.IsDir() {
 			// The standard server owns MIME types, HEAD, and byte-range handling.
 			// Some hosts do not register the PWA manifest extension.
@@ -65,6 +80,7 @@ func newSPAHandler(files fs.FS) http.Handler {
 			http.Error(w, "Error loading page", http.StatusInternalServerError)
 			return
 		}
+		w.Header().Set("Cache-Control", "no-store")
 		http.ServeContent(w, r, "index.html", time.Time{}, bytes.NewReader(index))
 	})
 }
