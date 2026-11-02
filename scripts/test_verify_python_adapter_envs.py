@@ -35,6 +35,12 @@ class NativeWheelPolicyTests(unittest.TestCase):
         for adapter in verifier.ADAPTERS:
             with self.subTest(adapter=adapter.key):
                 verifier.validate_pyproject(adapter)
+                if adapter.key == "model-downloads":
+                    self.assertFalse(adapter.audio_import_check)
+                    self.assertEqual(adapter.torch_companions, ())
+                    self.assertNotIn("torch", [pin.name for pin in adapter.package_pins])
+                    continue
+                self.assertTrue(adapter.audio_import_check)
                 self.assertIn("torchcodec", adapter.torch_companions)
                 self.assertIn("torchaudio", adapter.torch_companions)
 

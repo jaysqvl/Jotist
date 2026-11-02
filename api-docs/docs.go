@@ -1925,6 +1925,30 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/settings/models/catalog": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "settings"
+                ],
+                "summary": "Browse models available for manual download",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ModelDownloadCatalogResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/settings/models/cleanup": {
             "get": {
                 "security": [
@@ -2001,6 +2025,108 @@ const docTemplate = `{
                             "additionalProperties": {
                                 "type": "string"
                             }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/settings/models/downloads": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "settings"
+                ],
+                "summary": "List model downloads and recent outcomes",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ModelDownloadListResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "settings"
+                ],
+                "summary": "Download a model's files",
+                "parameters": [
+                    {
+                        "description": "Registered model and keep preference",
+                        "name": "download",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.DownloadModelRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/modeldownloads.Job"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/settings/models/downloads/{downloadID}/cancel": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "settings"
+                ],
+                "summary": "Cancel a model download",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Download job ID",
+                        "name": "downloadID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/modeldownloads.Job"
                         }
                     }
                 }
@@ -5690,6 +5816,20 @@ const docTemplate = `{
                 }
             }
         },
+        "api.DownloadModelRequest": {
+            "type": "object",
+            "required": [
+                "model_id"
+            ],
+            "properties": {
+                "keep_downloaded": {
+                    "type": "boolean"
+                },
+                "model_id": {
+                    "type": "string"
+                }
+            }
+        },
         "api.ErrorResponse": {
             "type": "object",
             "properties": {
@@ -6025,6 +6165,34 @@ const docTemplate = `{
                             "type": "string"
                         }
                     }
+                }
+            }
+        },
+        "api.ModelDownloadCatalogResponse": {
+            "type": "object",
+            "properties": {
+                "models": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modeldownloads.Model"
+                    }
+                }
+            }
+        },
+        "api.ModelDownloadListResponse": {
+            "type": "object",
+            "properties": {
+                "available": {
+                    "type": "boolean"
+                },
+                "downloads": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modeldownloads.Job"
+                    }
+                },
+                "reason": {
+                    "type": "string"
                 }
             }
         },
@@ -6450,6 +6618,88 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "queue_item_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "modeldownloads.Job": {
+            "type": "object",
+            "properties": {
+                "can_cancel": {
+                    "type": "boolean"
+                },
+                "completed_files": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "downloaded_bytes": {
+                    "type": "integer"
+                },
+                "error_code": {
+                    "type": "string"
+                },
+                "finished_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "keep_downloaded": {
+                    "type": "boolean"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "model_id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "phase": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "total_bytes": {
+                    "type": "integer"
+                },
+                "total_files": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "modeldownloads.Model": {
+            "type": "object",
+            "properties": {
+                "dependencies": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "gated": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "purpose": {
+                    "type": "string"
+                },
+                "source": {
                     "type": "string"
                 }
             }
@@ -7997,6 +8247,12 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "profile_references": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelstorage.ProfileReference"
+                    }
+                },
                 "profiles": {
                     "type": "integer"
                 },
@@ -8070,6 +8326,26 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "modelstorage.ProfileReference": {
+            "type": "object",
+            "properties": {
+                "automatic": {
+                    "type": "boolean"
+                },
+                "cached_only": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
                 }
             }
         },

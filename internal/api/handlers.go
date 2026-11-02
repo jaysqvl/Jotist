@@ -20,6 +20,7 @@ import (
 	"github.com/jaysqvl/Jotist/internal/auth"
 	"github.com/jaysqvl/Jotist/internal/config"
 	"github.com/jaysqvl/Jotist/internal/database"
+	"github.com/jaysqvl/Jotist/internal/modeldownloads"
 	"github.com/jaysqvl/Jotist/internal/models"
 	"github.com/jaysqvl/Jotist/internal/modelstorage"
 	"github.com/jaysqvl/Jotist/internal/netpolicy"
@@ -66,6 +67,7 @@ type Handler struct {
 	resourceAdmission   *resourceAdmission
 	modelStorage        *modelstorage.Manager
 	modelRetention      *modelstorage.Retainer
+	modelDownloads      *modeldownloads.Service
 }
 
 // NewHandler creates a new handler
@@ -96,7 +98,7 @@ func NewHandler(
 	}
 
 	modelStorage := newModelStorageManager(cfg, database.DB)
-	return &Handler{
+	h := &Handler{
 		config:              cfg,
 		authService:         authService,
 		loginLimiter:        newLoginAttemptLimiter(cfg),
@@ -123,6 +125,8 @@ func NewHandler(
 		modelStorage:        modelStorage,
 		modelRetention:      modelstorage.NewRetainer(modelStorage, repository.NewModelCacheRepository(database.DB)),
 	}
+	h.modelDownloads = newModelDownloads(h, database.DB)
+	return h
 }
 
 // SetOutboundHTTPClient replaces the custom-provider client for an embedding

@@ -12,6 +12,28 @@ import (
 
 // DownloadFile downloads a file from a URL to a destination path with progress tracking
 func DownloadFile(ctx context.Context, url, dest string) error {
+	return WithDestination(ctx, dest, func() error { return downloadFile(ctx, url, dest) })
+}
+
+// DownloadFileIfMissing rechecks after acquiring the same destination lock used
+// by manual downloads. An adapter that waited must not overwrite a valid model.
+func DownloadFileIfMissing(ctx context.Context, url, dest string, minimumSize int64) error {
+	return WithDestination(ctx, dest, func() error {
+		if info, err := os.Lstat(dest); err == nil {
+			if !info.Mode().IsRegular() {
+				return fmt.Errorf("model destination must be a regular file")
+			}
+			if info.Size() > minimumSize {
+				return nil
+			}
+		} else if !os.IsNotExist(err) {
+			return err
+		}
+		return downloadFile(ctx, url, dest)
+	})
+}
+
+func downloadFile(ctx context.Context, url, dest string) error {
 	// Create parent directory if it doesn't exist
 	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
@@ -57,7 +79,9 @@ func DownloadFile(ctx context.Context, url, dest string) error {
 	}
 
 	// Close file before renaming
-	out.Close()
+	if err := out.Close(); err != nil {
+		return fmt.Errorf("failed to close file: %w", err)
+	}
 
 	// Rename temp file to final destination
 	if err := os.Rename(tempDest, dest); err != nil {

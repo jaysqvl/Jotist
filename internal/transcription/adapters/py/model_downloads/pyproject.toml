@@ -1,0 +1,10 @@
+[project]
+name = "jotist-model-downloads"
+version = "0.1.0"
+description = "Model file downloads only; no inference or GPU runtime"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "huggingface-hub==1.31.0",
+    "filelock==4.2.7",
+    "tqdm==4.70.1",
+]

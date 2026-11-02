@@ -184,6 +184,15 @@ definitions:
       name:
         type: string
     type: object
+  api.DownloadModelRequest:
+    properties:
+      keep_downloaded:
+        type: boolean
+      model_id:
+        type: string
+    required:
+    - model_id
+    type: object
   api.ErrorResponse:
     properties:
       error:
@@ -423,6 +432,24 @@ definitions:
           username:
             type: string
         type: object
+    type: object
+  api.ModelDownloadCatalogResponse:
+    properties:
+      models:
+        items:
+          $ref: '#/definitions/modeldownloads.Model'
+        type: array
+    type: object
+  api.ModelDownloadListResponse:
+    properties:
+      available:
+        type: boolean
+      downloads:
+        items:
+          $ref: '#/definitions/modeldownloads.Job'
+        type: array
+      reason:
+        type: string
     type: object
   api.NoteCreateRequest:
     properties:
@@ -711,6 +738,60 @@ definitions:
   api.killJobRequest:
     properties:
       queue_item_id:
+        type: string
+    type: object
+  modeldownloads.Job:
+    properties:
+      can_cancel:
+        type: boolean
+      completed_files:
+        type: integer
+      created_at:
+        type: string
+      downloaded_bytes:
+        type: integer
+      error_code:
+        type: string
+      finished_at:
+        type: string
+      id:
+        type: string
+      keep_downloaded:
+        type: boolean
+      message:
+        type: string
+      model_id:
+        type: string
+      name:
+        type: string
+      phase:
+        type: string
+      source:
+        type: string
+      state:
+        type: string
+      total_bytes:
+        type: integer
+      total_files:
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  modeldownloads.Model:
+    properties:
+      dependencies:
+        items:
+          type: string
+        type: array
+      gated:
+        type: boolean
+      id:
+        type: string
+      name:
+        type: string
+      purpose:
+        type: string
+      source:
         type: string
     type: object
   models.AdaptiveCapacityLimit:
@@ -1750,6 +1831,10 @@ definitions:
         type: integer
       name:
         type: string
+      profile_references:
+        items:
+          $ref: '#/definitions/modelstorage.ProfileReference'
+        type: array
       profiles:
         type: integer
       purpose:
@@ -1799,6 +1884,19 @@ definitions:
         items:
           type: string
         type: array
+    type: object
+  modelstorage.ProfileReference:
+    properties:
+      automatic:
+        type: boolean
+      cached_only:
+        type: boolean
+      id:
+        type: string
+      name:
+        type: string
+      role:
+        type: string
     type: object
   modelstorage.Removal:
     properties:
@@ -3143,6 +3241,20 @@ paths:
       summary: Keep a model downloaded or resume its retention policy
       tags:
       - settings
+  /api/v1/settings/models/catalog:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.ModelDownloadCatalogResponse'
+      security:
+      - BearerAuth: []
+      summary: Browse models available for manual download
+      tags:
+      - settings
   /api/v1/settings/models/cleanup:
     get:
       parameters:
@@ -3191,6 +3303,68 @@ paths:
       security:
       - BearerAuth: []
       summary: Clear confirmed downloaded model files
+      tags:
+      - settings
+  /api/v1/settings/models/downloads:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.ModelDownloadListResponse'
+      security:
+      - BearerAuth: []
+      summary: List model downloads and recent outcomes
+      tags:
+      - settings
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Registered model and keep preference
+        in: body
+        name: download
+        required: true
+        schema:
+          $ref: '#/definitions/api.DownloadModelRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/modeldownloads.Job'
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Download a model's files
+      tags:
+      - settings
+  /api/v1/settings/models/downloads/{downloadID}/cancel:
+    post:
+      parameters:
+      - description: Download job ID
+        in: path
+        name: downloadID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/modeldownloads.Job'
+      security:
+      - BearerAuth: []
+      summary: Cancel a model download
       tags:
       - settings
   /api/v1/settings/models/events:

@@ -59,7 +59,9 @@ func NewVibeVoiceBitNetAdapter(envPath string) *VibeVoiceBitNetAdapter {
 		{Name: "diarize_model", Type: "string", Default: "none", Description: "External diarizers run after word alignment; this compressed model has no native speaker labels", Group: "basic"},
 	}
 	schema = append(schema, contextParameters()...)
-	return &VibeVoiceBitNetAdapter{BaseAdapter: NewBaseAdapter("vibevoice-bitnet", envPath, caps, schema), envPath: envPath, downloadWeights: downloader.DownloadFile}
+	return &VibeVoiceBitNetAdapter{BaseAdapter: NewBaseAdapter("vibevoice-bitnet", envPath, caps, schema), envPath: envPath, downloadWeights: func(ctx context.Context, url, path string) error {
+		return downloader.DownloadFileIfMissing(ctx, url, path, 100_000_000)
+	}}
 }
 
 func (v *VibeVoiceBitNetAdapter) GetSupportedModels() []string { return []string{vibeBitNetModel} }

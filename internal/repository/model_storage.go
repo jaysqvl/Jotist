@@ -89,7 +89,7 @@ func ReadModelStorageDetails(ctx context.Context, db *gorm.DB, catalog []modelst
 		return result, errors.New("model storage database unavailable")
 	}
 	var profiles []models.TranscriptionProfile
-	if err := db.WithContext(ctx).Select(storageParameterColumns).Find(&profiles).Error; err != nil {
+	if err := db.WithContext(ctx).Select("id, name, " + storageParameterColumns).Order("name ASC, id ASC").Find(&profiles).Error; err != nil {
 		return result, err
 	}
 	var executions []models.TranscriptionJobExecution
@@ -97,10 +97,11 @@ func ReadModelStorageDetails(ctx context.Context, db *gorm.DB, catalog []modelst
 		return result, err
 	}
 	for _, model := range catalog {
-		details := modelstorage.Details{}
+		details := modelstorage.Details{ProfileReferences: []modelstorage.ProfileReference{}}
 		for _, profile := range profiles {
 			if modelstorage.ReferencesSelection(model, profile.Parameters) {
 				details.Profiles++
+				details.ProfileReferences = append(details.ProfileReferences, modelstorage.SavedProfileReference(model, profile))
 				if profile.Parameters.ModelCacheOnly {
 					details.CachedOnlyProfiles++
 				}

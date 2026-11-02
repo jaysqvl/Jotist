@@ -53,9 +53,23 @@ class AdapterSpec:
     torch_companions: tuple[str, ...] = ("torchaudio", "torchcodec")
     pair_import_packages: tuple[str, ...] = ()
     pair_import_code: str | None = None
+    # The file downloader has no inference/decoder packages. Every actual ASR
+    # and diarization runtime retains the native audio check.
+    audio_import_check: bool = True
 
 
 ADAPTERS: tuple[AdapterSpec, ...] = (
+    AdapterSpec(
+        key="model-downloads",
+        label="Model file download helper",
+        pyproject=ROOT / "internal/transcription/adapters/py/model_downloads/pyproject.toml",
+        import_code="import sys, huggingface_hub, tqdm; assert 'torch' not in sys.modules",
+        requires_python=">=3.11,<3.13",
+        package_pins=(PackagePin("huggingface-hub", version="1.31.0"), PackagePin("filelock", version="4.2.7"), PackagePin("tqdm", version="4.70.1")),
+        caller_scripts=("download.py",),
+        torch_companions=(),
+        audio_import_check=False,
+    ),
     AdapterSpec(
         key="nvidia-asr",
         label="NVIDIA ASR adapters",
@@ -540,7 +554,7 @@ def run_adapter_import_check(
             "python",
             "-I",
             "-c",
-            import_code + "\n" + AUDIO_IMPORT_CHECK,
+            import_code + ("\n" + AUDIO_IMPORT_CHECK if spec.audio_import_check else ""),
         ],
         cwd=ROOT,
         timeout=timeout,

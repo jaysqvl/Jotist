@@ -415,6 +415,34 @@
     },
     {
       "method": "GET",
+      "path": "/api/v1/settings/models/catalog",
+      "summary": "Browse models available for manual download",
+      "description": "",
+      "tag": "settings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/settings/models/downloads",
+      "summary": "List model downloads and recent outcomes",
+      "description": "",
+      "tag": "settings"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/settings/models/downloads",
+      "summary": "Download a model's files",
+      "description": "",
+      "tag": "settings"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/settings/models/downloads/{downloadID}/cancel",
+      "summary": "Cancel a model download",
+      "description": "",
+      "tag": "settings"
+    },
+    {
+      "method": "GET",
       "path": "/api/v1/settings/models",
       "summary": "Audit downloaded models and local cache storage",
       "description": "",

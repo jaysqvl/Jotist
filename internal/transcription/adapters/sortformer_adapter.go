@@ -249,7 +249,7 @@ func (s *SortformerAdapter) downloadSortformerModel(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 	defer cancel()
 
-	if err := downloader.DownloadFile(ctx, modelURL, modelPath); err != nil {
+	if err := downloader.DownloadFileIfMissing(ctx, modelURL, modelPath, 1024*1024); err != nil {
 		return fmt.Errorf("failed to download Sortformer model: %w", err)
 	}
 

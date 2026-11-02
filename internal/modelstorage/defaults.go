@@ -17,7 +17,7 @@ func DefaultOptions(environmentRoot string, catalog []Model) Options {
 	hub := envOr("HF_HUB_CACHE", envOr("HUGGINGFACE_HUB_CACHE", filepath.Join(hfHome, "hub")))
 	torch := envOr("TORCH_HOME", filepath.Join(cache, "torch"))
 	options := Options{
-		EnvironmentRoot: environmentRoot, HubRoots: []string{hub, filepath.Join(cache, "whisper"), envOr("PYANNOTE_CACHE", filepath.Join(torch, "pyannote"))},
+		EnvironmentRoot: environmentRoot, HubRoots: []string{hub, filepath.Join(cache, "whisper"), envOr("PYANNOTE_CACHE", filepath.Join(torch, "pyannote")), filepath.Join(environmentRoot, ".model-file-cache", "hub")},
 		PackageRoot:        envOr("UV_CACHE_DIR", filepath.Join(cache, "uv")),
 		OtherRuntimeRoots:  []string{filepath.Join(hfHome, "modules"), filepath.Join(torch, "hub")},
 		OtherDownloadRoots: []string{envOr("HF_XET_CACHE", filepath.Join(hfHome, "xet")), envOr("HF_ASSETS_CACHE", filepath.Join(hfHome, "assets"))},
@@ -63,7 +63,7 @@ func AlignmentFiles(root string) []DirectFiles {
 		{"torchaudio/VOXPOPULI_ASR_BASE_10K_ES", "Spanish word aligner", "wav2vec2_voxpopuli_base_10k_asr_es.pt"},
 		{"torchaudio/VOXPOPULI_ASR_BASE_10K_IT", "Italian word aligner", "wav2vec2_voxpopuli_base_10k_asr_it.pt"},
 	} {
-		result = append(result, DirectFiles{Model: Model{Source: spec.source, Name: spec.name, Purpose: "Word timing", Resources: []string{"@alignment"}}, Root: root, Paths: []string{spec.file, spec.file + ".partial"}})
+		result = append(result, DirectFiles{Model: Model{Source: spec.source, Name: spec.name, Purpose: "Word timing", Resources: []string{"@alignment"}}, Root: root, Paths: []string{spec.file, spec.file + ".partial", spec.file + ".tmp"}})
 	}
 	return result
 }

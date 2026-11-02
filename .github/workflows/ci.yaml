@@ -47,7 +47,7 @@ jobs:
           adapters=()
           if [ "$ADAPTER_PYTHON" = "3.11" ]; then
             # DiariZen requires Python 3.12 after the coordinated runtime update.
-            for adapter in nvidia-asr canary-qwen pyannote whisperx suplime local-asr; do
+            for adapter in nvidia-asr canary-qwen pyannote whisperx suplime local-asr model-downloads; do
               adapters+=(--adapter "$adapter")
             done
           fi

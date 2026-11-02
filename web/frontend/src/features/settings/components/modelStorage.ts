@@ -28,7 +28,16 @@ export interface CachedModel {
     retention_reason?: string;
     profiles: number;
     cached_only_profiles: number;
+    profile_references?: ModelProfileReference[];
     uses: ModelUse[];
+}
+
+export interface ModelProfileReference {
+    id: string;
+    name: string;
+    role: string;
+    automatic: boolean;
+    cached_only: boolean;
 }
 
 export interface ModelInventory {

@@ -185,6 +185,10 @@ func main() {
 	// Set up router
 	stopModelCacheMaintenance := handler.StartModelCacheMaintenance()
 	defer stopModelCacheMaintenance()
+	if err := handler.StartModelDownloads(); err != nil {
+		logger.Warn("Model download worker could not start safely", "error", err)
+	}
+	defer handler.StopModelDownloads()
 	router := api.SetupRoutes(handler, authService)
 
 	// Create server
@@ -241,6 +245,7 @@ func main() {
 		os.Exit(1)
 	}
 	stopModelCacheMaintenance()
+	handler.StopModelDownloads()
 	taskQueue.Stop()
 	quickTranscriptionService.Close()
 	if err := serverLease.MarkWorkersStopped(); err != nil {

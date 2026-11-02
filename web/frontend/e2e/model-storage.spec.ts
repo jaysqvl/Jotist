@@ -4,14 +4,16 @@ import type { CachedModel, ModelInventory, ModelRetentionPolicy } from '../src/f
 
 // UI fixtures are synthetic. Real authentication and persistent writes are
 // exercised separately by scripts/smoke_container.py against the built image.
+const recognitionProfiles = ['English · Cohere', 'Interviews · English', 'Multilingual notes', 'Project planning and stakeholder interviews with a deliberately long profile name for mobile coverage', 'Meeting summary', 'Archive transcriptions']
+    .map((name, index) => ({ id: `cohere-profile-${index}`, name, role: 'Recognition', automatic: false, cached_only: false }));
 const models: CachedModel[] = [
-    { id: 'cohere', name: 'Cohere Transcribe 2B', source: 'CohereLabs/cohere-transcribe-03-2026', purpose: 'Recognition', bytes: 2_500_000_000, removable_bytes: 2_500_000_000, shared_bytes: 0, revisions: 1, locations: 1, status: 'queued', can_remove: true, version: 'cohere-v1', profiles: 1, cached_only_profiles: 0, uses: [{ state: 'queued', recording_title: 'Project planning', stage: 'Recognition' }] },
+    { id: 'cohere', name: 'Cohere Transcribe 2B', source: 'CohereLabs/cohere-transcribe-03-2026', purpose: 'Recognition', bytes: 2_500_000_000, removable_bytes: 2_500_000_000, shared_bytes: 0, revisions: 1, locations: 1, status: 'queued', can_remove: true, version: 'cohere-v1', profiles: recognitionProfiles.length, profile_references: recognitionProfiles, cached_only_profiles: 0, uses: [{ state: 'queued', recording_title: 'Project planning', stage: 'Recognition' }] },
     { id: 'parakeet', name: 'NVIDIA Parakeet', source: 'nvidia/parakeet-tdt-0.6b-v3', purpose: 'Recognition', bytes: 1_200_000_000, removable_bytes: 1_200_000_000, shared_bytes: 0, revisions: 1, locations: 1, status: 'in_use', can_remove: false, reason: 'An active run is using these files.', version: 'parakeet-v1', profiles: 1, cached_only_profiles: 0, uses: [{ state: 'in_use', recording_title: 'Short interview', stage: 'Recognition' }] },
     { id: 'unregistered', name: 'Other cached repository', source: 'example/unregistered', purpose: 'Other cached repository', bytes: 500_000_000, removable_bytes: 500_000_000, shared_bytes: 0, revisions: 1, locations: 1, status: 'downloaded', can_remove: false, reason: 'This repository is not managed by a registered Jotist model.', version: 'unregistered-v1', profiles: 0, cached_only_profiles: 0, uses: [] },
 ];
 
-async function setup(page: Page, rejectRemoval = false, rejectCleanup = false, rejectKeep = false) {
-    let entries = structuredClone(models);
+async function setup(page: Page, rejectRemoval = false, rejectCleanup = false, rejectKeep = false, extraModels: CachedModel[] = []) {
+    let entries = structuredClone([...models, ...extraModels]);
     entries = entries.map(model => ({ ...model, can_keep_downloaded: model.id !== 'unregistered', keep_downloaded: false }));
     let retention: ModelRetentionPolicy = { enabled: true, retention_days: 14, last_checked_at: '2026-11-02T12:00:00Z', last_removed_models: 0, last_removed_bytes: 0, last_skipped_models: 0, last_failed_models: 0 };
     const cleanupVersion = 'a'.repeat(64);
@@ -29,6 +31,8 @@ async function setup(page: Page, rejectRemoval = false, rejectCleanup = false, r
         }
         if (url.pathname === '/api/v1/llm/config') return route.fulfill({ json: { is_active: false } });
         if (url.pathname === '/api/v1/profiles/') return route.fulfill({ json: [] });
+        if (url.pathname === '/api/v1/settings/models/downloads') return route.fulfill({ json: { downloads: [] } });
+        if (url.pathname === '/api/v1/settings/models/catalog') return route.fulfill({ json: { models: [] } });
         if (url.pathname === '/api/v1/settings/models/events') return route.fulfill({ status: 403, json: { error: 'Synthetic fixture has no event stream' } });
         if (url.pathname === '/api/v1/settings/models/retention' && request.method() === 'PUT') {
             const value = request.postDataJSON();
@@ -87,6 +91,28 @@ async function setup(page: Page, rejectRemoval = false, rejectCleanup = false, r
 async function noOverflow(page: Page) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
 }
+
+test('profile details show saved names, expansion and automatic shared dependencies', async ({ page }) => {
+    const shared: CachedModel = { id: 'wespeaker', name: 'WeSpeaker', source: 'pyannote/wespeaker-voxceleb-resnet34-LM', purpose: 'Speaker dependency', bytes: 26_645_458, removable_bytes: 26_645_458, shared_bytes: 0, revisions: 1, locations: 1, status: 'downloaded', can_remove: true, version: 'wespeaker-v1', profiles: 1, cached_only_profiles: 1, profile_references: [{ id: 'speaker-profile', name: 'English · DiariZen', role: 'Speaker dependency', automatic: true, cached_only: true }], uses: [] };
+    const state = await setup(page, false, false, false, [shared]);
+    await page.getByRole('button', { name: 'Details', exact: true }).first().click();
+    const references = page.getByRole('region', { name: 'Saved profiles for Cohere Transcribe 2B', exact: true });
+    await expect(references.getByText('English · Cohere', { exact: true })).toBeVisible();
+    await expect(references.getByText('Meeting summary', { exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Show all 6 profiles', exact: true }).click();
+    await expect(references.getByText('Meeting summary', { exact: true })).toBeVisible();
+    await expect(references.getByText('Archive transcriptions', { exact: true })).toBeVisible();
+    await noOverflow(page);
+    await page.getByRole('button', { name: 'Show fewer profiles', exact: true }).click();
+    await expect(references.getByText('Meeting summary', { exact: true })).toHaveCount(0);
+    await page.locator('button[aria-controls="model-details-wespeaker"]').click();
+    const sharedReferences = page.getByRole('region', { name: 'Saved profiles for WeSpeaker', exact: true });
+    await expect(sharedReferences.getByText('English · DiariZen', { exact: true })).toBeVisible();
+    await expect(sharedReferences.getByText('May use automatically · Downloading disabled', { exact: true })).toBeVisible();
+    await noOverflow(page);
+    expect(state.unexpected).toEqual([]);
+    expect(state.errors).toEqual([]);
+});
 
 test('model storage fits every viewport and supports accessible filtering', async ({ page }, testInfo) => {
     const state = await setup(page);
