@@ -1,0 +1,8 @@
+{
+  "name": "@jotist/deepmerge",
+  "version": "4.3.1-jotist.1",
+  "private": true,
+  "description": "Deepmerge with the __proto__ key guard for GHSA-gcqx-w48m-w2h4",
+  "main": "index.cjs",
+  "license": "MIT"
+}

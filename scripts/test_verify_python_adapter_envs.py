@@ -100,7 +100,7 @@ class NativeWheelPolicyTests(unittest.TestCase):
             hydra_pin = next(
                 pin for pin in adapter.package_pins if pin.name == "hydra-core"
             )
-            for version in ("1.3.2", "1.3.6"):
+            for version in ("1.3.2", "1.3.6", "1.3.7"):
                 with self.subTest(adapter=key, version=version):
                     with tempfile.TemporaryDirectory() as directory:
                         project = Path(directory) / "pyproject.toml"
@@ -121,6 +121,23 @@ class NativeWheelPolicyTests(unittest.TestCase):
                             replace(adapter, package_pins=(hydra_pin,)),
                             {"hydra-core": [version]},
                         )
+
+    def test_nltk_security_pin_rejects_old_recipes_and_derived_locks(self):
+        for key in ("whisperx", "canary-qwen"):
+            adapter = verifier.ADAPTERS_BY_KEY[key]
+            pin = next(pin for pin in adapter.package_pins if pin.name == "nltk")
+            with self.subTest(adapter=key):
+                with tempfile.TemporaryDirectory() as directory:
+                    project = Path(directory) / "pyproject.toml"
+                    project.write_text(adapter.pyproject.read_text().replace(
+                        f"nltk=={pin.version}", "nltk==3.10.3"
+                    ))
+                    with self.assertRaisesRegex(verifier.CheckError, "nltk.*must be a direct"):
+                        verifier.validate_pyproject(replace(adapter, pyproject=project))
+                with self.assertRaises(verifier.CheckError):
+                    verifier.check_package_pins(
+                        replace(adapter, package_pins=(pin,)), {"nltk": ["3.10.3"]}
+                    )
 
     def test_vendor_sources_and_backend_are_preserved_in_test_environment(self):
         with tempfile.TemporaryDirectory() as directory:

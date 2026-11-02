@@ -11,6 +11,7 @@ WORKDIR /web
 
 # Install deps and build web/frontend
 COPY web/frontend/package*.json web/frontend/.npmrc ./frontend/
+COPY web/frontend/vendor ./frontend/vendor
 RUN cd frontend \
   && npm ci \
   && npm audit
