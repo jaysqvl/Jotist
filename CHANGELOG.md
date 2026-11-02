@@ -3,9 +3,9 @@
 ## [3.0.1](https://github.com/jaysqvl/Jotist/compare/v3.0.0...v3.0.1) (2026-11-02)
 
 
-### Bug Fixes
+### Bug fixes
 
-* **web:** refresh installed UI after server upgrades ([#52](https://github.com/jaysqvl/Jotist/issues/52)) ([039362b](https://github.com/jaysqvl/Jotist/commit/039362b678bd76de133b4db04014d65288837ec2))
+* Fix installed apps showing an outdated interface after a server upgrade, including missing model-storage controls. [Details](https://github.com/jaysqvl/Jotist/pull/52).
 
 ## [3.0.0](https://github.com/jaysqvl/Jotist/compare/v2.3.2...v3.0.0) (2026-11-02)
 
