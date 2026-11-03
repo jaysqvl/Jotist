@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.0](https://github.com/jaysqvl/Jotist/compare/v3.1.0...v3.2.0) (2026-11-03)
+
+
+### Features
+
+* support ARM64 CPU containers and native runtimes ([af2222e](https://github.com/jaysqvl/Jotist/commit/af2222eaf478d7423c057db1c08d593f88ec6c4f))
+
 ## [3.1.0](https://github.com/jaysqvl/Jotist/compare/v3.0.1...v3.1.0) (2026-11-02)
 
 
