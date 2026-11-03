@@ -12,18 +12,25 @@ permissions:
 
 jobs:
   image:
-    name: Built ${{ matrix.variant }} image
-    runs-on: ubuntu-latest
+    name: Built ${{ matrix.variant }} image (${{ matrix.architecture }})
+    runs-on: ${{ matrix.architecture == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        variant: [cpu, cuda]
+        include:
+          - {variant: cpu, architecture: amd64}
+          - {variant: cpu, architecture: arm64}
+          - {variant: cuda, architecture: amd64}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ inputs.source_ref }}
           persist-credentials: false
+      - name: Require native architecture
+        env:
+          EXPECTED_ARCHITECTURE: ${{ matrix.architecture }}
+        run: python3 -c 'import os,platform; expected={"amd64":"x86_64","arm64":"aarch64"}[os.environ["EXPECTED_ARCHITECTURE"]]; assert platform.machine()==expected, "image qualification must run natively"'
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
       - name: Capture exact source
         id: source
@@ -34,18 +41,20 @@ jobs:
           file: deploy/docker/Dockerfile.${{ matrix.variant }}
           pull: true
           no-cache-filters: runtime
+          platforms: linux/${{ matrix.architecture }}
           load: true
           tags: jotist-ci:${{ matrix.variant }}
           build-args: |
             VERSION=ci
             COMMIT=${{ steps.source.outputs.sha }}
-          cache-from: type=gha,scope=qualification-${{ matrix.variant }}
-          cache-to: type=gha,mode=max,scope=qualification-${{ matrix.variant }}
+          cache-from: type=gha,scope=qualification-${{ matrix.variant }}-${{ matrix.architecture }}
+          cache-to: type=gha,mode=max,scope=qualification-${{ matrix.variant }}-${{ matrix.architecture }}
       - name: Boot image and verify persistent writes and identities
         env:
           REVISION: ${{ steps.source.outputs.sha }}
           VARIANT: ${{ matrix.variant }}
-        run: python3 scripts/smoke_container.py --image "jotist-ci:$VARIANT" --revision "$REVISION" --version ci --report "qualification/$VARIANT.json"
+          ARCHITECTURE: ${{ matrix.architecture }}
+        run: python3 scripts/smoke_container.py --image "jotist-ci:$VARIANT" --revision "$REVISION" --version ci --architecture "$ARCHITECTURE" --report "qualification/$VARIANT.json"
       - name: Record unfiltered built image findings
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
@@ -73,6 +82,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: built-image-${{ matrix.variant }}
+          name: built-image-${{ matrix.variant }}-${{ matrix.architecture }}
           path: qualification/
           retention-days: 14

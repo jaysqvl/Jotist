@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { inputClassName } from '@/components/transcription/FormHelpers';
+import type { DefaultDevice } from '@/features/transcription/hooks/serverDefaults';
 
 interface QueueSettingsData {
     workers: number;
@@ -14,7 +15,7 @@ interface QueueSettingsData {
     environment_override: boolean;
 }
 
-export function QueueSettings() {
+export function QueueSettings({ defaultDevice = 'cuda' }: { defaultDevice?: DefaultDevice }) {
     const { getAuthHeaders } = useAuth();
     const queryClient = useQueryClient();
     const [draft, setDraft] = useState<string | null>(null);
@@ -59,7 +60,7 @@ export function QueueSettings() {
         {query.isPending ? <p role="status" className="text-sm text-[var(--text-secondary)]">Loading queue settings…</p> : settings && <fieldset disabled={save.isPending || settings.environment_override} className="min-w-0 space-y-4">
             <div className="grid min-w-0 gap-4 sm:grid-cols-[minmax(0,1fr)_12rem] sm:items-center">
                 <div><Label htmlFor="queue-workers" className="text-sm font-medium">Simultaneous recordings</Label>
-                    <p id="queue-workers-help" className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">1 is recommended for a single GPU. Parallel recordings share GPU memory. Each recording always runs its own requests in order.</p></div>
+                    <p id="queue-workers-help" className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">{defaultDevice === 'cpu' ? 'Parallel recordings share CPU and host memory. Start with 1 to limit peak memory use.' : '1 is recommended for a single GPU. Parallel recordings share GPU memory.'} Each recording always runs its own requests in order.</p></div>
                 <Input id="queue-workers" type="number" inputMode="numeric" min={1} max={settings.max_workers} step={1} value={value}
                     aria-describedby="queue-workers-help" aria-invalid={!valid} className={inputClassName}
                     onChange={(event) => { setDraft(event.target.value); setNotice(''); save.reset(); }} />

@@ -588,11 +588,11 @@ def run_adapter_audit(
     print(completed.stdout.strip())
 
 
-def run_inference_smoke(workdir: Path, args: argparse.Namespace) -> None:
+def run_inference_smoke(workdir: Path, args: argparse.Namespace, model: str = "whisperx") -> None:
     """Actual shared Go process/stage path, with a pinned public speech fixture.
 
-    This is a small CPU recognition/alignment gate, not a long-meeting or
-    all-model hardware qualification. Reuse the just-installed Python runtime.
+    This is a small CPU recognition/alignment or DiariZen speaker gate, not a
+    long-meeting/all-model qualification. Reuse the installed Python runtime.
     """
     try:
         with urllib.request.urlopen(SPEECH_FIXTURE_URL, timeout=60) as response:
@@ -605,7 +605,7 @@ def run_inference_smoke(workdir: Path, args: argparse.Namespace) -> None:
     audio.write_bytes(data)
     environment = os.environ.copy()
     environment.update(
-        JOTIST_RUNTIME_MODEL="whisperx",
+        JOTIST_RUNTIME_MODEL=model,
         JOTIST_RUNTIME_DEVICE="cpu",
         JOTIST_RUNTIME_AUDIO=str(audio),
         JOTIST_RUNTIME_ENV=str(workdir),
@@ -613,8 +613,11 @@ def run_inference_smoke(workdir: Path, args: argparse.Namespace) -> None:
         MKL_NUM_THREADS="2",
     )
     # Never inherit private target qualification inputs in the public gate.
-    for key in ("JOTIST_RUNTIME_CONTEXT_FILE", "JOTIST_RUNTIME_REPORT", "HF_TOKEN"):
+    for key in ("JOTIST_RUNTIME_CONTEXT_FILE", "JOTIST_RUNTIME_REPORT", "HF_TOKEN", "HUGGING_FACE_HUB_TOKEN"):
         environment.pop(key, None)
+    if getattr(args, "inference_output_dir", None):
+        args.inference_output_dir.mkdir(parents=True, exist_ok=True)
+        environment["JOTIST_RUNTIME_REPORT"] = str((args.inference_output_dir / f"{model}.json").resolve())
     completed = run(
         [str(args.inference_smoke_binary.resolve()), "-test.run=^TestRuntimeQualification$", "-test.v", "-test.timeout=0"],
         cwd=ROOT, timeout=args.timeout, verbose=args.verbose, env=environment,
@@ -674,8 +677,9 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--inference-smoke-binary", type=Path,
-        help="In WhisperX import mode, run the compiled Go qualification test on pinned public speech.",
+        help="In WhisperX/DiariZen import mode, run the compiled Go qualification test on pinned public speech.",
     )
+    parser.add_argument("--inference-output-dir", type=Path, help="Retain only numeric inference evidence.")
     return parser.parse_args()
 
 
@@ -688,8 +692,8 @@ def main() -> int:
         )
         return 2
     adapters = selected_adapters(args.adapter)
-    if args.inference_smoke_binary and (args.mode != "import" or not any(spec.key == "whisperx" for spec in adapters)):
-        print("--inference-smoke-binary requires WhisperX --mode import", file=sys.stderr)
+    if args.inference_smoke_binary and (args.mode != "import" or not any(spec.key in {"whisperx", "diarizen"} for spec in adapters)):
+        print("--inference-smoke-binary requires WhisperX or DiariZen --mode import", file=sys.stderr)
         return 2
     failures: list[str] = []
 
@@ -727,8 +731,8 @@ def main() -> int:
                     )
                     if args.audit:
                         run_adapter_audit(spec, workdir, args)
-                    if args.inference_smoke_binary and spec.key == "whisperx":
-                        run_inference_smoke(workdir, args)
+                    if args.inference_smoke_binary and spec.key in {"whisperx", "diarizen"}:
+                        run_inference_smoke(workdir, args, spec.key)
             except CheckError as exc:
                 failures.append(f"{spec.key}: {exc}")
                 print(f"    FAILED: {exc}", file=sys.stderr)

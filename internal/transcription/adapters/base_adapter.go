@@ -8,23 +8,32 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/jaysqvl/Jotist/internal/platform"
 	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 	"github.com/jaysqvl/Jotist/pkg/logger"
 )
 
 // GetPyTorchCUDAVersion returns the PyTorch CUDA wheel version to use.
 // This is configurable via the PYTORCH_CUDA_VERSION environment variable.
-// Defaults to "cu126" for CUDA 12.6 (legacy GPUs: GTX 10-series through RTX 40-series).
+// Linux ARM64 defaults to CPU. Other platforms retain the CUDA 12.6 default.
 // Set to "cu130" for CUDA 13.0 (Blackwell GPUs: RTX 50-series).
 func GetPyTorchCUDAVersion() string {
 	if cudaVersion := os.Getenv("PYTORCH_CUDA_VERSION"); cudaVersion != "" {
 		return cudaVersion
 	}
-	return "cu126" // Default to CUDA 12.6 for legacy compatibility
+	return platformPyTorchBackend(runtime.GOOS, runtime.GOARCH)
+}
+
+func platformPyTorchBackend(goos, architecture string) string {
+	if platform.For(goos, architecture).DefaultDevice == "cpu" {
+		return "cpu"
+	}
+	return "cu126"
 }
 
 // GetPyTorchWheelURL returns the full PyTorch wheel URL for the configured CUDA version.

@@ -6,7 +6,7 @@ import json
 import unittest
 from unittest.mock import patch
 
-from prepare_container_vex import POLICY, build_vex, manifest_hash
+from prepare_container_vex import POLICY, build_vex, manifest_hash, policy_for_architecture
 
 
 class ContainerVexTests(unittest.TestCase):
@@ -44,6 +44,28 @@ class ContainerVexTests(unittest.TestCase):
         self.assertEqual(statement["vulnerability"]["name"], self.cve)
         self.assertEqual(statement["products"], [{"@id": self.package["purl"]}])
         self.assertEqual(statement["justification"], "vulnerable_code_not_present")
+
+    def test_arm_review_requires_its_own_exact_payload_and_source_review(self):
+        policy = json.loads(POLICY.read_text())
+        arm = policy_for_architecture(policy, "arm64")
+        self.assertIn("arch=arm64&", arm["package"]["purl"])
+        self.assertNotEqual(arm["package"]["installed_payload_sha256"], policy["package"]["installed_payload_sha256"])
+        self.assertEqual(policy_for_architecture(policy, "amd64"), policy)
+        arm["reviewed_at"] = "2026-10-10T00:00:00Z"
+        # AMD64 scan/payload proof cannot qualify the ARM package.
+        with self.assertRaises(ValueError):
+            build_vex(arm, self.report, self.smoke, date(2026, 10, 10))
+        policy["upstream_fixes"]["CVE-2026-99999"] = {"commit": "a" * 40, "paths": ["kernel/new.c"]}
+        with self.assertRaisesRegex(ValueError, "current upstream fixes"):
+            policy_for_architecture(policy, "arm64")
+
+    def test_unreviewed_architecture_cannot_inherit_amd64_applicability(self):
+        policy = json.loads(POLICY.read_text())
+        policy.pop("architecture_reviews", None)
+        with self.assertRaisesRegex(ValueError, "architecture-specific"):
+            policy_for_architecture(policy, "arm64")
+        with self.assertRaisesRegex(ValueError, "unreviewed"):
+            policy_for_architecture(policy, "riscv64")
 
     def test_expired_or_future_review_fails_closed(self):
         for key, value in (("review_by", "2026-10-09"), ("reviewed_at", "2026-10-11T00:00:00Z")):

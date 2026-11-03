@@ -90,7 +90,9 @@ class ImageRestartTests(unittest.TestCase):
 
         def docker(*args):
             nonlocal current_port, restarts
-            if args[0] == "run":
+            if args[0] == "image":
+                return "amd64"
+            elif args[0] == "run":
                 current_port = 32000 + restarts * 2
             elif args[0] == "restart":
                 current_port += 1
@@ -123,10 +125,12 @@ class ImageRestartTests(unittest.TestCase):
                 return b"RIFF"
             if path.endswith("/settings/models"):
                 return b'{"entries":[]}'
+            if path.endswith("/transcription/models"):
+                return b'{"execution_defaults":{"os":"linux","architecture":"amd64","default_device":"cuda"}}'
             if path == "/install.sh":
                 return b"#!/bin/sh"
             if path.startswith("/api/v1/cli/download"):
-                return b"\x7fELF"
+                return b"\x7fELF\x02\x01" + b"\x00" * 12 + (62).to_bytes(2, "little")
             return b"{}"
 
         args = argparse.Namespace(image="fixture-image", revision="fixture-revision", version="ci", timeout=1)
@@ -144,6 +148,22 @@ class ImageRestartTests(unittest.TestCase):
         self.assertEqual(restarts, 2)
         self.assertEqual(authenticated_after_restart, 2)
         self.assertEqual([case["identity"] for case in result["cases"]], ["default", "unraid"])
+
+    def test_cli_must_match_the_container_architecture(self):
+        for architecture, machine in (("amd64", 62), ("arm64", 183)):
+            binary = b"\x7fELF\x02\x01" + b"\x00" * 12 + machine.to_bytes(2, "little")
+            smoke.validate_cli_architecture(binary, architecture)
+            with self.assertRaises(AssertionError):
+                smoke.validate_cli_architecture(binary, "arm64" if architecture == "amd64" else "amd64")
+        with self.assertRaises(AssertionError):
+            smoke.validate_cli_architecture(b"\x7fELF", "arm64")
+
+    def test_wrong_image_architecture_fails_before_creating_resources(self):
+        args = argparse.Namespace(image="fixture", architecture="arm64")
+        with patch.object(smoke, "docker", return_value="amd64") as command:
+            with self.assertRaisesRegex(AssertionError, "requested target"):
+                smoke.qualify(args)
+        self.assertEqual(command.call_count, 1)
 
     def test_invalid_bindings_fail_without_printing_inspect_data(self):
         for bindings in (None, [], [{"HostIp": "0.0.0.0", "HostPort": "12345"}],

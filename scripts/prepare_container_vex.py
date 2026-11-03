@@ -6,6 +6,7 @@ The original scan, package proof and generated VEX are retained together.
 """
 
 import argparse
+from copy import deepcopy
 from datetime import date, datetime, timezone
 import hashlib
 import json
@@ -29,6 +30,24 @@ def manifest_hash(paths):
     return hashlib.sha256(("\n".join(sorted(paths)) + "\n").encode()).hexdigest()
 
 
+def policy_for_architecture(policy, architecture):
+    require(architecture in {"amd64", "arm64"}, "unreviewed image architecture")
+    if architecture == "amd64":
+        return policy
+    review = policy.get("architecture_reviews", {}).get(architecture)
+    require(isinstance(review, dict), "missing architecture-specific package review")
+    fixes_hash = hashlib.sha256(json.dumps(policy["upstream_fixes"], sort_keys=True).encode()).hexdigest()
+    require(review.get("upstream_fixes_sha256") == fixes_hash, "architecture review does not cover current upstream fixes")
+    selected = deepcopy(policy)
+    for key in ("package", "reviewed_at", "impact"):
+        selected[key] = review[key]
+    # A platform addition must not extend the original source review's lifetime.
+    selected["review_by"] = min(policy["review_by"], review["review_by"])
+    selected["references"] = policy["references"] + review["references"]
+    require("?arch=" + architecture + "&" in selected["package"]["purl"], "architecture review package differs")
+    return selected
+
+
 def build_vex(policy, report, smoke, today=None):
     today = today or datetime.now(timezone.utc).date()
     require(policy.get("schema_version") == 1, "unsupported applicability policy")
@@ -40,7 +59,7 @@ def build_vex(policy, report, smoke, today=None):
     payload_hash = package.get("installed_payload_sha256")
     require(isinstance(payload_hash, str) and re.fullmatch(r"[0-9a-f]{64}", payload_hash),
             "missing reviewed package content hash")
-    require(re.fullmatch(r"pkg:deb/ubuntu/linux-libc-dev@6\.8\.0-\d+\.\d+\?arch=amd64&distro=ubuntu-24\.04",
+    require(re.fullmatch(r"pkg:deb/ubuntu/linux-libc-dev@6\.8\.0-\d+\.\d+\?arch=(?:amd64|arm64)&distro=ubuntu-24\.04",
                          package["purl"]) is not None, "unbounded package scope")
     require(policy["justification"] == "vulnerable_code_not_present" and policy["impact"]
             and policy["references"], "missing applicability rationale")
@@ -115,8 +134,9 @@ def main():
     parser.add_argument("--smoke", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    policy = json.loads(POLICY.read_text())
-    vex = build_vex(policy, json.loads(args.report.read_text()), json.loads(args.smoke.read_text()))
+    smoke = json.loads(args.smoke.read_text())
+    policy = policy_for_architecture(json.loads(POLICY.read_text()), smoke.get("architecture", "amd64"))
+    vex = build_vex(policy, json.loads(args.report.read_text()), smoke)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(vex, indent=2) + "\n")
     print(json.dumps({"reviewed_package": policy["package"]["purl"],

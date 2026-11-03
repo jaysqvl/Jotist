@@ -42,19 +42,19 @@ def runs(name, results, *, reused=False, cancelled=False):
 
 class ImagePublicationWorkflowTests(unittest.TestCase):
     def test_promotes_after_reusing_completed_source_validation(self):
-        self.assertTrue(runs("promote", {"resolve": "success", "validate": "skipped", "qualify": "success"}))
+        self.assertTrue(runs("promote", {"resolve": "success", "validate": "skipped", "qualify": "success", "assemble": "success"}))
 
     def test_promotes_after_direct_source_validation(self):
-        self.assertTrue(runs("promote", {"resolve": "success", "validate": "success", "qualify": "success"}))
+        self.assertTrue(runs("promote", {"resolve": "success", "validate": "success", "qualify": "success", "assemble": "success"}))
 
     def test_promotion_rejects_failed_skipped_or_cancelled_prerequisites(self):
-        for prerequisite in ("resolve", "qualify"):
+        for prerequisite in ("resolve", "qualify", "assemble"):
             for result in ("failure", "skipped", "cancelled"):
                 with self.subTest(prerequisite=prerequisite, result=result):
-                    results = {"resolve": "success", "validate": "skipped", "qualify": "success"}
+                    results = {"resolve": "success", "validate": "skipped", "qualify": "success", "assemble": "success"}
                     results[prerequisite] = result
                     self.assertFalse(runs("promote", results))
-        self.assertFalse(runs("promote", {"resolve": "success", "qualify": "success"}, cancelled=True))
+        self.assertFalse(runs("promote", {"resolve": "success", "qualify": "success", "assemble": "success"}, cancelled=True))
 
     def test_qualification_requires_validation_or_exact_validated_source_reuse(self):
         for result in ("success", "failure", "skipped", "cancelled"):
@@ -67,14 +67,14 @@ class ImagePublicationWorkflowTests(unittest.TestCase):
         self.assertTrue(runs("complete", {"resolve": "success", "qualify": "success", "promote": "skipped", "validate": "skipped"}))
         self.assertFalse(runs("complete", {"resolve": "success", "qualify": "success", "promote": "success"}, cancelled=True))
         block = job("complete")
-        self.assertRegex(block, r"needs: \[resolve, qualify, promote\]")
+        self.assertRegex(block, r"needs: \[resolve, qualify, assemble, promote\]")
         script = re.search(r"^        run: \|\n((?:^          .*\n|^\n)+)", block, re.M)
         self.assertIsNotNone(script)
         command = "\n".join(line[10:] for line in script[1].splitlines())
-        for prerequisite in ("resolve", "qualify", "promote"):
+        for prerequisite in ("resolve", "qualify", "assemble", "promote"):
             for result in ("success", "failure", "skipped", "cancelled"):
                 with self.subTest(prerequisite=prerequisite, result=result):
-                    results = {name: {"result": "success"} for name in ("resolve", "qualify", "promote")}
+                    results = {name: {"result": "success"} for name in ("resolve", "qualify", "assemble", "promote")}
                     results[prerequisite]["result"] = result
                     completed = subprocess.run(["bash", "-e", "-c", command],
                                                env=os.environ | {"RESULTS": json.dumps(results)},

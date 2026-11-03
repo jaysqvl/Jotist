@@ -50,6 +50,7 @@ RUN CGO_ENABLED=0 \
 # Build CLI binaries (cross-platform)
 RUN mkdir -p /out/bin/cli \
   && GOOS=linux GOARCH=amd64 go build -o /out/bin/cli/jotist-linux-amd64 ./cmd/jotist-cli \
+  && GOOS=linux GOARCH=arm64 go build -o /out/bin/cli/jotist-linux-arm64 ./cmd/jotist-cli \
   && GOOS=darwin GOARCH=amd64 go build -o /out/bin/cli/jotist-darwin-amd64 ./cmd/jotist-cli \
   && GOOS=darwin GOARCH=arm64 go build -o /out/bin/cli/jotist-darwin-arm64 ./cmd/jotist-cli \
   && GOOS=windows GOARCH=amd64 go build -o /out/bin/cli/jotist-windows-amd64.exe ./cmd/jotist-cli
@@ -89,11 +90,18 @@ RUN apt-get update \
 # Install uv (fast Python package manager) directly to system PATH
 ARG UV_VERSION=0.12.5
 ARG UV_SHA256=68a509da24b06b4223a1c0175fb5eb5bc79342b76cbeff0cfe51ac3f5b17b6b2
-RUN curl -fL "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-x86_64-unknown-linux-gnu.tar.gz" -o /tmp/uv.tar.gz \
-  && echo "${UV_SHA256}  /tmp/uv.tar.gz" | sha256sum -c - \
+ARG UV_ARM64_SHA256=9bf43b4d1a07665bf64d4c4e710930b382321a785e0eb10aac07f46471f86a31
+ARG TARGETARCH
+RUN case "${TARGETARCH}" in \
+       amd64) uv_arch=x86_64; uv_sha=${UV_SHA256} ;; \
+       arm64) uv_arch=aarch64; uv_sha=${UV_ARM64_SHA256} ;; \
+       *) echo "Unsupported CPU image architecture: ${TARGETARCH}" >&2; exit 1 ;; \
+     esac \
+  && curl -fL "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-${uv_arch}-unknown-linux-gnu.tar.gz" -o /tmp/uv.tar.gz \
+  && echo "${uv_sha}  /tmp/uv.tar.gz" | sha256sum -c - \
   && tar -xzf /tmp/uv.tar.gz -C /tmp \
-  && install -m 755 /tmp/uv-x86_64-unknown-linux-gnu/uv /usr/local/bin/uv \
-  && rm -rf /tmp/uv.tar.gz /tmp/uv-x86_64-unknown-linux-gnu \
+  && install -m 755 /tmp/uv-${uv_arch}-unknown-linux-gnu/uv /usr/local/bin/uv \
+  && rm -rf /tmp/uv.tar.gz /tmp/uv-${uv_arch}-unknown-linux-gnu \
   && uv --version
 
 # Install yt-dlp standalone binary
@@ -109,8 +117,14 @@ RUN curl -fL "https://github.com/yt-dlp/yt-dlp/releases/download/${YT_DLP_VERSIO
 # See: https://github.com/yt-dlp/yt-dlp/issues/14404
 ARG DENO_VERSION=v2.9.0
 ARG DENO_SHA256=96c9c73fc05ea57603bc28d8071d41e861bd40bcf2a9f849dd5969ed1a2c8498
-RUN curl -fL "https://github.com/denoland/deno/releases/download/${DENO_VERSION}/deno-x86_64-unknown-linux-gnu.zip" -o /tmp/deno.zip \
-  && echo "${DENO_SHA256}  /tmp/deno.zip" | sha256sum -c - \
+ARG DENO_ARM64_SHA256=a0f266eb189af2f27db0c6dcf9eb2f68ba2e8bbff1442c969ace398463f8b2bf
+RUN case "${TARGETARCH}" in \
+       amd64) deno_arch=x86_64; deno_sha=${DENO_SHA256} ;; \
+       arm64) deno_arch=aarch64; deno_sha=${DENO_ARM64_SHA256} ;; \
+       *) echo "Unsupported CPU image architecture: ${TARGETARCH}" >&2; exit 1 ;; \
+     esac \
+  && curl -fL "https://github.com/denoland/deno/releases/download/${DENO_VERSION}/deno-${deno_arch}-unknown-linux-gnu.zip" -o /tmp/deno.zip \
+  && echo "${deno_sha}  /tmp/deno.zip" | sha256sum -c - \
   && unzip -q /tmp/deno.zip -d /usr/local/bin \
   && chmod 755 /usr/local/bin/deno \
   && rm -f /tmp/deno.zip \

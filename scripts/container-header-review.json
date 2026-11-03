@@ -3125,5 +3125,34 @@
     "scope": "Every additional fix changes only kernel implementation or internal build/header paths absent from the exact installed package. No additional fix changes an exported userspace header.",
     "package_payload_unchanged": true,
     "review_expiry_unchanged": true
+  },
+  "architecture_reviews": {
+    "arm64": {
+      "reviewed_at": "2026-11-03T00:49:23.611645Z",
+      "review_by": "2026-11-09",
+      "upstream_fixes_sha256": "79154ad3a30f343ad06fe8493879102997a7b39afbefc4ad043a4da68380a568",
+      "package": {
+        "name": "linux-libc-dev",
+        "version": "6.8.0-147.147",
+        "purl": "pkg:deb/ubuntu/linux-libc-dev@6.8.0-147.147?arch=arm64&distro=ubuntu-24.04",
+        "installed_files": 962,
+        "headers": 960,
+        "installed_paths_sha256": "eacd02d419ea6c65f39351fcf58f05601a22ca43d6810488d297dee73d01c07b",
+        "installed_payload_sha256": "5108db093b4384a39468a4c03b41e160743973816620cab0f7cd27979b6e3222"
+      },
+      "impact": "The reviewed CVEs affect Linux kernel implementation code. This exact ARM64 Ubuntu package contains 960 exported userspace development headers and two documentation files, with no executable files, kernel implementation or modules. All 925 paths shared with the independently reviewed AMD64 package have identical bytes. The 37 ARM64-only files are exported asm headers; none of the reviewed fixes changes these ARM UAPI files. The three ARM64-specific fixes change KVM/VGIC or BPF JIT implementation .c files absent from the package. The only reviewed common UAPI change is the already reviewed __KERNEL__-guarded netfilter definition; its exported header is byte-identical across both architectures and contains no NF_CT_EXPECT_DEAD. Each actual ARM image must independently reproduce this exact path and complete content hash. This assessment covers only this image package and makes no assertion about the host kernel.",
+      "references": [
+        "https://ports.ubuntu.com/ubuntu-ports/pool/main/l/linux/linux-libc-dev_6.8.0-147.147_arm64.deb",
+        "https://packages.ubuntu.com/noble/arm64/linux-libc-dev/filelist"
+      ],
+      "package_archive_sha256": "e489840ff836f22ae92c1bc3534ea8c68bcce2c4500e39ba560bbefc1b25e359",
+      "comparison": {
+        "shared_files": 925,
+        "shared_files_changed": 0,
+        "arm64_only_files": 37,
+        "amd64_only_files": 65,
+        "shared_netfilter_header_sha256": "f96c03a170825a42f0a417efe70d77f05dd4265d7855eb05ba8024a58cc938f8"
+      }
+    }
   }
 }

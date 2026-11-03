@@ -1,6 +1,6 @@
 # Jotist releases and deployment images
 
-Jotist publishes server archives and Linux amd64 containers from [jaysqvl/Jotist](https://github.com/jaysqvl/Jotist). **v1.7.0** is the first stable Jotist release, continuing the inherited 1.6.1 version line.
+Jotist publishes server archives and Linux containers from [jaysqvl/Jotist](https://github.com/jaysqvl/Jotist). CPU images support amd64 and arm64; CUDA images remain amd64. See [ARM64 CPU support](arm64.md) for runtime qualification and migration limits. **v1.7.0** is the first stable Jotist release, continuing the inherited 1.6.1 version line.
 
 The standard stable publication selects **CPU and CUDA 12.6** using `variants=cpu-cuda`. It publishes `latest` and `latest-cuda` only after source validation, archive publication and qualification of every selected image succeed. Blackwell/CUDA 13 is excluded from that default: dependency-resolution and native-library checks exist, but actual Blackwell inference remains unqualified.
 
@@ -8,7 +8,7 @@ The standard stable publication selects **CPU and CUDA 12.6** using `variants=cp
 
 PR checks include Go race tests, dependency audits, Python contracts, resolver and installed-runtime checks, responsive browser/accessibility tests, and actual CPU/CUDA image boots. The image smoke uses disposable containers and volumes to verify `/ready`, Docker health, authentication, audio upload/playback, packaged CLI downloads, restart persistence and both default and Unraid UID/GID settings. A hosted CPU runner does not qualify CUDA inference.
 
-Publication first pushes a unique candidate tag with an SBOM and BuildKit provenance. The publisher pulls that exact digest, repeats the image smoke and rejects HIGH/CRITICAL image vulnerability findings, including unfixed ones. Only then does it sign GitHub provenance and verify the attestation against this repository's publishing workflow. A separate promotion job requires every requested variant to succeed and re-verifies each signature before moving version or stable aliases. Registry tag updates are separate operations; a registry outage during promotion can leave partial aliases, so verify every selected digest in the workflow summary.
+Publication first pushes a unique candidate tag for each architecture with an SBOM and BuildKit provenance. The publisher pulls that exact digest, repeats the native image smoke and rejects HIGH/CRITICAL image vulnerability findings, including unfixed ones. Only then does it sign GitHub provenance and verify the attestation against this repository's publishing workflow. Both CPU architectures must qualify before their combined image index is assembled and signed. A separate promotion job requires every requested variant to succeed and re-verifies each image and index signature before moving version or stable aliases. Registry tag updates are separate operations; a registry outage during promotion can leave partial aliases, so verify every selected digest in the workflow summary.
 
 To independently verify a newly published image:
 
