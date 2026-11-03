@@ -450,7 +450,9 @@ Parakeet + Sortformer completed in **2:49 per audio hour**, with **6.29 GiB peak
 
 Selected CPU and CUDA 12.6 model pipelines passed prior runtime qualification, including retained-environment migration checks. Qualify the selected released image with your own data and runtimes before cutover. Blackwell source builds have dependency-resolution and native-library checks, but no actual Blackwell inference qualification; they are excluded from the default stable image publication.
 
-Published container builds currently target **Linux amd64**. Release archives provide Linux, macOS, and Windows server binaries for amd64 and arm64; availability of optional model runtimes depends on the platform.
+The CPU container supports **Linux amd64 and arm64**; Docker selects the matching architecture automatically. CUDA and Blackwell containers remain amd64. See [ARM64 CPU support](docs/arm64.md) for tested runtime coverage, memory considerations and moving installed Python environments between architectures.
+
+Release archives provide Linux, macOS, and Windows server binaries for amd64 and arm64; availability of optional model runtimes depends on the platform.
 
 For a new CPU installation:
 
