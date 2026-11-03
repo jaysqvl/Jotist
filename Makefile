@@ -18,6 +18,7 @@ build: ## Build the frontend and server into bin/jotist-server
 build-cli: ## Build Jotist CLI downloads
 	mkdir -p bin/cli
 	GOOS=linux GOARCH=amd64 go build -o bin/cli/jotist-linux-amd64 ./cmd/jotist-cli
+	GOOS=linux GOARCH=arm64 go build -o bin/cli/jotist-linux-arm64 ./cmd/jotist-cli
 	GOOS=darwin GOARCH=amd64 go build -o bin/cli/jotist-darwin-amd64 ./cmd/jotist-cli
 	GOOS=darwin GOARCH=arm64 go build -o bin/cli/jotist-darwin-arm64 ./cmd/jotist-cli
 	GOOS=windows GOARCH=amd64 go build -o bin/cli/jotist-windows-amd64.exe ./cmd/jotist-cli

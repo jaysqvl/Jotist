@@ -85,9 +85,13 @@ reviewed exported-header change adds a definition inside `__KERNEL__`; the
 upstream header-export step removes it, producing identical pre/post userspace
 bytes. The package identity and payload proof remain unchanged.
 
-Each built image must independently verify the actual 990 payload files are
-regular headers or the two expected documentation files, and that their path
-manifest matches. `prepare_container_vex.py` then produces version-specific
+Each built image must independently verify its actual payload: 990 files on
+AMD64 or 962 files on ARM64. They must be regular exported headers or the two
+expected documentation files, with matching path and complete content hashes.
+The ARM64 review is separate and bound to the exact shared upstream-fix set;
+925 common payload files are byte-identical across both architectures, and its
+37 additional files are exported ARM asm headers. A changed fix set invalidates
+the ARM review until it is rechecked. `prepare_container_vex.py` then produces version-specific
 [OpenVEX](https://trivy.dev/docs/latest/supply-chain/vex/file/) statements with
 `vulnerable_code_not_present`. The original scan, actual file inspection,
 generated VEX and final scan are retained together. The review expires on
@@ -187,6 +191,12 @@ does not establish readiness and must not be accepted for deployment.
 CI resolves all supported backend/Python combinations and automatically runs
 Linux CPU imports, native decoding, and installed dependency audits for adapter pull requests. GPU and full
 checkpoint qualification require the corresponding hardware and model assets.
+
+CPU runtime imports/audits also run natively on Linux ARM64 with Python 3.12.
+Whisper recognition/alignment and DiariZen speaker processing have small public
+CPU inference gates on both architectures. Their retained numeric reports record
+the actual architecture; other checkpoint combinations must be qualified
+separately. See [ARM64 support](arm64.md).
 
 The opt-in `TestRuntimeQualification` harness covers actual Canary, Parakeet,
 Canary-Qwen and Sortformer checkpoint loading, as well as the shared local-ASR,

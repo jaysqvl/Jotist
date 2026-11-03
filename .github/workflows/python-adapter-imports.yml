@@ -49,8 +49,8 @@ jobs:
         run: uv run --project internal/transcription/adapters/py/model_downloads --python 3.12 python -I -m unittest discover -s internal/transcription/adapters/py/model_downloads -p test_download.py -v
 
   imports:
-    name: import ${{ matrix.adapter }} on Python ${{ matrix.python-version }}
-    runs-on: ubuntu-latest
+    name: import ${{ matrix.adapter }} on Python ${{ matrix.python-version }} (${{ matrix.architecture }})
+    runs-on: ${{ matrix.architecture == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -58,15 +58,22 @@ jobs:
       matrix:
         adapter: [nvidia-asr, canary-qwen, pyannote, whisperx, local-asr, suplime, diarizen, model-downloads]
         python-version: ['3.12']
+        architecture: [amd64, arm64]
         include:
-          - {adapter: pyannote, python-version: '3.11'}
-          - {adapter: model-downloads, python-version: '3.11'}
+          - {adapter: pyannote, python-version: '3.11', architecture: amd64}
+          - {adapter: model-downloads, python-version: '3.11', architecture: amd64}
     steps:
       - name: Checkout code
         if: github.event_name != 'workflow_dispatch' || inputs.adapter == 'all' || inputs.adapter == matrix.adapter
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ inputs.source_ref }}
+
+      - name: Require native architecture
+        if: github.event_name != 'workflow_dispatch' || inputs.adapter == 'all' || inputs.adapter == matrix.adapter
+        env:
+          EXPECTED_ARCHITECTURE: ${{ matrix.architecture }}
+        run: python3 -c 'import os,platform; expected={"amd64":"x86_64","arm64":"aarch64"}[os.environ["EXPECTED_ARCHITECTURE"]]; assert platform.machine()==expected, "runtime checks must run natively"'
 
       - name: Setup Python
         if: github.event_name != 'workflow_dispatch' || inputs.adapter == 'all' || inputs.adapter == matrix.adapter
@@ -85,14 +92,14 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg libsndfile1
 
       - name: Setup Go for real CPU inference
-        if: (matrix.adapter == 'whisperx' || (matrix.adapter == 'model-downloads' && matrix.python-version == '3.12')) && (github.event_name != 'workflow_dispatch' || inputs.adapter == 'all' || inputs.adapter == matrix.adapter)
+        if: (matrix.adapter == 'whisperx' || matrix.adapter == 'diarizen' || (matrix.adapter == 'model-downloads' && matrix.python-version == '3.12')) && (github.event_name != 'workflow_dispatch' || inputs.adapter == 'all' || inputs.adapter == matrix.adapter)
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
           cache: true
 
       - name: Build shared runtime qualification test
-        if: (matrix.adapter == 'whisperx' || (matrix.adapter == 'model-downloads' && matrix.python-version == '3.12')) && (github.event_name != 'workflow_dispatch' || inputs.adapter == 'all' || inputs.adapter == matrix.adapter)
+        if: (matrix.adapter == 'whisperx' || matrix.adapter == 'diarizen' || (matrix.adapter == 'model-downloads' && matrix.python-version == '3.12')) && (github.event_name != 'workflow_dispatch' || inputs.adapter == 'all' || inputs.adapter == matrix.adapter)
         run: go test -c ./internal/transcription/adapters -o /tmp/jotist-runtime.test
 
       - name: Import adapter, decode audio and qualify shared CPU inference
@@ -102,8 +109,8 @@ jobs:
           ADAPTER_PYTHON: ${{ matrix.python-version }}
         run: |
           inference=()
-          if [ "$ADAPTER" = "whisperx" ]; then
-            inference=(--inference-smoke-binary /tmp/jotist-runtime.test)
+          if [ "$ADAPTER" = "whisperx" ] || [ "$ADAPTER" = "diarizen" ]; then
+            inference=(--inference-smoke-binary /tmp/jotist-runtime.test --inference-output-dir artifacts/runtime-inference)
           fi
           python scripts/verify-python-adapter-envs.py --mode import --torch-index cpu --python "$ADAPTER_PYTHON" --adapter "$ADAPTER" --audit --audit-output-dir artifacts/python-audit "${inference[@]}"
 
@@ -117,6 +124,14 @@ jobs:
         if: always() && hashFiles('artifacts/python-audit/*.json') != ''
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: python-audit-${{ matrix.adapter }}-${{ matrix.python-version }}
+          name: python-audit-${{ matrix.adapter }}-${{ matrix.python-version }}-${{ matrix.architecture }}
           path: artifacts/python-audit/*.json
+          retention-days: 30
+
+      - name: Preserve actual inference evidence
+        if: always() && hashFiles('artifacts/runtime-inference/*.json') != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: runtime-inference-${{ matrix.adapter }}-${{ matrix.python-version }}-${{ matrix.architecture }}
+          path: artifacts/runtime-inference/*.json
           retention-days: 30

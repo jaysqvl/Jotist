@@ -22,12 +22,14 @@ func (h *Handler) DownloadCLIBinary(c *gin.Context) {
 	}
 
 	// Map to filename
-	// Supported: linux/amd64, darwin/amd64, darwin/arm64, windows/amd64
+	// Supported: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64
 	var filename string
 	switch osName {
 	case "linux":
 		if arch == ArchAMD64 {
 			filename = "jotist-linux-amd64"
+		} else if arch == "arm64" {
+			filename = "jotist-linux-arm64"
 		}
 	case "darwin":
 		if arch == ArchAMD64 {

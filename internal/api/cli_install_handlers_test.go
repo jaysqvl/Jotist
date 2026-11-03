@@ -18,11 +18,12 @@ func TestInstallScriptInstallsOnlyJotist(t *testing.T) {
 	bash, err := exec.LookPath("bash")
 	require.NoError(t, err)
 	for _, tc := range []struct {
-		name, argument, jotistURL, expectedURL string
+		name, argument, jotistURL, expectedURL, machine, architecture string
 	}{
-		{"argument", "https://argument.example", "https://jotist.example", "https://argument.example"},
-		{"Jotist environment", "", "https://jotist.example", "https://jotist.example"},
-		{"legacy environment ignored", "", "", "http://localhost:8080"},
+		{"argument", "https://argument.example", "https://jotist.example", "https://argument.example", "x86_64", "amd64"},
+		{"Jotist environment", "", "https://jotist.example", "https://jotist.example", "x86_64", "amd64"},
+		{"legacy environment ignored", "", "", "http://localhost:8080", "x86_64", "amd64"},
+		{"Linux ARM64", "", "https://jotist.example", "https://jotist.example", "aarch64", "arm64"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -34,7 +35,7 @@ func TestInstallScriptInstallsOnlyJotist(t *testing.T) {
 			}
 			fixture := filepath.Join(dir, "downloaded-cli")
 			require.NoError(t, os.WriteFile(fixture, []byte("#!/bin/sh\nprintf 'Jotist CLI\\n'\n"), 0700))
-			require.NoError(t, os.WriteFile(filepath.Join(toolsDir, "uname"), []byte("#!/bin/sh\ncase \"$1\" in -s) echo Linux ;; -m) echo x86_64 ;; esac\n"), 0700))
+			require.NoError(t, os.WriteFile(filepath.Join(toolsDir, "uname"), []byte("#!/bin/sh\ncase \"$1\" in -s) echo Linux ;; -m) echo "+tc.machine+" ;; esac\n"), 0700))
 			require.NoError(t, os.WriteFile(filepath.Join(toolsDir, "curl"), []byte(`#!/bin/sh
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -66,7 +67,7 @@ cp "$CLI_TEST_BINARY" "$target"
 			require.Contains(t, string(output), "jotist login --server "+tc.expectedURL)
 			url, err := os.ReadFile(downloadURL)
 			require.NoError(t, err)
-			require.Equal(t, tc.expectedURL+"/api/v1/cli/download?os=linux&arch=amd64", string(url))
+			require.Equal(t, tc.expectedURL+"/api/v1/cli/download?os=linux&arch="+tc.architecture, string(url))
 			files, err := os.ReadDir(installDir)
 			require.NoError(t, err)
 			require.Len(t, files, 1)

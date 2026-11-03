@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -276,7 +277,7 @@ func TestRuntimeQualification(t *testing.T) {
 			err = json.Unmarshal(upstream, transcript)
 		}
 	}
-	report := map[string]interface{}{"model": model, "device": device, "audio_seconds": seconds, "elapsed_seconds": time.Since(started).Seconds(), "completed": err == nil}
+	report := map[string]interface{}{"model": model, "architecture": runtime.GOARCH, "device": device, "audio_seconds": seconds, "elapsed_seconds": time.Since(started).Seconds(), "completed": err == nil}
 	if len(stageEvidence) > 0 {
 		report["stages"] = stageEvidence
 	}

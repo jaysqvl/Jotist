@@ -213,13 +213,25 @@ print(json.dumps({"name": "linux-libc-dev", "version": version,
     return json.loads(docker("exec", name, "gosu", "appuser", "python3", "-c", program))
 
 
+def validate_cli_architecture(binary: bytes, architecture: str):
+    # ELF e_machine is independent of the runner and catches an x86 executable
+    # accidentally shipped by a successfully cross-compiled ARM server.
+    expected = {"amd64": 62, "arm64": 183}[architecture]
+    assert len(binary) >= 20 and binary[:6] == b"\x7fELF\x02\x01", "Linux CLI must be a 64-bit little-endian ELF executable"
+    assert int.from_bytes(binary[18:20], "little") == expected, "packaged CLI architecture differs from the image"
+
+
 def qualify(args: argparse.Namespace) -> dict:
+    architecture = docker("image", "inspect", "--format", "{{.Architecture}}", args.image).strip()
+    assert architecture in {"amd64", "arm64"}, "unsupported image architecture"
+    expected = getattr(args, "architecture", None)
+    assert expected is None or expected == architecture, "image architecture differs from the requested target"
     prefix = "jotist-smoke-" + uuid.uuid4().hex
     volumes = [prefix + "-" + suffix for suffix in ("data", "runtime", "home")]
     created_volumes: list[str] = []
     containers: list[str] = []
     report = {"image": args.image, "revision": args.revision, "version": args.version,
-              "kind": "container-packaging", "cuda_inference_qualified": False, "cases": []}
+              "architecture": architecture, "kind": "container-packaging", "cuda_inference_qualified": False, "cases": []}
     started = time.monotonic()
     password = secrets.token_urlsafe(24)
     credentials = {"username": "smoke-owner", "password": password, "confirmPassword": password}
@@ -261,9 +273,9 @@ def qualify(args: argparse.Namespace) -> dict:
             inventory = json.loads(request(base, "/api/v1/settings/models", token=token))
             assert isinstance(inventory["entries"], list), "storage inventory unavailable"
             assert request(base, "/install.sh").startswith(b"#!/"), "CLI installer unavailable"
-            binary = request(base, "/api/v1/cli/download?os=linux&arch=amd64")
-            assert binary[:4] == b"\x7fELF", "packaged Linux CLI is not an ELF executable"
-            docker("exec", name, "gosu", "appuser", "/app/bin/cli/jotist-linux-amd64", "--help")
+            binary = request(base, f"/api/v1/cli/download?os=linux&arch={architecture}")
+            validate_cli_architecture(binary, architecture)
+            docker("exec", name, "gosu", "appuser", f"/app/bin/cli/jotist-linux-{architecture}", "--help")
             # The same files must survive an actual stop/start, including the signing secret.
             docker("restart", "--time", "40", name)
             # Docker may assign a different ephemeral host port on restart.
@@ -300,6 +312,7 @@ if __name__ == "__main__":
     parser.add_argument("--image", required=True)
     parser.add_argument("--revision", required=True)
     parser.add_argument("--version", required=True)
+    parser.add_argument("--architecture", choices=("amd64", "arm64"))
     parser.add_argument("--timeout", type=int, default=900)
     parser.add_argument("--report", type=Path, required=True)
     arguments = parser.parse_args()

@@ -16,6 +16,10 @@ configurations and all Docker build sources live here.
 Blackwell/CUDA 13 source builds remain unqualified for actual Blackwell model
 inference. They are not part of normal stable image publication.
 
+The CPU image targets Linux AMD64 and ARM64. CUDA/Blackwell images target AMD64.
+See [ARM64 CPU support](../docs/arm64.md) for native test coverage, model runtime
+qualification and moving architecture-specific runtime directories.
+
 ## Installation names and existing data
 
 `--project-directory .` is required for the alternate configurations. It keeps
