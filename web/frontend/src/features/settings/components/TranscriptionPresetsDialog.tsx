@@ -1,15 +1,18 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { TRANSCRIPTION_PRESETS, presetAlreadyAdded, type TranscriptionPreset } from "@/features/transcription/hooks/profilePresets";
+import { presetsForServer, presetAlreadyAdded, type TranscriptionPreset } from "@/features/transcription/hooks/profilePresets";
+import type { DefaultDevice } from "@/features/transcription/hooks/serverDefaults";
 
-export function TranscriptionPresetsDialog({ open, onOpenChange, onSelect, onAdd, existingNames }: {
+export function TranscriptionPresetsDialog({ open, onOpenChange, onSelect, onAdd, existingNames, defaultDevice = "cuda" }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     onSelect: (preset: TranscriptionPreset) => void;
     onAdd: (presets: TranscriptionPreset[]) => Promise<{ added: number; skipped: number }>;
     existingNames: string[];
+    defaultDevice?: DefaultDevice;
 }) {
+    const presets = presetsForServer(defaultDevice);
     const [selected, setSelected] = useState<Set<string>>(new Set());
     const [adding, setAdding] = useState(false);
     const [message, setMessage] = useState("");
@@ -17,7 +20,7 @@ export function TranscriptionPresetsDialog({ open, onOpenChange, onSelect, onAdd
     useEffect(() => {
         if (open) { setSelected(new Set()); setMessage(""); setError(""); }
     }, [open]);
-    const availableSelection = TRANSCRIPTION_PRESETS.filter((preset) => selected.has(preset.id) && !presetAlreadyAdded(preset, existingNames));
+    const availableSelection = presets.filter((preset) => selected.has(preset.id) && !presetAlreadyAdded(preset, existingNames));
     const add = async () => {
         setAdding(true); setError(""); setMessage("");
         try {
@@ -40,10 +43,10 @@ export function TranscriptionPresetsDialog({ open, onOpenChange, onSelect, onAdd
                     {(["recommended", "alternative"] as const).map((origin) => (
                         <section key={origin} aria-labelledby={`presets-${origin}`}>
                             <details open={origin === "recommended"}>
-                            <summary className="mb-3 cursor-pointer text-sm font-semibold text-[var(--text-primary)]"><span id={`presets-${origin}`}>{origin === "recommended" ? "GPU starting points" : "CPU and hybrid alternatives"}</span></summary>
-                            <p className="mb-3 text-xs text-[var(--text-secondary)]">{origin === "recommended" ? "Transcription starts on GPU and speakers follow its device. English and batch size 1; precision follows each runtime. Edit a preset to choose another language or customize it." : "Choose CPU transcription or a mix of GPU transcription and CPU speakers. English and batch size 1, with explicit devices."}</p>
+                            <summary className="mb-3 cursor-pointer text-sm font-semibold text-[var(--text-primary)]"><span id={`presets-${origin}`}>{defaultDevice === "cpu" ? origin === "recommended" ? "CPU starting points" : "More CPU alternatives" : origin === "recommended" ? "GPU starting points" : "CPU and hybrid alternatives"}</span></summary>
+                            <p className="mb-3 text-xs text-[var(--text-secondary)]">{defaultDevice === "cpu" ? "This server defaults to CPU. English and batch size 1; edit a preset to choose another language or customize it. Model memory requirements still apply." : origin === "recommended" ? "Transcription starts on GPU and speakers follow its device. English and batch size 1; precision follows each runtime. Edit a preset to choose another language or customize it." : "Choose CPU transcription or a mix of GPU transcription and CPU speakers. English and batch size 1, with explicit devices."}</p>
                             <div className="grid gap-3 sm:grid-cols-2">
-                                {TRANSCRIPTION_PRESETS.filter((preset) => preset.origin === origin).map((preset) => {
+                                {presets.filter((preset) => preset.origin === origin).map((preset) => {
                                     const alreadyAdded = presetAlreadyAdded(preset, existingNames);
                                     return <article key={preset.id} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-main)] p-4">
                                         <label className="flex items-start gap-3 text-sm font-medium text-[var(--text-primary)]">

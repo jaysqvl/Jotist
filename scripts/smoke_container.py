@@ -272,6 +272,9 @@ def qualify(args: argparse.Namespace) -> dict:
             assert request(base, f"/api/v1/transcription/{recording_id}/audio", token=token)[:4] == b"RIFF", "audio did not persist"
             inventory = json.loads(request(base, "/api/v1/settings/models", token=token))
             assert isinstance(inventory["entries"], list), "storage inventory unavailable"
+            catalog = json.loads(request(base, "/api/v1/transcription/models", token=token))
+            assert catalog["execution_defaults"] == {"os": "linux", "architecture": architecture,
+                                                      "default_device": "cpu" if architecture == "arm64" else "cuda"}, "server target defaults differ"
             assert request(base, "/install.sh").startswith(b"#!/"), "CLI installer unavailable"
             binary = request(base, f"/api/v1/cli/download?os=linux&arch={architecture}")
             validate_cli_architecture(binary, architecture)

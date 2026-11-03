@@ -1,0 +1,12 @@
+{
+  "models": {
+    "whisper": {"id":"whisper","family":"whisper","name":"Whisper","languages":["en","fr"],"features":{"transcription":true,"word_timestamps":true},"metadata":{"supported_devices":"cpu,cuda,auto","model_variants":"[\"tiny\",\"small\",\"large-v3\"]"}},
+    "Qwen/Qwen3-ASR-1.7B-hf": {"id":"Qwen/Qwen3-ASR-1.7B-hf","family":"qwen3_asr","name":"Qwen3 ASR 1.7B","languages":["en","fr"],"features":{"transcription":true},"metadata":{"supported_devices":"cpu,cuda,auto","default_chunk_duration":"30","max_chunk_duration":"30"}},
+    "BUT-FIT/diarizen-wavlm-large-s80-md-v2": {"id":"BUT-FIT/diarizen-wavlm-large-s80-md-v2","family":"diarizen","name":"DiariZen","languages":["en"],"features":{"diarization_only":true},"metadata":{"supported_devices":"cpu,cuda,auto"}}
+  },
+  "settings": {"auto_transcription_enabled":false,"has_hf_token":true,"transcription_context":"","transcription_context_terms":""},
+  "profile": {
+    "id":"saved-gpu","name":"Saved GPU profile","description":"Synthetic profile for preservation checks","is_default":false,"revision":3,"created_at":"2026-11-01T12:00:00Z","updated_at":"2026-11-01T12:00:00Z",
+    "parameters":{"model_family":"whisper","model":"small","device":"cuda","compute_type":"float16","fp16":true,"language":"fr","batch_size":3,"diarize":false,"diarize_model":"pyannote","diarization_device":"cuda","execution_policy_source":"global","transcription_context":"Synthetic saved context","transcription_context_terms":"Synthetic vocabulary","hf_token_source":"default"}
+  }
+}

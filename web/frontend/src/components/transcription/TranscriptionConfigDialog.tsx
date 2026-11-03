@@ -1,4 +1,4 @@
-import { useState, useEffect, memo, createContext, useContext } from "react";
+import { useState, useEffect, useRef, memo, createContext, useContext } from "react";
 import {
     Dialog,
     DialogContent,
@@ -28,6 +28,7 @@ import {
     type TranscriptionModelCapability,
 } from "@/features/transcription/hooks/modelCapabilities";
 import { applyModelSelectionDefaults, applyDeviceSelectionDefaults } from "@/features/transcription/hooks/selectionDefaults";
+import { applyServerDraftDefaults, serverDefaultDevice } from "@/features/transcription/hooks/serverDefaults";
 import {
     FormField, Section, InfoBanner, SelectField, SwitchField, SliderField, AdvancedAccordion,
     inputClassName,
@@ -236,6 +237,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
     const [defaultsNotice, setDefaultsNotice] = useState("");
     const [nameEdited, setNameEdited] = useState(false);
     const [descriptionEdited, setDescriptionEdited] = useState(false);
+    const draftOrigin = useRef({ hasInitialParams: !!initialParams, deviceEdited: false });
 
     // OpenAI validation state
     const [isValidating, setIsValidating] = useState(false);
@@ -285,7 +287,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                 fetch("/api/v1/transcription/models", { headers: getAuthHeaders(), signal: controller.signal }).then(async (response) => {
                     if (!response.ok) throw new Error("Could not load available models.");
                     const data = await response.json();
-                    return normalizeModelCapabilities(data.models ?? {});
+                    return { models: normalizeModelCapabilities(data.models ?? {}), defaultDevice: serverDefaultDevice(data) };
                 }),
                 fetch("/api/v1/user/settings", { headers: getAuthHeaders(), signal: controller.signal }).then(async (response) => {
                     if (!response.ok) throw new Error("Could not preview saved defaults. Inherited values will still be resolved when queued.");
@@ -293,7 +295,13 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
                 }),
             ]);
             if (controller.signal.aborted) return;
-            if (results[0].status === "fulfilled") setModelCapabilities(results[0].value);
+            if (results[0].status === "fulfilled") {
+                const catalog = results[0].value;
+                setModelCapabilities(catalog.models);
+                const origin = draftOrigin.current;
+                setParams((previous) => applyServerDraftDefaults(previous, catalog.defaultDevice, catalog.models,
+                    origin.hasInitialParams, origin.deviceEdited));
+            }
             else setCatalogError("Could not load the model catalog. Close and reopen to retry; existing model settings are still available.");
             if (results[1].status === "fulfilled") {
                 setSavedContext({ context: results[1].value.transcription_context ?? "", terms: results[1].value.transcription_context_terms ?? "" });
@@ -310,6 +318,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
     // Reset when dialog opens
     useEffect(() => {
         if (open) {
+            draftOrigin.current = { hasInitialParams: !!initialParams, deviceEdited: false };
             const baseParams = {
                 ...DEFAULT_PARAMS, ...initialParams,
                 recovery_mode: initialParams ? initialParams.recovery_mode ?? "" : undefined,
@@ -344,6 +353,7 @@ export const TranscriptionConfigDialog = memo(function TranscriptionConfigDialog
 
     const updateParam = <K extends keyof WhisperXParams>(key: K, value: WhisperXParams[K]) => {
         if (key === "device" && typeof value === "string") {
+            draftOrigin.current.deviceEdited = true;
             const next = applyDeviceSelectionDefaults(params, value, modelCapabilities);
             setParams(next);
             updateDraftIdentity(next);

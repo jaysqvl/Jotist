@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jaysqvl/Jotist/internal/platform"
 	"github.com/jaysqvl/Jotist/internal/transcription/interfaces"
 	"github.com/jaysqvl/Jotist/pkg/logger"
 )
@@ -29,7 +30,7 @@ func GetPyTorchCUDAVersion() string {
 }
 
 func platformPyTorchBackend(goos, architecture string) string {
-	if goos == "linux" && architecture == "arm64" {
+	if platform.For(goos, architecture).DefaultDevice == "cpu" {
 		return "cpu"
 	}
 	return "cu126"

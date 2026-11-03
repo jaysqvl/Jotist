@@ -15,6 +15,13 @@ context, vocabulary, credentials, and recovery preferences are not migrated or
 rewritten. A profile explicitly requiring CUDA still requires a suitable GPU
 deployment; choosing ARM does not silently turn that request into a CPU run.
 
+New profile and run drafts use CPU defaults on a Linux ARM64 server. Quick Add
+offers Whisper small with CPU DiariZen speakers, or Whisper small without speaker
+labels, followed by other CPU starting points. These are editable templates;
+they do not replace saved profiles. The server supplies its defaults, so opening
+an ARM server from an x86 browser (or the reverse) does not change the target.
+Existing AMD64 installations keep their GPU-first templates and defaults.
+
 ## Qualification
 
 Native `ubuntu-24.04-arm` CI runners qualify the image, CLI, Python environments
@@ -26,7 +33,7 @@ for native runtime qualification.
   audio persistence, authentication across restart, and the actual ARM CLI.
 - All eight Python runtime groups resolve, import and undergo their installed
   dependency audit on ARM64. Inference groups retain native audio decoding.
-- Small public speech checks exercise Whisper recognition/word timing and
+- Small public speech checks exercise Whisper tiny recognition/word timing and
   standalone DiariZen speaker processing on CPU. Download checks cover manual
   prefetch and offline cache lookup. Numeric inference evidence records the
   architecture, stages, elapsed time and output counts.

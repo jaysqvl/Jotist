@@ -12,7 +12,8 @@ import { Settings } from "lucide-react";
 import { HuggingFaceTokenSettings } from "./HuggingFaceTokenSettings";
 import { TranscriptionContextSettings } from "./TranscriptionContextSettings";
 import { TranscriptionPresetsDialog } from "./TranscriptionPresetsDialog";
-import { createPresetDraft, RECOMMENDED_PRESETS, type TranscriptionPreset } from "@/features/transcription/hooks/profilePresets";
+import { createPresetDraft, defaultPresetForServer, type TranscriptionPreset } from "@/features/transcription/hooks/profilePresets";
+import { serverDefaultDevice, type DefaultDevice } from "@/features/transcription/hooks/serverDefaults";
 import { ProfileLearningDialog } from "./ProfileLearningDialog";
 import { ExecutionPolicySettings } from "./ExecutionPolicySettings";
 import { QueueSettings } from "./QueueSettings";
@@ -51,6 +52,19 @@ export function ProfileSettings() {
 	const [settingsLoading, setSettingsLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [success, setSuccess] = useState("");
+	const [defaultDevice, setDefaultDevice] = useState<DefaultDevice | null>(null);
+
+	useEffect(() => {
+		const controller = new AbortController();
+		void fetch("/api/v1/transcription/models", { headers: getAuthHeaders(), signal: controller.signal })
+			.then(async (response) => {
+				if (!response.ok) throw new Error("Could not load server defaults.");
+				return response.json();
+			})
+			.then((catalog) => { if (!controller.signal.aborted) setDefaultDevice(serverDefaultDevice(catalog)); })
+			.catch(() => { if (!controller.signal.aborted) setError("Could not load server defaults. Reload this page before creating a new profile."); });
+		return () => controller.abort();
+	}, [getAuthHeaders]);
 
 	// Load profiles and default profile
 	const loadProfiles = useCallback(async () => {
@@ -172,11 +186,12 @@ export function ProfileSettings() {
 	};
 
 	const handleCreateProfile = useCallback(() => {
+		if (!defaultDevice) return;
 		setEditingProfile(null);
-		const recommended = RECOMMENDED_PRESETS.find((preset) => preset.id === "gpu-qwen-pyannote")!;
+		const recommended = defaultPresetForServer(defaultDevice);
 		setPresetDraft(createPresetDraft(recommended, profiles.map((profile) => profile.name)));
 		setProfileDialogOpen(true);
-	}, [profiles]);
+	}, [profiles, defaultDevice]);
 
 	const handleEditProfile = useCallback((profile: TranscriptionProfile) => {
 		setEditingProfile(profile);
@@ -297,7 +312,7 @@ export function ProfileSettings() {
 			)}
 
 			{/* Auto-Transcription Settings */}
-			<QueueSettings />
+			<QueueSettings defaultDevice={defaultDevice ?? "cuda"} />
 			<ExecutionPolicySettings />
 			<div className="bg-[var(--bg-main)]/50 border border-[var(--border-subtle)] rounded-[var(--radius-card)] p-4 sm:p-6 shadow-sm">
 				<div className="mb-4">
@@ -350,9 +365,10 @@ export function ProfileSettings() {
 						</p>
 					</div>
 					<div className="flex flex-wrap gap-2">
-					<Button variant="outline" onClick={() => setPresetsOpen(true)}>Quick Add Presets</Button>
+					<Button variant="outline" disabled={!defaultDevice} onClick={() => setPresetsOpen(true)}>Quick Add Presets</Button>
 					<Button
 						onClick={handleCreateProfile}
+						disabled={!defaultDevice}
 						className="!bg-[image:var(--brand-gradient)] hover:!opacity-90 !text-white shadow-lg shadow-brand-500/20 border-none"
 					>
 						Create New Profile
@@ -413,7 +429,7 @@ export function ProfileSettings() {
 				/>
 			</div>
 
-			<TranscriptionPresetsDialog open={presetsOpen} onOpenChange={setPresetsOpen} onSelect={handleSelectPreset} onAdd={handleAddPresets} existingNames={profiles.map((profile) => profile.name)} />
+			<TranscriptionPresetsDialog open={presetsOpen} onOpenChange={setPresetsOpen} onSelect={handleSelectPreset} onAdd={handleAddPresets} existingNames={profiles.map((profile) => profile.name)} defaultDevice={defaultDevice ?? "cuda"} />
 			<ProfileLearningDialog profile={learningProfile} onClose={() => setLearningProfile(null)} onChanged={handleProfileChange} />
 			<TranscriptionConfigDialog
 				open={profileDialogOpen}

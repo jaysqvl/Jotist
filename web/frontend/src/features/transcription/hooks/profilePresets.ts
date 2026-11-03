@@ -1,5 +1,6 @@
 import { applyModelSelectionDefaults } from "./selectionDefaults.ts";
 import type { RecoveryParameters } from "./recoveryPolicy.ts";
+import type { DefaultDevice } from "./serverDefaults.ts";
 
 export interface PresetParameters extends RecoveryParameters {
     [key: string]: unknown;
@@ -29,13 +30,14 @@ export interface TranscriptionPreset {
     parameters: PresetParameters;
 }
 
-type PresetModel = "canary" | "canary_qwen" | "whisper" | "parakeet" | "cohere" | "qwen" | "qwen_small" | "granite_compact";
+type PresetModel = "canary" | "canary_qwen" | "whisper" | "whisper_small" | "parakeet" | "cohere" | "qwen" | "qwen_small" | "granite_compact";
 type PresetDiarizer = "pyannote" | "nvidia_sortformer" | "diarizen" | "none";
 
 const checkpoints: Record<PresetModel, { family: string; model: string; label: string }> = {
     canary: { family: "nvidia_canary", model: "canary", label: "Canary" },
     canary_qwen: { family: "nvidia_canary_qwen", model: "canary_qwen", label: "Canary-Qwen" },
     whisper: { family: "whisper", model: "large-v3", label: "Whisper large-v3" },
+    whisper_small: { family: "whisper", model: "small", label: "Whisper small" },
     parakeet: { family: "nvidia_parakeet", model: "parakeet", label: "Parakeet TDT 0.6B v3" },
     cohere: { family: "cohere_transcribe", model: "CohereLabs/cohere-transcribe-03-2026", label: "Cohere Transcribe" },
     qwen: { family: "qwen3_asr", model: "Qwen/Qwen3-ASR-1.7B-hf", label: "Qwen3 ASR 1.7B" },
@@ -102,6 +104,21 @@ export const ALTERNATIVE_PRESETS: readonly TranscriptionPreset[] = [
 // Quick Add creates public starting points; captured user configurations are
 // historical fixtures and must not masquerade as another user's saved profiles.
 export const TRANSCRIPTION_PRESETS: readonly TranscriptionPreset[] = [...RECOMMENDED_PRESETS, ...ALTERNATIVE_PRESETS];
+
+const CPU_STARTERS: readonly TranscriptionPreset[] = [
+    preset("cpu-whisper-small-diarizen", "whisper_small", "cpu", "diarizen", "Whisper small with word timing and DiariZen speaker labels on CPU. Download time and memory use depend on the model files and recording."),
+    preset("cpu-whisper-small-no-speakers", "whisper_small", "cpu", "none", "Whisper small with word timing on CPU, without a separate speaker model."),
+].map((item) => ({ ...item, origin: "recommended" as const }));
+
+// Only new public starting points adapt to the installation. Saved profiles
+// remain untouched and AMD64 retains its existing GPU-first list verbatim.
+export function presetsForServer(device: DefaultDevice): readonly TranscriptionPreset[] {
+    return device === "cpu" ? [...CPU_STARTERS, ...ALTERNATIVE_PRESETS.filter((item) => item.group === "CPU")] : TRANSCRIPTION_PRESETS;
+}
+
+export function defaultPresetForServer(device: DefaultDevice): TranscriptionPreset {
+    return device === "cpu" ? CPU_STARTERS[0] : RECOMMENDED_PRESETS.find((item) => item.id === "gpu-qwen-pyannote")!;
+}
 
 export function presetAlreadyAdded(preset: TranscriptionPreset, existingNames: string[]) {
     return existingNames.some((name) => name.toLocaleLowerCase() === preset.name.toLocaleLowerCase());

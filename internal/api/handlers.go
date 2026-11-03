@@ -24,6 +24,7 @@ import (
 	"github.com/jaysqvl/Jotist/internal/models"
 	"github.com/jaysqvl/Jotist/internal/modelstorage"
 	"github.com/jaysqvl/Jotist/internal/netpolicy"
+	"github.com/jaysqvl/Jotist/internal/platform"
 	"github.com/jaysqvl/Jotist/internal/processing"
 	"github.com/jaysqvl/Jotist/internal/processutil"
 	"github.com/jaysqvl/Jotist/internal/queue"
@@ -2202,8 +2203,9 @@ func (h *Handler) GetSupportedModels(c *gin.Context) {
 	languages := h.unifiedProcessor.GetSupportedLanguages()
 
 	c.JSON(http.StatusOK, gin.H{
-		"models":    models,
-		"languages": languages,
+		"models":             models,
+		"languages":          languages,
+		"execution_defaults": platform.Host(),
 	})
 }
 

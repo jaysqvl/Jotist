@@ -89,10 +89,12 @@ RUN apt-get update \
 
 # Install uv (fast Python package manager) directly to system PATH
 ARG UV_VERSION=0.12.5
+ARG UV_SHA256=68a509da24b06b4223a1c0175fb5eb5bc79342b76cbeff0cfe51ac3f5b17b6b2
+ARG UV_ARM64_SHA256=9bf43b4d1a07665bf64d4c4e710930b382321a785e0eb10aac07f46471f86a31
 ARG TARGETARCH
 RUN case "${TARGETARCH}" in \
-       amd64) uv_arch=x86_64; uv_sha=68a509da24b06b4223a1c0175fb5eb5bc79342b76cbeff0cfe51ac3f5b17b6b2 ;; \
-       arm64) uv_arch=aarch64; uv_sha=9bf43b4d1a07665bf64d4c4e710930b382321a785e0eb10aac07f46471f86a31 ;; \
+       amd64) uv_arch=x86_64; uv_sha=${UV_SHA256} ;; \
+       arm64) uv_arch=aarch64; uv_sha=${UV_ARM64_SHA256} ;; \
        *) echo "Unsupported CPU image architecture: ${TARGETARCH}" >&2; exit 1 ;; \
      esac \
   && curl -fL "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-${uv_arch}-unknown-linux-gnu.tar.gz" -o /tmp/uv.tar.gz \
@@ -114,9 +116,11 @@ RUN curl -fL "https://github.com/yt-dlp/yt-dlp/releases/download/${YT_DLP_VERSIO
 # YouTube now requires JS execution for video cipher decryption
 # See: https://github.com/yt-dlp/yt-dlp/issues/14404
 ARG DENO_VERSION=v2.9.0
+ARG DENO_SHA256=96c9c73fc05ea57603bc28d8071d41e861bd40bcf2a9f849dd5969ed1a2c8498
+ARG DENO_ARM64_SHA256=a0f266eb189af2f27db0c6dcf9eb2f68ba2e8bbff1442c969ace398463f8b2bf
 RUN case "${TARGETARCH}" in \
-       amd64) deno_arch=x86_64; deno_sha=96c9c73fc05ea57603bc28d8071d41e861bd40bcf2a9f849dd5969ed1a2c8498 ;; \
-       arm64) deno_arch=aarch64; deno_sha=a0f266eb189af2f27db0c6dcf9eb2f68ba2e8bbff1442c969ace398463f8b2bf ;; \
+       amd64) deno_arch=x86_64; deno_sha=${DENO_SHA256} ;; \
+       arm64) deno_arch=aarch64; deno_sha=${DENO_ARM64_SHA256} ;; \
        *) echo "Unsupported CPU image architecture: ${TARGETARCH}" >&2; exit 1 ;; \
      esac \
   && curl -fL "https://github.com/denoland/deno/releases/download/${DENO_VERSION}/deno-${deno_arch}-unknown-linux-gnu.zip" -o /tmp/deno.zip \

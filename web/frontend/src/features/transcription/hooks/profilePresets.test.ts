@@ -1,7 +1,23 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { TRANSCRIPTION_PRESETS, RECOMMENDED_PRESETS, ALTERNATIVE_PRESETS, createPresetDraft, presetAlreadyAdded } from "./profilePresets.ts";
+import { TRANSCRIPTION_PRESETS, RECOMMENDED_PRESETS, ALTERNATIVE_PRESETS, createPresetDraft, presetAlreadyAdded, presetsForServer, defaultPresetForServer } from "./profilePresets.ts";
 import { DEFAULT_EXECUTION_POLICY, previewCheckpointReuse } from "./executionPolicy.ts";
+
+test("ARM CPU starters are separate from the unchanged AMD64/GPU templates", () => {
+    assert.equal(presetsForServer("cuda"), TRANSCRIPTION_PRESETS);
+    assert.equal(defaultPresetForServer("cuda").id, "gpu-qwen-pyannote");
+    const cpu = presetsForServer("cpu");
+    assert.equal(new Set(cpu.map((item) => item.id)).size, cpu.length);
+    assert.equal(defaultPresetForServer("cpu").id, "cpu-whisper-small-diarizen");
+    for (const item of cpu) {
+        assert.equal(item.group, "CPU");
+        assert.equal(item.parameters.device, "cpu");
+        assert.equal(item.parameters.diarization_device, "cpu");
+        assert.equal(item.parameters.compute_type, "float32");
+        assert.equal(item.parameters.execution_policy_source, "global");
+    }
+    assert.equal(TRANSCRIPTION_PRESETS.length, 12, "building ARM choices must not mutate the existing template list");
+});
 
 test("public starters have unique identities and accurate device labels without captured user configurations", () => {
     assert.equal(TRANSCRIPTION_PRESETS.length, 12);

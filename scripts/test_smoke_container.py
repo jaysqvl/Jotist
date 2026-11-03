@@ -125,6 +125,8 @@ class ImageRestartTests(unittest.TestCase):
                 return b"RIFF"
             if path.endswith("/settings/models"):
                 return b'{"entries":[]}'
+            if path.endswith("/transcription/models"):
+                return b'{"execution_defaults":{"os":"linux","architecture":"amd64","default_device":"cuda"}}'
             if path == "/install.sh":
                 return b"#!/bin/sh"
             if path.startswith("/api/v1/cli/download"):
