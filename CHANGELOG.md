@@ -5,7 +5,13 @@
 
 ### Features
 
-* support ARM64 CPU containers and native runtimes ([af2222e](https://github.com/jaysqvl/Jotist/commit/af2222eaf478d7423c057db1c08d593f88ec6c4f))
+- Run the CPU Docker image on Linux ARM64 as well as AMD64. Docker selects the matching image automatically, and the CLI installer now serves Linux ARM64 binaries.
+- New profiles on ARM servers start with CPU settings and CPU Quick Add presets. Existing saved profiles and AMD64 GPU defaults are preserved.
+- Qualify model runtimes and image publication natively on both CPU architectures. CUDA images continue to target AMD64.
+
+### Upgrading
+
+When moving between CPU architectures, retain your data and compatible model weights but use a separate directory for installed Python environments and native executables. See [ARM64 support and qualification limits](https://github.com/jaysqvl/Jotist/blob/v3.2.0/docs/arm64.md).
 
 ## [3.1.0](https://github.com/jaysqvl/Jotist/compare/v3.0.1...v3.1.0) (2026-11-02)
 
