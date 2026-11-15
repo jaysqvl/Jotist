@@ -77,13 +77,13 @@ executables. This does not establish the security of the host's kernel.
 
 `scripts/container-header-review.json` records the exact Ubuntu package PURL,
 version, architecture, path manifest and individually reviewed CVE fix commits.
-The current package is `6.8.0-147.147`. The November 2 review checked the
-additional findings against Linux CNA records and their linked upstream fixes:
-the changed implementation and internal build/header files are absent from the
-package, with no additional exported userspace header changes. The previously
-reviewed exported-header change adds a definition inside `__KERNEL__`; the
-upstream header-export step removes it, producing identical pre/post userspace
-bytes. The package identity and payload proof remain unchanged.
+The current package is `6.8.0-149.149`. The November 15 review compared the
+official AMD64 and ARM64 packages with the previously reviewed versions and
+matched their complete file hashes to the CI images. The twelve changed
+headers contain userspace API declarations, include order changes and comments.
+All kernel-header findings in the CPU and CUDA scans are covered by the
+existing upstream fix review. The netfilter header remains byte-identical,
+with the kernel-only definition removed by the upstream export step.
 
 Each built image must independently verify its actual payload: 990 files on
 AMD64 or 962 files on ARM64. They must be regular exported headers or the two
@@ -95,7 +95,7 @@ the ARM review until it is rechecked. `prepare_container_vex.py` then produces v
 [OpenVEX](https://trivy.dev/docs/latest/supply-chain/vex/file/) statements with
 `vulnerable_code_not_present`. The original scan, actual file inspection,
 generated VEX and final scan are retained together. The review expires on
-2026-11-09. Changed package identity or payload, expired reviews, and missing
+2026-11-22. Changed package identity or payload, expired reviews, and missing
 evidence fail qualification. New CVEs and findings on any other package retain
 the HIGH/CRITICAL gate, including findings without an available fix. The image
 gate runs before signed qualification and alias promotion.
