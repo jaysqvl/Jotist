@@ -5,7 +5,13 @@
 
 ### Bug Fixes
 
-* preserve speaker edits, sync Compare, and correct Swagger ([#62](https://github.com/jaysqvl/Jotist/issues/62)) ([d494e5f](https://github.com/jaysqvl/Jotist/commit/d494e5fc4fa06202b769e902e10426e7634f6250))
+- Keep speaker names in place while you edit, and load the latest saved names when you open the editor.
+- Follow the audio in both Compare panes. Click a timestamp in either run to play from there.
+- Use the correct server paths in the Swagger spec and download it from the API reference.
+
+### Security
+
+- Build with Go 1.26.11 and update the Go networking dependency to v0.62.0.
 
 ## [3.2.0](https://github.com/jaysqvl/Jotist/compare/v3.1.0...v3.2.0) (2026-11-03)
 
