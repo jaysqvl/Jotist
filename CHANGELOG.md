@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.2.1](https://github.com/jaysqvl/Jotist/compare/v3.2.0...v3.2.1) (2026-11-15)
+
+
+### Bug Fixes
+
+- Keep speaker names in place while you edit, and load the latest saved names when you open the editor.
+- Follow the audio in both Compare panes. Click a timestamp in either run to play from there.
+- Use the correct server paths in the Swagger spec and download it from the API reference.
+
+### Security
+
+- Build with Go 1.26.11 and update the Go networking dependency to v0.62.0.
+
 ## [3.2.0](https://github.com/jaysqvl/Jotist/compare/v3.1.0...v3.2.0) (2026-11-03)
 
 
