@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.1](https://github.com/jaysqvl/Jotist/compare/v3.2.0...v3.2.1) (2026-11-15)
+
+
+### Bug Fixes
+
+* preserve speaker edits, sync Compare, and correct Swagger ([#62](https://github.com/jaysqvl/Jotist/issues/62)) ([d494e5f](https://github.com/jaysqvl/Jotist/commit/d494e5fc4fa06202b769e902e10426e7634f6250))
+
 ## [3.2.0](https://github.com/jaysqvl/Jotist/compare/v3.1.0...v3.2.0) (2026-11-03)
 
 
