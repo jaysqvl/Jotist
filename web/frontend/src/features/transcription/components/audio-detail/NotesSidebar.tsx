@@ -1,15 +1,55 @@
-import type { Note } from "@/features/transcription/hooks/useTranscriptionNotes";
+import { useDeleteNote, useNotes, useUpdateNote, type Note } from "@/features/transcription/hooks/useTranscriptionNotes";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Pencil, Trash2, Save, ExternalLink, Check, Copy } from "lucide-react";
+import { Pencil, Trash2, Save, ExternalLink, Check, Copy, StickyNote, X } from "lucide-react";
 import { useState } from "react";
+import { createPortal } from "react-dom";
 
 interface NotesSidebarProps {
   notes: Note[];
   onEdit: (id: string, newContent: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onJumpTo: (time: number) => void;
+}
+
+export function RecordingNotesDrawer({ audioId, onClose, onSeek }: {
+  audioId: string;
+  onClose: () => void;
+  onSeek: (time: number) => void;
+}) {
+  const { data: notes = [] } = useNotes(audioId);
+  const { mutateAsync: updateNote } = useUpdateNote(audioId);
+  const { mutateAsync: deleteNote } = useDeleteNote(audioId);
+  const isMobile = useIsMobile();
+
+  return createPortal(
+    <aside aria-label="Recording notes" className="fixed inset-y-0 right-0 z-[9990] flex w-[90vw] max-w-[400px] flex-col border-l border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-[var(--shadow-float)]">
+      <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-6 py-5">
+        <h3 className="flex items-center gap-2 text-lg font-bold text-[var(--text-primary)]">
+          <StickyNote className="h-5 w-5" />
+          Notes
+          <span className="ml-1 rounded-full bg-[var(--bg-main)] px-2 py-0.5 text-xs font-bold text-[var(--text-secondary)]">{notes.length}</span>
+        </h3>
+        <Button type="button" variant="ghost" size="icon" onClick={onClose} aria-label="Close notes">
+          <X className="h-5 w-5" />
+        </Button>
+      </div>
+      <div className="flex-1 overflow-y-auto px-6 py-4">
+        <NotesSidebar
+          notes={notes}
+          onEdit={(id, content) => updateNote({ id, content })}
+          onDelete={deleteNote}
+          onJumpTo={(time) => {
+            onSeek(time);
+            if (isMobile) onClose();
+          }}
+        />
+      </div>
+    </aside>,
+    document.body,
+  );
 }
 
 export function NotesSidebar({ notes, onEdit, onDelete, onJumpTo }: NotesSidebarProps) {

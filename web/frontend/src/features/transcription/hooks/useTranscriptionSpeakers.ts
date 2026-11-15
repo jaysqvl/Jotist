@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 
@@ -7,52 +8,75 @@ export interface SpeakerMapping {
     custom_name: string;
 }
 
-export function useSpeakerMappings(audioId: string, enabled: boolean) {
+const speakerMappingsKey = (audioId: string) => ["speakerMappings", audioId] as const;
+
+function speakerNames(mappings: SpeakerMapping[]) {
+    return Object.fromEntries(mappings.map(({ original_speaker, custom_name }) => [original_speaker, custom_name]));
+}
+
+function useFetchSpeakerMappings(audioId: string) {
     const { getAuthHeaders } = useAuth();
 
-    return useQuery({
-        queryKey: ["speakerMappings", audioId],
-        queryFn: async () => {
-            const response = await fetch(`/api/v1/transcription/${audioId}/speakers`, {
-                headers: getAuthHeaders(),
-            });
-            if (!response.ok) throw new Error("Failed to fetch speaker mappings");
-            const mappings: SpeakerMapping[] = await response.json();
+    return async ({ signal }: { signal: AbortSignal }) => {
+        const response = await fetch(`/api/v1/transcription/${audioId}/speakers`, {
+            headers: getAuthHeaders(),
+            cache: "no-store",
+            signal,
+        });
+        if (!response.ok) throw new Error("Failed to fetch speaker mappings");
+        const mappings: SpeakerMapping[] = await response.json();
+        return speakerNames(mappings);
+    };
+}
 
-            // Convert to lookup object for easier consumption
-            const mappingObj: Record<string, string> = {};
-            mappings.forEach(mapping => {
-                mappingObj[mapping.original_speaker] = mapping.custom_name;
-            });
-            return mappingObj;
-        },
-        enabled: enabled,
+export function useSpeakerMappings(audioId: string, enabled: boolean) {
+    const queryFn = useFetchSpeakerMappings(audioId);
+    return useQuery({
+        queryKey: speakerMappingsKey(audioId),
+        queryFn,
+        enabled: enabled && !!audioId,
     });
 }
 
-export function useUpdateSpeaker(audioId: string) {
+export function useSpeakerRenameMappings(audioId: string) {
+    const sessionId = useId();
+    const queryFn = useFetchSpeakerMappings(audioId);
+    return useQuery({
+        // Each open editor starts with a server read independent of the recording's display cache.
+        queryKey: [...speakerMappingsKey(audioId), "rename", sessionId],
+        queryFn,
+        gcTime: 0,
+        staleTime: "static",
+    });
+}
+
+export function useSaveSpeakerMappings(audioId: string) {
     const { getAuthHeaders } = useAuth();
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async ({ originalSpeaker, customName }: { originalSpeaker: string, customName: string }) => {
+        mutationKey: [...speakerMappingsKey(audioId), "save"],
+        mutationFn: async (names: Record<string, string>) => {
+            const mappings = Object.entries(names).map(([original_speaker, custom_name]) => ({
+                original_speaker,
+                custom_name,
+            }));
             const response = await fetch(`/api/v1/transcription/${audioId}/speakers`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     ...getAuthHeaders(),
                 },
-                body: JSON.stringify({
-                    original_speaker: originalSpeaker,
-                    custom_name: customName,
-                }),
+                body: JSON.stringify({ mappings }),
             });
-            if (!response.ok) throw new Error("Failed to update speaker name");
-            return response.json();
+            if (!response.ok) throw new Error("Failed to save speaker names");
+            const saved: SpeakerMapping[] = await response.json();
+            return speakerNames(saved);
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["speakerMappings", audioId] });
-            // Also invalidate transcript if it embeds speaker names (though currently we derive it)
+        onSuccess: async (names) => {
+            const queryKey = speakerMappingsKey(audioId);
+            await queryClient.cancelQueries({ queryKey, exact: true });
+            queryClient.setQueryData(queryKey, names);
         },
     });
 }

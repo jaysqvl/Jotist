@@ -37,6 +37,18 @@ export function transcriptSpeakerLabel(id: string, transcript?: PresentedTranscr
     return custom[id] || transcript?.presentation?.speaker_labels[id] || id;
 }
 
+export function activeTimedSegmentIndex(segments: TimedSegment[], time: number): number {
+    let active = -1;
+    for (let index = 0; index < segments.length; index++) {
+        const { start, end } = segments[index];
+        if (Number.isFinite(start) && Number.isFinite(end) && start >= 0 && start <= time && time < end
+            && (active === -1 || start >= segments[active].start)) {
+            active = index;
+        }
+    }
+    return active;
+}
+
 // Offsets point into the exact displayed text, including punctuation and Unicode.
 // Alignment can differ from native text; an unmatched token gets no highlight.
 export function transcriptRowOffsets(text: string, indices: number[], words: TimedWord[]) {
