@@ -33,6 +33,8 @@ async function openRecording(page: Page) {
 async function openRename(page: Page) {
     await page.getByRole("button", { name: "Recording actions" }).click();
     await page.getByRole("menuitem", { name: "Rename Speakers" }).click();
+    // The actions menu can still be mounted during its exit animation.
+    await expect(page.getByRole("menu", { includeHidden: true })).toHaveCount(0);
     return page.getByRole("dialog", { name: "Rename Speakers" });
 }
 
@@ -190,6 +192,7 @@ test("Compare replaces the transcript and both panes follow the same playing aud
     const dialog = await openRename(page);
     await expect(dialog.getByLabel("SPEAKER_01")).toHaveValue("Morgan");
     await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toBeHidden();
     await page.getByRole("button", { name: "Recording actions" }).click();
     await page.getByRole("menuitem", { name: "Notes", exact: true }).click();
     const notes = page.getByRole("complementary", { name: "Recording notes" });
