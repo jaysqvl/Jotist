@@ -1,8 +1,29 @@
 # API documentation
 
-Handler annotations in `internal/api/*.go` and the server metadata in
-`cmd/server/main.go` are the source of truth. Generated files are committed so
-the Go application and project site use the same specification.
+Jotist serves its REST API at `/api/v1`. The server also exposes `/health` and
+`/ready` at the root. Use the [Swagger 2.0 specification](swagger.json) from the
+Git tag that matches your installed version. The project site's API reference
+uses the same specification.
+
+Import the JSON into your API client and set the server URL to your Jotist
+installation, including its scheme and port. Use the endpoint paths as written.
+For example, to list recordings with an existing bearer token:
+
+```sh
+JOTIST_URL=http://localhost:8080
+curl -H "Authorization: Bearer ${JOTIST_TOKEN}" "${JOTIST_URL}/api/v1/transcription/list"
+```
+
+The Docker image and standalone server serve the application UI and REST API.
+For a browsable API reference, use the project site's `/api` page or import
+the spec into a local Swagger viewer. There is no `/swagger/index.html` route
+on the Jotist server.
+
+## Regenerate the specification
+
+Handler annotations in `internal/api/*.go` and server metadata in
+`cmd/server/main.go` define the specification. Paths in `@Router` annotations
+are relative to the server origin and include `/api/v1` for versioned routes.
 
 From the repository root, run:
 

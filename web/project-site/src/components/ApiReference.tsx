@@ -9,6 +9,7 @@ type SwaggerDoc = {
     host?: string;
     basePath?: string;
     schemes?: string[];
+    servers?: { url?: string }[];
     info?: { title?: string; version?: string; description?: string };
     tags?: { name: string; description?: string }[];
     paths?: Record<string, Record<string, any>>;
@@ -148,11 +149,16 @@ export default function ApiReference() {
                     <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-gray-900 font-heading mb-2">{doc?.info?.title || 'Jotist API'}</h1>
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                         <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 font-medium">v{doc?.info?.version || '1.0.0'}</span>
-                        {doc && <BaseURL doc={doc} />}
+                        {doc && (
+                            <>
+                                <span>Server: <code>{apiServerURL(doc)}</code></span>
+                                <a href="/api/swagger.json" download className="text-[#6356E5] hover:underline">Download spec</a>
+                            </>
+                        )}
                     </div>
                 </div>
 
-                <AuthIntro />
+                {doc && <AuthIntro serverURL={apiServerURL(doc)} />}
 
                 <div className="grid grid-cols-1 md:grid-cols-[240px_minmax(0,1fr)] gap-8 mt-12">
                     <aside className="hidden md:block">
@@ -220,21 +226,16 @@ export default function ApiReference() {
     );
 }
 
-function BaseURL({ doc }: { doc: SwaggerDoc }) {
-    const loc = typeof window !== 'undefined' ? window.location : ({ protocol: 'http:', host: 'localhost:8080' } as any);
-    const basePath = (doc as any).basePath || '';
-    const base = doc.openapi ? (Array.isArray((doc as any).servers) && (doc as any).servers[0]?.url) || `${loc.protocol}//${loc.host}` : `${loc.protocol}//${doc.host || loc.host}${basePath}`;
-    return (
-        <>
-            <span className="text-gray-300">•</span>
-            <span>Base URL: <code className="font-mono text-gray-900 bg-gray-100 px-1 py-0.5 rounded text-xs">{base}</code></span>
-        </>
-    );
+function apiServerURL(doc: SwaggerDoc) {
+    const localServer = 'http://localhost:8080';
+    const server = doc.openapi
+        ? doc.servers?.[0]?.url || localServer
+        : `${doc.schemes?.[0] || 'http'}://${doc.host || 'localhost:8080'}${doc.basePath || ''}`;
+    return server.replace(/\/$/, '');
 }
 
-function AuthIntro() {
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080';
-    const apiBase = `${origin}/api/v1`;
+function AuthIntro({ serverURL }: { serverURL: string }) {
+    const apiBase = `${serverURL}/api/v1`;
 
     const examples = {
         getJwt: {
@@ -282,6 +283,7 @@ function AuthIntro() {
                             <br /><br />
                             Most endpoints are flexible, but sensitive user management actions require a JWT session.
                         </p>
+                        <p className="mb-6 text-sm text-gray-600">Replace the example server URL with your Jotist installation's address.</p>
                         <div className="space-y-3">
                             <div className="flex items-start gap-3 p-3 rounded-lg bg-white border border-gray-100 shadow-sm">
                                 <span className="text-xs font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100 mt-0.5">JWT</span>
@@ -355,7 +357,7 @@ function EndpointCard({ ep, doc }: { ep: Endpoint; doc: SwaggerDoc }) {
     const examplePayload = exampleSchema ? makeExample(exampleSchema, doc.components, doc.definitions) : undefined;
     const preferredSec = endpointSecurity[0];
     const authHeaders = makeAuthHeaders(preferredSec, securityDefs);
-    const curl = makeCurl(ep.method, ep.path, exampleContentType, examplePayload, authHeaders, parameters);
+    const curl = makeCurl(apiServerURL(doc), ep.method, ep.path, exampleContentType, examplePayload, authHeaders, parameters);
 
     return (
         <article id={id} className={`group rounded-xl border transition-all duration-200 ${expanded ? 'bg-white border-gray-200 shadow-sm ring-1 ring-gray-900/5' : 'bg-white border-transparent hover:border-gray-200 hover:shadow-sm hover:bg-gray-50/50'}`}>
@@ -678,13 +680,12 @@ function formatMaybeJSON(value: any) {
 }
 
 // Very basic curl generator
-function makeCurl(method: string, path: string, ct?: string, body?: any, authHeaders?: string[], params?: any[]) {
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080';
+function makeCurl(serverURL: string, method: string, path: string, ct?: string, body?: any, authHeaders?: string[], params?: any[]) {
     const qParams = (params || []).filter((p) => p.in === 'query');
     const qs = method === 'GET' && qParams.length
         ? '?' + qParams.map((p) => `${encodeURIComponent(p.name)}=${encodeURIComponent(exampleForParam(p))}`).join('&')
         : '';
-    const url = `${origin}${path}${qs}`;
+    const url = `${serverURL}${path}${qs}`;
     const parts: string[] = ['curl', '-X', method, `'${url}'`];
     if (authHeaders && authHeaders.length) {
         for (const h of authHeaders) parts.push('-H', `'${h}'`);

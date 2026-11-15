@@ -528,6 +528,12 @@ Download a platform archive from [Jotist Releases](https://github.com/jaysqvl/Jo
 
 The CLI uses **`jotist`**. Install or update it from the Jotist application's **Settings → CLI** page. It uses `~/.jotist.yaml`, `JOTIST_*` environment variables, and the `jotist-watcher` service. See [CLI controls](docs/cli-controls.md) for commands and configuration. Existing installations should follow the [migration guide](docs/jotist-migration.md) before switching to the Jotist defaults.
 
+## API
+
+Use `/api/v1` on your Jotist server. The [API guide](api-docs/API_DOCS.md) includes
+an authenticated request example and instructions for importing the
+[Swagger specification](api-docs/swagger.json) from your release tag.
+
 ## Development
 
 Use the Go version in `go.mod`, Node.js 24, and the Python/uv runtimes required by the selected models.

@@ -460,7 +460,6 @@ func (suite *SecurityTestSuite) TestPublicEndpointsAccessible() {
 		allowedCodes []int // codes that are acceptable (anything except 401)
 	}{
 		{"GET", "/health", []int{200}},
-		{"GET", "/swagger/index.html", []int{200, 301, 302, 404}}, // swagger might redirect or not exist
 		{"GET", "/api/v1/auth/registration-status", []int{200}},
 		{"POST", "/api/v1/auth/register", []int{200, 400, 409}}, // 400 for validation errors, 409 for user exists
 		{"POST", "/api/v1/auth/login", []int{200, 400, 401}},    // 401 for invalid creds is OK for login endpoint
