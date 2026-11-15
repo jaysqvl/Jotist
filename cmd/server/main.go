@@ -32,17 +32,16 @@ import (
 // @title Jotist API
 // @version 1.0
 // @description Self-hosted audio transcription with local models and optional cloud providers
-// @termsOfService http://swagger.io/terms/
 
-// @contact.name API Support
-// @contact.url http://www.swagger.io/support
-// @contact.email support@swagger.io
+// @contact.name Jotist support
+// @contact.url https://github.com/jaysqvl/Jotist/issues
 
 // @license.name MIT
 // @license.url https://opensource.org/licenses/MIT
 
 // @host localhost:8080
-// @BasePath /api/v1
+// @BasePath /
+// @schemes http https
 
 // @securityDefinitions.apikey ApiKeyAuth
 // @in header
@@ -223,8 +222,6 @@ func main() {
 	} else {
 		logger.Warn("Jotist interface is available; transcription dispatch is not ready")
 	}
-	logger.Debug("API documentation available at /swagger/index.html")
-
 	// Wait for interrupt signal to gracefully shutdown the server
 	<-quit
 

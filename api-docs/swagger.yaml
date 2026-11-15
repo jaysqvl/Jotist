@@ -1,4 +1,4 @@
-basePath: /api/v1
+basePath: /
 definitions:
   api.APIKeyListResponse:
     properties:
@@ -1978,15 +1978,13 @@ definitions:
 host: localhost:8080
 info:
   contact:
-    email: support@swagger.io
-    name: API Support
-    url: http://www.swagger.io/support
+    name: Jotist support
+    url: https://github.com/jaysqvl/Jotist/issues
   description: Self-hosted audio transcription with local models and optional cloud
     providers
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
-  termsOfService: http://swagger.io/terms/
   title: Jotist API
   version: "1.0"
 paths:
@@ -3833,6 +3831,41 @@ paths:
       summary: Kill running transcription job
       tags:
       - transcription
+  /api/v1/transcription/{id}/logs:
+    get:
+      description: Get the raw transcription logs for a job
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      - ApiKeyAuth: []
+      summary: Get transcription logs
+      tags:
+      - transcription
   /api/v1/transcription/{id}/merge-status:
     get:
       description: Get the current merge status for a multi-track job
@@ -5441,34 +5474,9 @@ paths:
       summary: Check whether the service can accept transcription work
       tags:
       - health
-  /transcription/{id}/logs:
-    get:
-      description: Get the raw transcription logs for a job
-      parameters:
-      - description: Job ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/api.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/api.ErrorResponse'
-      summary: Get transcription logs
-      tags:
-      - transcription
+schemes:
+- http
+- https
 securityDefinitions:
   ApiKeyAuth:
     in: header

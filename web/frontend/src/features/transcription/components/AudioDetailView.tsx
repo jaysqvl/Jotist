@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils";
 import { useExecutionRecovery, useResumeExecution } from "@/features/transcription/hooks/useExecutionRecovery";
 import { canResumeExecution, recoveryIsActive, type RunSubmissionOptions } from "@/features/transcription/hooks/recoveryPolicy";
 import { newRunRecoveryParameters } from "@/features/transcription/hooks/executionPolicy";
-import { useAudioDetail, useExecutionRuns, useRunTranscript, useSetActiveRun, useUpdateTitle, useTranscript, type ExecutionRun, type Transcript, type TranscriptSegment } from "@/features/transcription/hooks/useAudioDetail";
+import { useAudioDetail, useExecutionRuns, useRunTranscript, useSetActiveRun, useUpdateTitle, useTranscript, type ExecutionRun, type Transcript } from "@/features/transcription/hooks/useAudioDetail";
 import { useSpeakerMappings } from "@/features/transcription/hooks/useTranscriptionSpeakers";
 import { useTranscriptDownload } from "@/features/transcription/hooks/useTranscriptDownload";
 import { useAuth } from "@/features/auth/hooks/useAuth";
@@ -37,6 +37,8 @@ import { TranscribeDDialog } from "@/components/TranscribeDDialog";
 
 // Sub-components
 import { TranscriptSection } from "./audio-detail/TranscriptSection";
+import SpeakerRenameDialog from "./audio-detail/SpeakerRenameDialog";
+import { RecordingNotesDrawer } from "./audio-detail/NotesSidebar";
 import { ExecutionInfoDialog } from "./audio-detail/ExecutionInfoDialog";
 import { LogsDialog } from "./audio-detail/LogsDialog";
 import { SummaryDialog } from "./audio-detail/SummaryDialog";
@@ -165,6 +167,10 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
     const { data: compareRunTranscript, isLoading: compareRunTranscriptLoading } = useRunTranscript(audioId || "", compareRunId, runViewMode === "compare" && !!compareRunId);
     const transcript = selectedRunId ? selectedRunTranscript : latestTranscript;
     const { data: speakerMappings = {} } = useSpeakerMappings(audioId || "", true);
+    const detectedSpeakers = useMemo(
+        () => [...new Set(transcript?.segments?.flatMap(({ speaker }) => speaker ? [speaker] : []))].sort(),
+        [transcript?.segments],
+    );
 
     // Download Logic
     const { downloadSRT } = useTranscriptDownload();
@@ -308,12 +314,8 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
         setIsEditingTitle(false);
     };
 
-    const handleSeek = (time: number) => {
-        if (audioPlayerRef.current) {
-            audioPlayerRef.current.seekTo(time);
-            setCurrentTime(time);
-        }
-    };
+    const handleSeek = useCallback((time: number) => audioPlayerRef.current?.seekTo(time), []);
+    const handlePlayFrom = useCallback((time: number) => audioPlayerRef.current?.playFrom(time), []);
 
     const handleOpenStopRunDialog = useCallback(() => {
         if (!canStopRun) return;
@@ -802,7 +804,7 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                                                         <MessageCircle className={cn("mr-2 h-4 w-4 opacity-70", chatOpen && "text-[var(--brand-solid)]")} />
                                                         Chat with Audio
                                                     </DropdownMenuItem>
-                                                    {transcript?.segments?.some((s: TranscriptSegment) => s.speaker) && (
+                                                    {detectedSpeakers.length > 0 && (
                                                         <DropdownMenuItem onClick={() => setSpeakerRenameOpen(true)} className="rounded-[8px] cursor-pointer">
                                                             <Users className="mr-2 h-4 w-4 opacity-70" />
                                                             Rename Speakers
@@ -864,6 +866,25 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                                     selectedRunId={selectedRunId}
                                     compareRunId={compareRunId}
                                     mode={runViewMode}
+                                    playback={{ currentTime, followPlayback: autoScrollEnabled, onPlayFrom: handlePlayFrom, speakerMappings }}
+                                    onFollowPlaybackChange={setAutoScrollEnabled}
+                                    transcriptContent={transcript ? (
+                                        <TranscriptSectionWrapper
+                                            audioId={audioId}
+                                            currentTime={currentTime}
+                                            onSeek={handleSeek}
+                                            transcript={transcript}
+                                            speakerMappings={speakerMappings}
+                                            transcriptMode={transcriptMode}
+                                            autoScrollEnabled={autoScrollEnabled}
+                                            setNotesOpen={handleSetNotesOpen}
+                                            isPlaying={isPlaying}
+                                        />
+                                    ) : (
+                                        <div className="md:glass-card md:rounded-[var(--radius-card)] md:border-[var(--border-subtle)] md:shadow-[var(--shadow-card)] p-4 md:p-6 min-h-[260px] flex items-center justify-center text-center text-[var(--text-tertiary)]">
+                                            {selectedRun?.has_transcript === false ? "No transcript was captured for the selected run." : "Select a run with a transcript to view it here."}
+                                        </div>
+                                    )}
                                     selectedTranscript={selectedRunTranscript}
                                     compareTranscript={compareRunTranscript}
                                     selectedTranscriptLoading={selectedRunTranscriptLoading}
@@ -894,27 +915,6 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                                     onRetryRecovery={() => void recoveryQuery.refetch()}
                                 />
 
-                                {/* Transcript */}
-                                {transcript ? (
-                                    <TranscriptSectionWrapper
-                                        audioId={audioId}
-                                        currentTime={currentTime}
-                                        onSeek={handleSeek}
-                                        transcript={transcript}
-                                        speakerMappings={speakerMappings}
-                                        transcriptMode={transcriptMode}
-                                        autoScrollEnabled={autoScrollEnabled}
-                                        notesOpen={notesOpen}
-                                        setNotesOpen={handleSetNotesOpen}
-                                        speakerRenameOpen={speakerRenameOpen}
-                                        setSpeakerRenameOpen={setSpeakerRenameOpen}
-                                        isPlaying={isPlaying}
-                                    />
-                                ) : (
-                                    <div className="md:glass-card md:rounded-[var(--radius-card)] md:border-[var(--border-subtle)] md:shadow-[var(--shadow-card)] p-4 md:p-6 min-h-[260px] flex items-center justify-center text-center text-[var(--text-tertiary)]">
-                                        {selectedRun?.has_transcript === false ? "No transcript was captured for the selected run." : "Select a run with a transcript to view it here."}
-                                    </div>
-                                )}
                             </div>
                         </div>
                     </div>
@@ -968,6 +968,13 @@ export const AudioDetailView = function AudioDetailView({ audioId: propAudioId }
                 transcriptOverride={downloadTranscript}
                 filenameSuffix={downloadFilenameSuffix}
             />
+            <SpeakerRenameDialog
+                open={speakerRenameOpen}
+                onOpenChange={setSpeakerRenameOpen}
+                transcriptionId={audioId}
+                initialSpeakers={detectedSpeakers}
+            />
+            {notesOpen && <RecordingNotesDrawer audioId={audioId} onClose={() => handleSetNotesOpen(false)} onSeek={handleSeek} />}
             <SummaryDialog
                 audioId={audioId}
                 isOpen={summaryDialogOpen}

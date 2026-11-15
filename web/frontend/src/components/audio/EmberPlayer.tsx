@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 
 export interface EmberPlayerRef {
     seekTo: (time: number) => void;
+    playFrom: (time: number) => void;
     playPause: () => void;
     isPlaying: () => boolean;
 }
@@ -32,13 +33,29 @@ export const EmberPlayer = forwardRef<EmberPlayerRef, EmberPlayerProps>(
         const [isHovering, setIsHovering] = useState(false);
         const [isDragging, setIsDragging] = useState(false);
 
-        // --- 1. Parent Control (ForwardRef) ---
+        const seekTo = (time: number) => {
+            const audio = audioRef.current;
+            if (!audio || !Number.isFinite(time)) return;
+            const end = Number.isFinite(audio.duration) ? audio.duration : time;
+            audio.currentTime = Math.max(0, Math.min(time, end));
+            setCurrentTime(audio.currentTime);
+            onTimeUpdate?.(audio.currentTime);
+            return audio;
+        };
+
+        const play = (audio: HTMLAudioElement) => {
+            void audio.play().catch(error => {
+                if (error instanceof DOMException && error.name === "AbortError") return;
+                console.error("Playback failed:", error);
+                setError("Playback failed.");
+            });
+        };
+
         useImperativeHandle(ref, () => ({
-            seekTo: (time: number) => {
-                if (audioRef.current) {
-                    audioRef.current.currentTime = time;
-                    setCurrentTime(time);
-                }
+            seekTo,
+            playFrom: (time: number) => {
+                const audio = seekTo(time);
+                if (audio) play(audio);
             },
             playPause: () => togglePlay(),
             isPlaying: () => isPlaying
@@ -53,13 +70,10 @@ export const EmberPlayer = forwardRef<EmberPlayerRef, EmberPlayerProps>(
         // --- 3. Audio Handlers ---
         const togglePlay = () => {
             if (!audioRef.current) return;
-            if (isPlaying) {
+            if (!audioRef.current.paused) {
                 audioRef.current.pause();
             } else {
-                audioRef.current.play().catch(e => {
-                    console.error("Playback failed:", e);
-                    setError("Playback failed.");
-                });
+                play(audioRef.current);
             }
         };
 
@@ -108,6 +122,7 @@ export const EmberPlayer = forwardRef<EmberPlayerRef, EmberPlayerProps>(
 
             const handleGlobalMouseUp = () => {
                 setIsDragging(false);
+                if (audioRef.current) onTimeUpdate?.(audioRef.current.currentTime);
             };
 
             if (isDragging) {
@@ -119,7 +134,7 @@ export const EmberPlayer = forwardRef<EmberPlayerRef, EmberPlayerProps>(
                 window.removeEventListener("mousemove", handleGlobalMouseMove);
                 window.removeEventListener("mouseup", handleGlobalMouseUp);
             };
-        }, [isDragging, calculateTimeFromEvent]);
+        }, [isDragging, calculateTimeFromEvent, onTimeUpdate]);
 
         const handleHoverMove = (e: React.MouseEvent<HTMLDivElement>) => {
             if (!progressRef.current || !duration) return;
@@ -180,6 +195,8 @@ export const EmberPlayer = forwardRef<EmberPlayerRef, EmberPlayerProps>(
                     {/* Top Row: Button & Time */}
                     <div className="flex items-center justify-between">
                         <button
+                            type="button"
+                            aria-label={isPlaying ? "Pause audio" : "Play audio"}
                             onClick={togglePlay}
                             className="flex h-12 w-12 items-center justify-center rounded-full bg-[image:var(--brand-gradient)] text-white shadow-lg shadow-brand-500/20 hover:scale-105 active:scale-95 transition-all focus:outline-none cursor-pointer"
                         >

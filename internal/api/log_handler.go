@@ -17,9 +17,12 @@ import (
 // @Produce json
 // @Param id path string true "Job ID"
 // @Success 200 {object} map[string]interface{}
+// @Failure 401 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /transcription/{id}/logs [get]
+// @Security BearerAuth
+// @Security ApiKeyAuth
+// @Router /api/v1/transcription/{id}/logs [get]
 func (h *Handler) GetJobLogs(c *gin.Context) {
 	jobID := c.Param("id")
 

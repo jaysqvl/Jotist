@@ -408,7 +408,7 @@
     },
     {
       "method": "GET",
-      "path": "/transcription/{id}/logs",
+      "path": "/api/v1/transcription/{id}/logs",
       "summary": "Get transcription logs",
       "description": "Get the raw transcription logs for a job",
       "tag": "transcription"

@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { Activity, AlertCircle, BarChart3, Download, FileText, GitCompareArrows, Info, Loader2, MoreVertical, Pin, PinOff, RefreshCw, ScrollText, SlidersHorizontal, StopCircle } from "lucide-react";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
+import { Activity, AlertCircle, ArrowDownCircle, BarChart3, Download, FileText, GitCompareArrows, Info, Loader2, MoreVertical, Pin, PinOff, Play, RefreshCw, ScrollText, SlidersHorizontal, StopCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { runDiagnosticsHref } from "@/features/settings/hooks/runDiagnostics";
 import { runChoicePresentation } from "@/features/transcription/hooks/runChoices";
@@ -11,15 +11,15 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import type { WhisperXParams } from "@/features/transcription/types";
 import type { ExecutionRun, Transcript } from "@/features/transcription/hooks/useAudioDetail";
 import type { ExecutionRecovery } from "@/features/transcription/hooks/recoveryPolicy";
 import { RunRecoveryPanel } from "./RunRecoveryPanel";
 import { RunModelSummary } from "./RunModelSummary";
-import { RunPicker, RunStatusBadge } from "./RunPicker";
-import { transcriptDisplaySegments, transcriptSpeakerLabel } from "@/features/transcription/hooks/transcriptPresentation";
+import { RunPicker } from "./RunPicker";
+import { activeTimedSegmentIndex, transcriptDisplaySegments, transcriptSpeakerLabel } from "@/features/transcription/hooks/transcriptPresentation";
 
 type RunWorkspaceMode = "transcript" | "compare";
 type DownloadFormat = "srt" | "txt" | "json";
@@ -33,6 +33,13 @@ interface TranscriptDiff {
     unchanged: number;
 }
 
+interface ComparePlayback {
+    currentTime: number;
+    followPlayback: boolean;
+    onPlayFrom: (time: number) => void;
+    speakerMappings: Record<string, string>;
+}
+
 interface RunWorkspaceProps {
     runs: ExecutionRun[];
     activeRunId?: string;
@@ -41,6 +48,9 @@ interface RunWorkspaceProps {
     selectedRunId?: string;
     compareRunId?: string;
     mode: RunWorkspaceMode;
+    transcriptContent: ReactNode;
+    playback: ComparePlayback;
+    onFollowPlaybackChange: (enabled: boolean) => void;
     selectedTranscript?: Transcript | null;
     compareTranscript?: Transcript | null;
     selectedTranscriptLoading: boolean;
@@ -79,6 +89,9 @@ export function RunWorkspace({
     selectedRunId,
     compareRunId,
     mode,
+    transcriptContent,
+    playback,
+    onFollowPlaybackChange,
     selectedTranscript,
     compareTranscript,
     selectedTranscriptLoading,
@@ -109,7 +122,9 @@ export function RunWorkspace({
     onRetryRecovery,
 }: RunWorkspaceProps) {
     const selectedRun = runs.find((run) => run.id === selectedRunId) || runs[0];
-    const compareRun = runs.find((run) => run.id === compareRunId) || runs.find((run) => run.id !== selectedRun?.id);
+    const comparisonChoices = runs.filter((run) => run.id !== selectedRun?.id);
+    const compareRun = comparisonChoices.find((run) => run.id === compareRunId) || comparisonChoices[0];
+    const visibleMode = compareRun ? mode : "transcript";
     const transcriptDiff = useMemo(
         () => buildTranscriptDiff(selectedTranscript, compareTranscript),
         [compareTranscript, selectedTranscript]
@@ -117,7 +132,8 @@ export function RunWorkspace({
 
     if (runs.length === 0) {
         return (
-            <section className="glass-card rounded-[var(--radius-card)] border border-[var(--border-subtle)] shadow-[var(--shadow-card)] p-4 sm:p-5">
+            <>
+              <section className="glass-card rounded-[var(--radius-card)] border border-[var(--border-subtle)] shadow-[var(--shadow-card)] p-4 sm:p-5">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h2 className="flex items-center gap-2 text-base font-bold text-[var(--text-primary)]">
@@ -139,12 +155,15 @@ export function RunWorkspace({
                         />
                     )}
                 </div>
-            </section>
+              </section>
+              {transcriptContent}
+            </>
         );
     }
 
     return (
-        <section aria-label="Run summary" className="glass-card rounded-[var(--radius-card)] border border-[var(--border-subtle)] shadow-[var(--shadow-card)] p-3 sm:p-4">
+        <Tabs value={visibleMode} onValueChange={(value) => onModeChange(value as RunWorkspaceMode)} className="min-w-0 gap-4">
+          <section aria-label="Run summary" className="glass-card rounded-[var(--radius-card)] border border-[var(--border-subtle)] shadow-[var(--shadow-card)] p-3 sm:p-4">
             <div className="flex flex-col gap-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="min-w-0">
@@ -158,7 +177,18 @@ export function RunWorkspace({
                     </div>
                     {showRunControl && <RunControl onRunAgain={onRunAgain} runAgainLabel={runAgainLabel} onStopRun={onStopRun} runAgainDisabled={runAgainDisabled} canStopRun={canStopRun} stoppingRun={stoppingRun} />}
                 </div>
-                    <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                    <TabsList aria-label="Recording view" className="h-11 w-full sm:w-auto bg-[var(--bg-main)] border border-[var(--border-subtle)]">
+                        <TabsTrigger value="transcript" className="flex-1 gap-2 sm:flex-none">
+                            <ScrollText className="h-4 w-4" />
+                            Transcript
+                        </TabsTrigger>
+                        <TabsTrigger value="compare" className="flex-1 gap-2 sm:flex-none" disabled={!compareRun}>
+                            <GitCompareArrows className="h-4 w-4" />
+                            Compare
+                        </TabsTrigger>
+                    </TabsList>
+                    {visibleMode === "transcript" && (
                         <RunPicker
                             runs={runs}
                             activeRunId={activeRunId}
@@ -167,62 +197,10 @@ export function RunWorkspace({
                             onValueChange={onSelectedRunChange}
                             label="Primary run"
                         />
-                        <Tabs value={mode} onValueChange={(value) => onModeChange(value as RunWorkspaceMode)}>
-                            <TabsList className="h-11 w-full sm:w-auto bg-[var(--bg-main)] border border-[var(--border-subtle)]">
-                                <TabsTrigger value="transcript" className="flex-1 gap-2 sm:flex-none">
-                                    <ScrollText className="h-4 w-4" />
-                                    Transcript
-                                </TabsTrigger>
-                                <TabsTrigger value="compare" className="flex-1 gap-2 sm:flex-none" disabled={runs.length < 2}>
-                                    <GitCompareArrows className="h-4 w-4" />
-                                    Compare
-                                </TabsTrigger>
-                            </TabsList>
-                        </Tabs>
-                    </div>
+                    )}
+                </div>
 
-                {mode === "compare" && compareRun ? (
-                    <>
-                        <DiffSummary
-                            diff={transcriptDiff}
-                            loading={selectedTranscriptLoading || compareTranscriptLoading}
-                        />
-                        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                            <ComparePanel
-                                title="Primary"
-                                pinnedRunId={pinnedRunId}
-                                runs={runs}
-                                activeRunId={activeRunId}
-                                run={selectedRun}
-                                transcript={selectedTranscript}
-                                loading={selectedTranscriptLoading}
-                                selectedRunId={selectedRun?.id}
-                                diff={transcriptDiff}
-                                diffSide="primary"
-                                onRunChange={onSelectedRunChange}
-                                onOpenRunDetails={onOpenRunDetails}
-                                onOpenRunLogs={onOpenRunLogs}
-                                onDownloadRun={onDownloadRun}
-                            />
-                            <ComparePanel
-                                title="Compare"
-                                pinnedRunId={pinnedRunId}
-                                runs={runs.filter((run) => run.id !== selectedRun?.id)}
-                                activeRunId={activeRunId}
-                                run={compareRun}
-                                transcript={compareTranscript}
-                                loading={compareTranscriptLoading}
-                                selectedRunId={compareRun.id}
-                                diff={transcriptDiff}
-                                diffSide="compare"
-                                onRunChange={onCompareRunChange}
-                                onOpenRunDetails={onOpenRunDetails}
-                                onOpenRunLogs={onOpenRunLogs}
-                                onDownloadRun={onDownloadRun}
-                            />
-                        </div>
-                    </>
-                ) : (
+                {visibleMode === "transcript" && (
                     <SelectedRunPanel
                         run={selectedRun}
                         active={selectedRun?.id === activeRunId}
@@ -246,7 +224,57 @@ export function RunWorkspace({
                     onNewSubmission={onNewSubmission || onRunAgain} onSelectRun={onSelectedRunChange}
                     onRetry={onRetryRecovery || (() => undefined)} />}
             </div>
-        </section>
+          </section>
+          <TabsContent value="transcript">{transcriptContent}</TabsContent>
+          <TabsContent value="compare" className="@container min-w-0 space-y-3">
+              {compareRun && (
+                  <>
+                      <DiffSummary
+                          diff={transcriptDiff}
+                          loading={selectedTranscriptLoading || compareTranscriptLoading}
+                          followPlayback={playback.followPlayback}
+                          onFollowPlaybackChange={onFollowPlaybackChange}
+                      />
+                      <div className="grid grid-cols-1 items-start gap-4 @min-[42rem]:grid-cols-2">
+                          <ComparePanel
+                              title="Primary"
+                              pinnedRunId={pinnedRunId}
+                              runs={runs}
+                              activeRunId={activeRunId}
+                              run={selectedRun}
+                              transcript={selectedTranscript}
+                              loading={selectedTranscriptLoading}
+                              selectedRunId={selectedRun?.id}
+                              diff={transcriptDiff}
+                              diffSide="primary"
+                              playback={playback}
+                              onRunChange={onSelectedRunChange}
+                              onOpenRunDetails={onOpenRunDetails}
+                              onOpenRunLogs={onOpenRunLogs}
+                              onDownloadRun={onDownloadRun}
+                          />
+                          <ComparePanel
+                              title="Comparison"
+                              pinnedRunId={pinnedRunId}
+                              runs={comparisonChoices}
+                              activeRunId={activeRunId}
+                              run={compareRun}
+                              transcript={compareTranscript}
+                              loading={compareTranscriptLoading || compareRun.id !== compareRunId}
+                              selectedRunId={compareRun.id}
+                              diff={transcriptDiff}
+                              diffSide="compare"
+                              playback={playback}
+                              onRunChange={onCompareRunChange}
+                              onOpenRunDetails={onOpenRunDetails}
+                              onOpenRunLogs={onOpenRunLogs}
+                              onDownloadRun={onDownloadRun}
+                          />
+                      </div>
+                  </>
+              )}
+          </TabsContent>
+        </Tabs>
     );
 }
 
@@ -446,6 +474,7 @@ function ComparePanel({
     selectedRunId,
     diff,
     diffSide,
+    playback,
     onRunChange,
     onOpenRunDetails,
     onOpenRunLogs,
@@ -461,6 +490,7 @@ function ComparePanel({
     selectedRunId?: string;
     diff: TranscriptDiff;
     diffSide: DiffSide;
+    playback: ComparePlayback;
     onRunChange: (runId: string) => void;
     onOpenRunDetails: (runId?: string) => void;
     onOpenRunLogs: (runId?: string) => void;
@@ -477,7 +507,7 @@ function ComparePanel({
     const params = (run.actual_parameters || {}) as Partial<WhisperXParams>;
 
     return (
-        <div className="rounded-[var(--radius-card)] border border-[var(--border-subtle)] bg-[var(--bg-main)]/50 p-4">
+        <div className="min-w-0 rounded-[var(--radius-card)] border border-[var(--border-subtle)] bg-[var(--bg-main)]/50 p-3 sm:p-4">
             <div className="mb-3 flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                     <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">{title}</span>
@@ -490,9 +520,6 @@ function ComparePanel({
                         label={`${title} run`}
                         compact
                     />
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <RunStatusBadge run={run} />
-                    </div>
                 </div>
                 <RunActions
                     run={run}
@@ -505,19 +532,24 @@ function ComparePanel({
                 />
             </div>
             <div className="mb-3"><RunModelSummary parameters={params} transcript={transcript} /></div>
-            <TranscriptPreview transcript={transcript} loading={loading} diff={diff} side={diffSide} />
+            <TranscriptPreview label={`${title} transcript`} transcript={transcript} loading={loading} diff={diff} side={diffSide} playback={playback} />
         </div>
     );
 }
 
-function DiffSummary({ diff, loading }: { diff: TranscriptDiff; loading: boolean }) {
+function DiffSummary({ diff, loading, followPlayback, onFollowPlaybackChange }: {
+    diff: TranscriptDiff;
+    loading: boolean;
+    followPlayback: boolean;
+    onFollowPlaybackChange: (enabled: boolean) => void;
+}) {
     const primaryChanged = diff.primaryChanged.size;
     const compareChanged = diff.compareChanged.size;
     const total = Math.max(diff.primaryTotal, diff.compareTotal);
     const changedPercent = total > 0 ? Math.round(((primaryChanged + compareChanged) / Math.max(1, diff.primaryTotal + diff.compareTotal)) * 100) : 0;
 
     return (
-        <div className="rounded-[var(--radius-card)] border border-[var(--border-subtle)] bg-[var(--bg-main)]/50 p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-card)] border border-[var(--border-subtle)] bg-[var(--bg-main)]/50 p-3">
             <div className="flex flex-wrap items-center gap-2 text-xs">
                 <span className="font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Diff</span>
                 {loading ? (
@@ -535,6 +567,17 @@ function DiffSummary({ diff, loading }: { diff: TranscriptDiff; loading: boolean
                     </>
                 )}
             </div>
+            <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                aria-pressed={followPlayback}
+                onClick={() => onFollowPlaybackChange(!followPlayback)}
+                className={cn("h-10 gap-2 sm:h-8", followPlayback && "border-[var(--brand-solid)]/40 bg-[var(--brand-light)] text-[var(--brand-solid)]")}
+            >
+                <ArrowDownCircle className="h-4 w-4" />
+                Follow playback
+            </Button>
         </div>
     );
 }
@@ -555,35 +598,87 @@ function DiffMetric({ label, value, tone = "neutral" }: { label: string; value: 
     );
 }
 
-function TranscriptPreview({ transcript, loading, diff, side }: { transcript?: Transcript | null; loading: boolean; diff: TranscriptDiff; side: DiffSide }) {
+function TranscriptPreview({ label, transcript, loading, diff, side, playback }: {
+    label: string;
+    transcript?: Transcript | null;
+    loading: boolean;
+    diff: TranscriptDiff;
+    side: DiffSide;
+    playback: ComparePlayback;
+}) {
+    const paneRef = useRef<HTMLDivElement>(null);
+    const { currentTime, followPlayback, onPlayFrom, speakerMappings } = playback;
+    const changedWords = side === "primary" ? diff.primaryChanged : diff.compareChanged;
+    const rows = useMemo(() => {
+        const cursor = { current: 0 };
+        return transcript ? transcriptDisplaySegments(transcript).map((segment) => ({
+            ...segment,
+            annotatedText: renderDiffTokens(segment.text, cursor, changedWords, side),
+        })) : [];
+    }, [transcript, changedWords, side]);
+    const activeIndex = activeTimedSegmentIndex(rows, currentTime);
+
+    useEffect(() => {
+        const pane = paneRef.current;
+        if (!followPlayback || loading || activeIndex < 0 || !pane) return;
+        const row = pane.querySelector('[aria-current="true"]');
+        if (!row) return;
+
+        // Move this pane only. On a phone both panes share the page's outer scroll.
+        const bounds = pane.getBoundingClientRect();
+        const rowBounds = row.getBoundingClientRect();
+        if (rowBounds.top < bounds.top || rowBounds.bottom > bounds.bottom) {
+            pane.scrollTo({ top: pane.scrollTop + rowBounds.top - bounds.top - (pane.clientHeight - rowBounds.height) / 2 });
+        }
+    }, [activeIndex, followPlayback, loading, rows]);
+
     if (loading) {
         return <div className="rounded-[var(--radius-card)] bg-[var(--bg-card)] p-4 text-sm text-[var(--text-secondary)]">Loading transcript...</div>;
     }
     if (!transcript) {
         return <div className="rounded-[var(--radius-card)] bg-[var(--bg-card)] p-4 text-sm text-[var(--text-tertiary)]">No transcript captured for this run.</div>;
     }
-    const changedWords = side === "primary" ? diff.primaryChanged : diff.compareChanged;
-    const tokenCursor = { current: 0 };
-    const displaySegments = transcriptDisplaySegments(transcript);
-
-    if (displaySegments.length) {
+    if (rows.length) {
         return (
-            <div className="max-h-[520px] overflow-y-auto rounded-[var(--radius-card)] bg-[var(--bg-card)] p-2">
+            <div
+                ref={paneRef}
+                role="region"
+                aria-label={label}
+                tabIndex={0}
+                className="max-h-[min(42dvh,26rem)] overflow-y-auto rounded-[var(--radius-card)] bg-[var(--bg-card)] p-2 outline-offset-2 md:max-h-[min(55dvh,32rem)]"
+            >
                 <div className="space-y-1">
-                    {displaySegments.map((segment, index) => (
-                        <div key={`${segment.start}-${index}`} className="grid grid-cols-[64px_minmax(0,1fr)] gap-2 rounded-md px-2 py-1.5 hover:bg-[var(--bg-main)]/70 sm:grid-cols-[86px_minmax(0,1fr)]">
-                            <div className="min-w-0 select-none text-right">
-                                <div className="font-mono text-[10px] leading-5 text-[var(--text-tertiary)]">
-                                    {formatTimestamp(segment.start)}
-                                </div>
+                    {rows.map((segment, index) => (
+                        <div
+                            key={`${segment.start}-${index}`}
+                            aria-current={index === activeIndex ? true : undefined}
+                            className={cn(
+                                "grid grid-cols-[4.6rem_minmax(0,1fr)] items-start gap-2 rounded-md border px-1.5 py-1.5 sm:grid-cols-[5.5rem_minmax(0,1fr)]",
+                                index === activeIndex
+                                    ? "border-[var(--brand-solid)]/35 bg-[var(--brand-light)]/60"
+                                    : "border-transparent hover:bg-[var(--bg-main)]/70"
+                            )}
+                        >
+                            <div className="min-w-0 select-none">
+                                {Number.isFinite(segment.start) && segment.start >= 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => onPlayFrom(segment.start)}
+                                        aria-label={`Play from ${formatTimestamp(segment.start)}`}
+                                        className="inline-flex min-h-10 items-center gap-1 whitespace-nowrap rounded-md px-1 font-mono text-[11px] font-semibold tabular-nums text-[var(--text-primary)] hover:bg-[var(--bg-main)] focus-visible:outline-2 focus-visible:outline-[var(--brand-solid)] sm:min-h-7"
+                                    >
+                                        <Play className="size-3 shrink-0" aria-hidden="true" />
+                                        {formatTimestamp(segment.start)}
+                                    </button>
+                                )}
                                 {segment.speaker && (
-                                    <div className="truncate text-[10px] font-semibold uppercase tracking-wide text-[var(--brand-solid)]" title={transcriptSpeakerLabel(segment.speaker, transcript)}>
-                                        {transcriptSpeakerLabel(segment.speaker, transcript)}
+                                    <div className="truncate px-1 text-[10px] font-semibold text-[var(--text-secondary)]" title={transcriptSpeakerLabel(segment.speaker, transcript, speakerMappings)}>
+                                        {transcriptSpeakerLabel(segment.speaker, transcript, speakerMappings)}
                                     </div>
                                 )}
                             </div>
-                            <div className="min-w-0 text-sm leading-6 text-[var(--text-primary)]">
-                                {renderDiffTokens(segment.text, tokenCursor, changedWords, side)}
+                            <div className="min-w-0 wrap-break-word py-1 text-sm leading-6 text-[var(--text-primary)]">
+                                {segment.annotatedText}
                             </div>
                         </div>
                     ))}
@@ -593,8 +688,8 @@ function TranscriptPreview({ transcript, loading, diff, side }: { transcript?: T
     }
 
     return (
-        <div className="max-h-[520px] overflow-y-auto rounded-[var(--radius-card)] bg-[var(--bg-card)] p-4 text-sm leading-7 text-[var(--text-primary)] whitespace-pre-wrap">
-            {transcript.text ? renderDiffTokens(transcript.text, tokenCursor, changedWords, side) : "Transcript is empty."}
+        <div role="region" aria-label={label} tabIndex={0} className="max-h-[min(42dvh,26rem)] overflow-y-auto rounded-[var(--radius-card)] bg-[var(--bg-card)] p-4 text-sm leading-7 text-[var(--text-primary)] whitespace-pre-wrap wrap-break-word md:max-h-[min(55dvh,32rem)]">
+            {transcript.text ? renderDiffTokens(transcript.text, { current: 0 }, changedWords, side) : "Transcript is empty."}
         </div>
     );
 }
@@ -807,7 +902,7 @@ function formatTimestamp(seconds: number) {
         return `${hours}:${minutes.toString().padStart(2, "0")}:${remainingSeconds.toString().padStart(2, "0")}`;
     }
 
-    return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+    return `${minutes.toString().padStart(2, "0")}:${remainingSeconds.toString().padStart(2, "0")}`;
 }
 
 function ActiveBadge() {

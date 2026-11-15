@@ -1,16 +1,11 @@
 import { useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { useQueryClient } from "@tanstack/react-query";
 import { TranscriptView } from "@/components/transcript/TranscriptView";
-import { useNotes, useCreateNote, useUpdateNote, useDeleteNote } from "@/features/transcription/hooks/useTranscriptionNotes";
+import { useNotes, useCreateNote } from "@/features/transcription/hooks/useTranscriptionNotes";
 import { useSelectionMenu } from "@/features/transcription/hooks/useSelectionMenu";
-import SpeakerRenameDialog from "./SpeakerRenameDialog";
-import { NotesSidebar } from "./NotesSidebar";
 import { TranscriptSelectionMenu } from "./TranscriptSelectionMenu";
 import { NoteEditorDialog } from "./NoteEditorDialog";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { useIsDesktop } from "@/hooks/useIsDesktop";
-import { X, StickyNote } from "lucide-react";
 import { computeWordOffsets } from "@/features/transcription/hooks/useKaraokeHighlight";
 import type { Transcript } from "@/features/transcription/hooks/useAudioDetail";
 import { cn } from "@/lib/utils";
@@ -26,10 +21,7 @@ interface TranscriptSectionProps {
     speakerMappings: Record<string, string>;
     transcriptMode: 'compact' | 'expanded';
     autoScrollEnabled: boolean;
-    notesOpen: boolean;
     setNotesOpen: (open: boolean) => void;
-    speakerRenameOpen: boolean;
-    setSpeakerRenameOpen: (open: boolean) => void;
 }
 
 export function TranscriptSection({
@@ -42,21 +34,14 @@ export function TranscriptSection({
     speakerMappings,
     transcriptMode,
     autoScrollEnabled,
-    notesOpen,
     setNotesOpen,
-    speakerRenameOpen,
-    setSpeakerRenameOpen,
     className
 }: TranscriptSectionProps & { className?: string }) {
-    const isMobile = useIsMobile();
     const isDesktop = useIsDesktop();
-    const queryClient = useQueryClient();
 
     // Data hooks
     const { data: notes = [] } = useNotes(audioId);
     const { mutate: createNote } = useCreateNote(audioId);
-    const { mutateAsync: updateNote } = useUpdateNote(audioId);
-    const { mutateAsync: deleteNote } = useDeleteNote(audioId);
 
     // Refs
     const transcriptRef = useRef<HTMLDivElement>(null);
@@ -115,19 +100,6 @@ export function TranscriptSection({
         el.addEventListener('click', onClick);
         return () => el.removeEventListener('click', onClick);
     }, [onSeek, isDesktop]);
-
-    // Helpers
-    const getDetectedSpeakers = () => {
-        // Safe check for segments array
-        if (!transcript?.segments) return [];
-        const speakers = new Set<string>();
-        // Using any for segment here if strict typing is an issue, or typed via Transcript
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        transcript.segments.forEach((segment: any) => {
-            if (segment.speaker) speakers.add(segment.speaker);
-        });
-        return Array.from(speakers).sort();
-    };
 
     const handleSaveNote = (content: string) => {
         if (menuState) {
@@ -193,16 +165,6 @@ export function TranscriptSection({
                 </div>
             </div>
 
-            {/* Speaker Rename Dialog */}
-            <SpeakerRenameDialog
-                open={speakerRenameOpen}
-                onOpenChange={setSpeakerRenameOpen}
-                transcriptionId={audioId}
-                initialSpeakers={getDetectedSpeakers()}
-                onSpeakerMappingsUpdate={() => {
-                    queryClient.invalidateQueries({ queryKey: ["speakerMappings", audioId] });
-                }}
-            />
             {/* Portals */}
             {createPortal(
                 <>
@@ -223,42 +185,6 @@ export function TranscriptSection({
                         onSave={handleSaveNote}
                         onCancel={closeEditor}
                     />
-
-                    {/* Notes Sidebar - Premium Drawer */}
-                    {notesOpen && (
-                        <div className="fixed inset-y-0 right-0 w-[90vw] max-w-[400px] bg-[var(--bg-card)] border-l border-[var(--border-subtle)] shadow-[var(--shadow-float)] z-[9990] transition-transform duration-300 transform-gpu">
-                            <div className="h-full flex flex-col">
-                                <div className="px-6 py-5 border-b border-[var(--border-subtle)] flex items-center justify-between">
-                                    <h3 className="font-bold text-[var(--text-primary)] flex items-center gap-2 text-lg">
-                                        <StickyNote className="h-5 w-5 text-[var(--brand-solid)]" />
-                                        Notes
-                                        <span className="ml-1 text-xs font-bold rounded-full px-2 py-0.5 bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--border-subtle)]">
-                                            {notes.length}
-                                        </span>
-                                    </h3>
-                                    <button
-                                        type="button"
-                                        onClick={() => setNotesOpen(false)}
-                                        className="h-8 w-8 inline-flex items-center justify-center rounded-[var(--radius-btn)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)] transition-colors"
-                                        aria-label="Close notes"
-                                    >
-                                        <X className="h-5 w-5" />
-                                    </button>
-                                </div>
-                                <div className="flex-1 overflow-y-auto px-6 py-4">
-                                    <NotesSidebar
-                                        notes={notes}
-                                        onEdit={(id, content) => updateNote({ id, content })}
-                                        onDelete={(id) => deleteNote(id)}
-                                        onJumpTo={(t) => {
-                                            onSeek(t);
-                                            if (isMobile) setNotesOpen(false);
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </>,
                 document.body
             )}
