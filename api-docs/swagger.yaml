@@ -753,6 +753,29 @@ definitions:
     - files
     - kind
     type: object
+  api.createUploadSessionResponse:
+    properties:
+      chunk_size:
+        type: integer
+      expires_at:
+        type: string
+      files:
+        items:
+          $ref: '#/definitions/api.uploadSessionFileStatus'
+        type: array
+      id:
+        type: string
+      kind:
+        $ref: '#/definitions/models.UploadSessionKind'
+      result_id:
+        type: string
+      status:
+        $ref: '#/definitions/models.UploadSessionStatus'
+      token:
+        type: string
+    required:
+    - token
+    type: object
   api.killJobRequest:
     properties:
       queue_item_id:
@@ -821,8 +844,6 @@ definitions:
         type: string
       status:
         $ref: '#/definitions/models.UploadSessionStatus'
-      token:
-        type: string
     type: object
   modeldownloads.Job:
     properties:
@@ -5449,7 +5470,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.uploadSessionResponse'
+            $ref: '#/definitions/api.createUploadSessionResponse'
         "400":
           description: Bad Request
           schema:

@@ -1100,6 +1100,41 @@
         ],
         "type": "object"
       },
+      "api.createUploadSessionResponse": {
+        "properties": {
+          "chunk_size": {
+            "type": "integer"
+          },
+          "expires_at": {
+            "type": "string"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/api.uploadSessionFileStatus"
+            },
+            "type": "array"
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/models.UploadSessionKind"
+          },
+          "result_id": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/models.UploadSessionStatus"
+          },
+          "token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "type": "object"
+      },
       "api.killJobRequest": {
         "properties": {
           "queue_item_id": {
@@ -1200,9 +1235,6 @@
           },
           "status": {
             "$ref": "#/components/schemas/models.UploadSessionStatus"
-          },
-          "token": {
-            "type": "string"
           }
         },
         "type": "object"
@@ -7000,7 +7032,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/api.uploadSessionResponse"
+                  "$ref": "#/components/schemas/api.createUploadSessionResponse"
                 }
               }
             },

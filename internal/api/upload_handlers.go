@@ -54,11 +54,15 @@ type uploadSessionFileInput struct {
 	LastModified int64                 `json:"last_modified"`
 }
 
+type createUploadSessionResponse struct {
+	uploadSessionResponse
+	Token string `json:"token" validate:"required"`
+}
+
 type uploadSessionResponse struct {
 	ID        string                     `json:"id"`
 	Kind      models.UploadSessionKind   `json:"kind"`
 	Status    models.UploadSessionStatus `json:"status"`
-	Token     string                     `json:"token,omitempty"`
 	ChunkSize int64                      `json:"chunk_size"`
 	ExpiresAt time.Time                  `json:"expires_at"`
 	ResultID  *string                    `json:"result_id,omitempty"`
@@ -85,7 +89,7 @@ type uploadSessionFileStatus struct {
 // @Accept json
 // @Produce json
 // @Param session body createUploadSessionRequest true "Upload kind, files and optional run settings"
-// @Success 200 {object} uploadSessionResponse
+// @Success 200 {object} createUploadSessionResponse
 // @Failure 400 {object} map[string]string
 // @Failure 429 {object} map[string]string
 // @Router /api/v1/transcription/uploads [post]
@@ -209,7 +213,10 @@ func (h *Handler) CreateUploadSession(c *gin.Context) {
 	}
 
 	session.Files = files
-	c.JSON(http.StatusOK, buildUploadSessionResponse(session, token))
+	c.JSON(http.StatusOK, createUploadSessionResponse{
+		uploadSessionResponse: buildUploadSessionResponse(session),
+		Token:                 token,
+	})
 }
 
 // GetUploadSession returns resumable upload progress for a session.
@@ -230,7 +237,7 @@ func (h *Handler) GetUploadSession(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, buildUploadSessionResponse(*session, ""))
+	c.JSON(http.StatusOK, buildUploadSessionResponse(*session))
 }
 
 // UploadChunk accepts one raw file chunk.
@@ -603,7 +610,7 @@ func ensureSessionWritable(session models.UploadSession) error {
 	return nil
 }
 
-func buildUploadSessionResponse(session models.UploadSession, token string) uploadSessionResponse {
+func buildUploadSessionResponse(session models.UploadSession) uploadSessionResponse {
 	files := make([]uploadSessionFileStatus, 0, len(session.Files))
 	for _, file := range session.Files {
 		accepted, _ := parseChunkList(file.ReceivedChunks)
@@ -624,7 +631,6 @@ func buildUploadSessionResponse(session models.UploadSession, token string) uplo
 		ID:        session.ID,
 		Kind:      session.Kind,
 		Status:    session.Status,
-		Token:     token,
 		ChunkSize: session.ChunkSize,
 		ExpiresAt: session.ExpiresAt,
 		ResultID:  session.ResultID,

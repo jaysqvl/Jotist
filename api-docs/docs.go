@@ -3457,7 +3457,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.uploadSessionResponse"
+                            "$ref": "#/definitions/api.createUploadSessionResponse"
                         }
                     },
                     "400": {
@@ -7067,6 +7067,41 @@ const docTemplate = `{
                 }
             }
         },
+        "api.createUploadSessionResponse": {
+            "type": "object",
+            "required": [
+                "token"
+            ],
+            "properties": {
+                "chunk_size": {
+                    "type": "integer"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.uploadSessionFileStatus"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "$ref": "#/definitions/models.UploadSessionKind"
+                },
+                "result_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/models.UploadSessionStatus"
+                },
+                "token": {
+                    "type": "string"
+                }
+            }
+        },
         "api.killJobRequest": {
             "type": "object",
             "properties": {
@@ -7168,9 +7203,6 @@ const docTemplate = `{
                 },
                 "status": {
                     "$ref": "#/definitions/models.UploadSessionStatus"
-                },
-                "token": {
-                    "type": "string"
                 }
             }
         },

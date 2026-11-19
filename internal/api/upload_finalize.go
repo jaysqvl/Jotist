@@ -152,7 +152,7 @@ func (h *Handler) respondWithCompletedUpload(c *gin.Context, session *models.Upl
 			return
 		}
 	}
-	c.JSON(http.StatusOK, buildUploadSessionResponse(*session, ""))
+	c.JSON(http.StatusOK, buildUploadSessionResponse(*session))
 }
 
 // persistUploadedJob binds resumable sessions in the same transaction as the

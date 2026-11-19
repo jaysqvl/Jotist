@@ -36,7 +36,7 @@ docs: ## Generate the API package and project-site specifications
 	./scripts/generate-api-docs.sh
 
 docs-clean: ## Remove generated API specifications
-	rm -f api-docs/docs.go api-docs/swagger.json api-docs/swagger.yaml
+	rm -f api-docs/docs.go api-docs/swagger.json api-docs/swagger.yaml api-docs/openapi.json
 	rm -f web/project-site/public/api/swagger.json web/project-site/public/api/undocumented.json
 
 website-dev: docs ## Run the project website in Vite
