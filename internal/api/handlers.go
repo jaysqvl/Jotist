@@ -378,7 +378,8 @@ func (h *Handler) UploadVideo(c *gin.Context) {
 // @Accept multipart/form-data
 // @Produce json
 // @Param title formData string false "Job title"
-// @Param files formData file true "Audio track files" multiple
+// @Param files formData file true "Audio track files. Repeat this field for each track." extensions(x-repeatable)
+// @Param aup formData file true "Audacity .aup project file"
 // @Success 200 {object} models.TranscriptionJob
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
@@ -659,6 +660,7 @@ func (h *Handler) SubmitJob(c *gin.Context) {
 
 // @Summary Get job status
 // @Description Get the current status of a transcription job
+// @Description Example response fields `{"id":"RECORDING_ID","title":"Library opening","status":"completed"}`
 // @Tags transcription
 // @Produce json
 // @Param id path string true "Job ID"
@@ -685,9 +687,12 @@ func (h *Handler) GetJobStatus(c *gin.Context) {
 
 // @Summary Get transcript
 // @Description Get the transcript for a completed transcription job
+// @Description Example response fields `{"job_id":"RECORDING_ID","status":"completed","available":true,"transcript":{"text":"The library opens at nine."}}`
+// @Description If a transcript is unavailable, the response contains `"available":false` and `"transcript":null`.
 // @Tags transcription
 // @Produce json
 // @Param id path string true "Job ID"
+// @Param read_only query bool false "Read the saved transcript without backfilling legacy run history"
 // @Success 200 {object} map[string]interface{}
 // @Failure 404 {object} map[string]string
 // @Failure 400 {object} map[string]string
@@ -695,6 +700,13 @@ func (h *Handler) GetJobStatus(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Security BearerAuth
 func (h *Handler) GetTranscript(c *gin.Context) {
+	var query struct {
+		ReadOnly bool `form:"read_only"`
+	}
+	if err := c.ShouldBindQuery(&query); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "read_only must be a boolean"})
+		return
+	}
 	jobID := c.Param("id")
 
 	job, err := h.jobRepo.FindByID(c.Request.Context(), jobID)
@@ -707,9 +719,11 @@ func (h *Handler) GetTranscript(c *gin.Context) {
 		return
 	}
 
-	if err := h.preserveCurrentRunSnapshot(c.Request.Context(), job); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to prepare active transcript"})
-		return
+	if !query.ReadOnly {
+		if err := h.preserveCurrentRunSnapshot(c.Request.Context(), job); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to prepare active transcript"})
+			return
+		}
 	}
 
 	if activeExecution, activePinned, err := h.resolveActiveExecution(c.Request.Context(), job); err == nil && activeExecution.Transcript != nil {
@@ -789,14 +803,14 @@ func (h *Handler) GetTranscript(c *gin.Context) {
 }
 
 // @Summary List all transcription records
-// @Description Get a list of all transcription jobs with optional search and filtering
+// @Description List recordings with pagination and optional search.
+// @Description Example response fields `{"jobs":[{"id":"RECORDING_ID","title":"Library opening","status":"completed"}],"pagination":{"page":1,"limit":10,"total":1,"pages":1}}`
 // @Tags transcription
 // @Produce json
 // @Param page query int false "Page number" default(1)
 // @Param limit query int false "Items per page" default(10)
 // @Param sort_by query string false "Sort By"
 // @Param sort_order query string false "Sort Order (asc/desc)"
-// @Param status query string false "Filter by status"
 // @Param q query string false "Search in title and audio filename"
 // @Param updated_after query string false "Filter by updated_at > timestamp (RFC3339)"
 // @Success 200 {object} map[string]interface{}
@@ -1889,7 +1903,7 @@ func (h *Handler) ChangeUsername(c *gin.Context) {
 // @Produce json
 // @Success 200 {object} APIKeysWrapper
 // @Security BearerAuth
-// @Router /api/v1/api-keys [get]
+// @Router /api/v1/api-keys/ [get]
 func (h *Handler) ListAPIKeys(c *gin.Context) {
 	apiKeys, err := h.apiKeyRepo.ListActive(c.Request.Context())
 	if err != nil {
@@ -1915,7 +1929,7 @@ func (h *Handler) ListAPIKeys(c *gin.Context) {
 // @Success 201 {object} CreateAPIKeyResponse
 // @Failure 400 {object} map[string]string
 // @Security BearerAuth
-// @Router /api/v1/api-keys [post]
+// @Router /api/v1/api-keys/ [post]
 func (h *Handler) CreateAPIKey(c *gin.Context) {
 	var req CreateAPIKeyRequest
 	if err := bindJSON(c, &req); err != nil {
@@ -2267,7 +2281,7 @@ func getFormBoolWithDefault(c *gin.Context, key string, defaultValue bool) bool 
 // @Tags profiles
 // @Produce json
 // @Success 200 {array} models.TranscriptionProfile
-// @Router /api/v1/profiles [get]
+// @Router /api/v1/profiles/ [get]
 // @Security ApiKeyAuth
 // @Security BearerAuth
 func (h *Handler) ListProfiles(c *gin.Context) {
@@ -2288,7 +2302,7 @@ func (h *Handler) ListProfiles(c *gin.Context) {
 // @Param profile body models.TranscriptionProfile true "Profile data"
 // @Success 201 {object} models.TranscriptionProfile
 // @Failure 400 {object} map[string]string
-// @Router /api/v1/profiles [post]
+// @Router /api/v1/profiles/ [post]
 // @Security ApiKeyAuth
 // @Security BearerAuth
 func (h *Handler) CreateProfile(c *gin.Context) {
@@ -3119,11 +3133,17 @@ func (h *Handler) UpdateUserSettings(c *gin.Context) {
 }
 
 // @Summary SSE Events
-// @Description Subscribe to server-sent events
+// @Description Subscribe to server-sent events for one recording. The connection stays open for future updates.
+// @Description The first frame is `data: {"type":"connected","job_id":"RECORDING_ID"}`. Updates are data frames with a type and payload.
 // @Tags events
 // @Produce text/event-stream
-// @Success 200 {string} string "stream"
-// @Router /api/v1/events [get]
+// @Param job_id query string true "Recording ID returned by List recordings"
+// @Success 200 {string} string "Open event stream"
+// @Failure 400 {string} string "job_id is required"
+// @Failure 401 {object} map[string]string "Authentication required"
+// @Router /api/v1/events/ [get]
+// @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) Events(c *gin.Context) {
 	h.broadcaster.ServeHTTP(c.Writer, c.Request)
 }

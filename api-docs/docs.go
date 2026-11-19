@@ -140,7 +140,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/api-keys": {
+        "/api/v1/api-keys/": {
             "get": {
                 "security": [
                     {
@@ -1140,9 +1140,17 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/events": {
+        "/api/v1/events/": {
             "get": {
-                "description": "Subscribe to server-sent events",
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Subscribe to server-sent events for one recording. The connection stays open for future updates.\nThe first frame is ` + "`" + `data: {\"type\":\"connected\",\"job_id\":\"RECORDING_ID\"}` + "`" + `. Updates are data frames with a type and payload.",
                 "produces": [
                     "text/event-stream"
                 ],
@@ -1150,11 +1158,35 @@ const docTemplate = `{
                     "events"
                 ],
                 "summary": "SSE Events",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Recording ID returned by List recordings",
+                        "name": "job_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "stream",
+                        "description": "Open event stream",
                         "schema": {
                             "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "job_id is required",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Authentication required",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -1392,7 +1424,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/profiles": {
+        "/api/v1/profiles/": {
             "get": {
                 "security": [
                     {
@@ -2291,7 +2323,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/summaries": {
+        "/api/v1/summaries/": {
             "get": {
                 "security": [
                     {
@@ -2651,7 +2683,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/summarize": {
+        "/api/v1/summarize/": {
             "post": {
                 "security": [
                     {
@@ -2721,7 +2753,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get a list of all transcription jobs with optional search and filtering",
+                "description": "List recordings with pagination and optional search.\nExample response fields ` + "`" + `{\"jobs\":[{\"id\":\"RECORDING_ID\",\"title\":\"Library opening\",\"status\":\"completed\"}],\"pagination\":{\"page\":1,\"limit\":10,\"total\":1,\"pages\":1}}` + "`" + `",
                 "produces": [
                     "application/json"
                 ],
@@ -2754,12 +2786,6 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Sort Order (asc/desc)",
                         "name": "sort_order",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Filter by status",
-                        "name": "status",
                         "in": "query"
                     },
                     {
@@ -3289,8 +3315,16 @@ const docTemplate = `{
                     },
                     {
                         "type": "file",
-                        "description": "Audio track files",
+                        "x-repeatable": true,
+                        "description": "Audio track files. Repeat this field for each track.",
                         "name": "files",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Audacity .aup project file",
+                        "name": "aup",
                         "in": "formData",
                         "required": true
                     }
@@ -3377,6 +3411,380 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/transcription/uploads": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Start a resumable upload with a kind and a list of files. Save the returned upload token for chunk, completion and cancellation requests.\nAudio, quick and submit uploads require one audio file. Video requires one video file. Multitrack requires one aup file and at least one track.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "uploads"
+                ],
+                "summary": "Create an upload session",
+                "parameters": [
+                    {
+                        "description": "Upload kind, files and optional run settings",
+                        "name": "session",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.createUploadSessionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.uploadSessionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/transcription/uploads/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve each file's accepted and missing chunk indexes.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "uploads"
+                ],
+                "summary": "Get upload session progress",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Upload session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.uploadSessionResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Cancel the upload and remove its staged chunks.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "uploads"
+                ],
+                "summary": "Cancel an upload session",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Upload session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Token from the create-session response",
+                        "name": "X-Upload-Token",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "cancelled is true",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/transcription/uploads/{id}/complete": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Assemble the uploaded chunks and create the recording or transcription job.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "uploads"
+                ],
+                "summary": "Complete an upload session",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Upload session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Token from the create-session response",
+                        "name": "X-Upload-Token",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result fields depend on the upload kind.",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/transcription/uploads/{id}/files/{file_id}/chunks/{index}": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Send the raw file bytes for one chunk. Compute the SHA-256 and Content-Range for those bytes.",
+                "consumes": [
+                    "application/octet-stream"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "uploads"
+                ],
+                "summary": "Upload a file chunk",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Upload session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "File ID from the upload session",
+                        "name": "file_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "minimum": 0,
+                        "type": "integer",
+                        "description": "Zero-based chunk index",
+                        "name": "index",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Token from the create-session response",
+                        "name": "X-Upload-Token",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Byte range in the form bytes start-end/total",
+                        "name": "Content-Range",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Hexadecimal SHA-256 of the chunk bytes",
+                        "name": "X-Chunk-SHA256",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Raw chunk bytes",
+                        "name": "chunk",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "accepted is true for a stored chunk. duplicate is true for a retry.",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -5025,7 +5433,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get the current status of a transcription job",
+                "description": "Get the current status of a transcription job\nExample response fields ` + "`" + `{\"id\":\"RECORDING_ID\",\"title\":\"Library opening\",\"status\":\"completed\"}` + "`" + `",
                 "produces": [
                     "application/json"
                 ],
@@ -5256,7 +5664,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get the transcript for a completed transcription job",
+                "description": "Get the transcript for a completed transcription job\nExample response fields ` + "`" + `{\"job_id\":\"RECORDING_ID\",\"status\":\"completed\",\"available\":true,\"transcript\":{\"text\":\"The library opens at nine.\"}}` + "`" + `\nIf a transcript is unavailable, the response contains ` + "`" + `\"available\":false` + "`" + ` and ` + "`" + `\"transcript\":null` + "`" + `.",
                 "produces": [
                     "application/json"
                 ],
@@ -5271,6 +5679,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Read the saved transcript without backfilling legacy run history",
+                        "name": "read_only",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -6626,10 +7040,136 @@ const docTemplate = `{
                 }
             }
         },
+        "api.createUploadSessionRequest": {
+            "type": "object",
+            "required": [
+                "files",
+                "kind"
+            ],
+            "properties": {
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.uploadSessionFileInput"
+                    }
+                },
+                "kind": {
+                    "$ref": "#/definitions/models.UploadSessionKind"
+                },
+                "parameters": {
+                    "type": "object"
+                },
+                "profile_name": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
         "api.killJobRequest": {
             "type": "object",
             "properties": {
                 "queue_item_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.uploadSessionFileInput": {
+            "type": "object",
+            "required": [
+                "name",
+                "role",
+                "size"
+            ],
+            "properties": {
+                "content_type": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "last_modified": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "role": {
+                    "$ref": "#/definitions/models.UploadFileRole"
+                },
+                "size": {
+                    "type": "integer",
+                    "minimum": 1
+                }
+            }
+        },
+        "api.uploadSessionFileStatus": {
+            "type": "object",
+            "properties": {
+                "accepted_chunks": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "chunk_count": {
+                    "type": "integer"
+                },
+                "content_type": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "missing_chunks": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "received_bytes": {
+                    "type": "integer"
+                },
+                "role": {
+                    "$ref": "#/definitions/models.UploadFileRole"
+                },
+                "size": {
+                    "type": "integer"
+                }
+            }
+        },
+        "api.uploadSessionResponse": {
+            "type": "object",
+            "properties": {
+                "chunk_size": {
+                    "type": "integer"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.uploadSessionFileStatus"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "$ref": "#/definitions/models.UploadSessionKind"
+                },
+                "result_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/models.UploadSessionStatus"
+                },
+                "token": {
                     "type": "string"
                 }
             }
@@ -7893,6 +8433,51 @@ const docTemplate = `{
                 "QueueStatusCompleted",
                 "QueueStatusFailed",
                 "QueueStatusCancelled"
+            ]
+        },
+        "models.UploadFileRole": {
+            "type": "string",
+            "enum": [
+                "audio",
+                "video",
+                "aup",
+                "track"
+            ],
+            "x-enum-varnames": [
+                "UploadFileRoleAudio",
+                "UploadFileRoleVideo",
+                "UploadFileRoleAup",
+                "UploadFileRoleTrack"
+            ]
+        },
+        "models.UploadSessionKind": {
+            "type": "string",
+            "enum": [
+                "audio",
+                "video",
+                "quick",
+                "multitrack",
+                "submit"
+            ],
+            "x-enum-varnames": [
+                "UploadKindAudio",
+                "UploadKindVideo",
+                "UploadKindQuick",
+                "UploadKindMultiTrack",
+                "UploadKindSubmit"
+            ]
+        },
+        "models.UploadSessionStatus": {
+            "type": "string",
+            "enum": [
+                "active",
+                "completed",
+                "cancelled"
+            ],
+            "x-enum-varnames": [
+                "UploadSessionActive",
+                "UploadSessionCompleted",
+                "UploadSessionCancelled"
             ]
         },
         "models.WhisperXParams": {

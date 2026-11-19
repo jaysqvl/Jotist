@@ -34,7 +34,7 @@ type SummarizeRequest struct {
 // @Failure 500 {object} map[string]string
 // @Security ApiKeyAuth
 // @Security BearerAuth
-// @Router /api/v1/summarize [post]
+// @Router /api/v1/summarize/ [post]
 func (h *Handler) Summarize(c *gin.Context) {
 	var req SummarizeRequest
 	if err := bindJSON(c, &req); err != nil {

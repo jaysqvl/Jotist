@@ -1,6 +1,7 @@
 package api
 
 import (
+	docs "github.com/jaysqvl/Jotist/api-docs"
 	"github.com/jaysqvl/Jotist/internal/auth"
 	"github.com/jaysqvl/Jotist/internal/web"
 	"github.com/jaysqvl/Jotist/pkg/logger"
@@ -87,6 +88,8 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 	// API v1 routes
 	v1 := router.Group("/api/v1")
 	{
+		v1.GET("/docs/spec", privateNoStore, middleware.JWTOnlyMiddleware(authService), gin.WrapF(docs.ServeSpecification))
+
 		modelFiles := v1.Group("/settings/models", middleware.JWTOnlyMiddleware(authService))
 		modelFiles.GET("", handler.GetModelStorage)
 		modelFiles.GET("/events", handler.ModelStorageEvents)
@@ -144,8 +147,17 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 		}
 
 		// Transcription routes (require authentication)
+		transcriptionAuth := middleware.AuthMiddleware(authService)
+		// Apply the cache policy before authentication so denied requests also
+		// carry it. These routes are also used in the signed-in API reference.
+		privateReads := v1.Group("/transcription", privateNoStore, transcriptionAuth, handler.syncBrowserAccessCookie)
+		privateReads.GET("/models", handler.GetSupportedModels)
+		privateReads.GET("/list", handler.ListTranscriptionJobs)
+		privateReads.GET("/:id/status", handler.GetJobStatus)
+		privateReads.GET("/:id/transcript", handler.GetTranscript)
+
 		transcription := v1.Group("/transcription")
-		transcription.Use(middleware.AuthMiddleware(authService))
+		transcription.Use(transcriptionAuth)
 		transcription.Use(handler.syncBrowserAccessCookie)
 		{
 			// File upload routes - disable compression for these
@@ -175,8 +187,6 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			transcription.DELETE("/:id/queue/:queue_id", handler.CancelQueuedTranscriptionRun)
 			transcription.DELETE("/:id/queue", handler.ClearTranscriptionQueue)
 			transcription.GET("/:id/logs", handler.GetJobLogs)
-			transcription.GET("/:id/status", handler.GetJobStatus)
-			transcription.GET("/:id/transcript", handler.GetTranscript)
 			transcription.GET("/:id/execution", handler.GetJobExecutionData)
 			transcription.GET("/:id/runs", handler.ListJobRuns)
 			transcription.DELETE("/:id/runs/active", handler.ClearActiveRun)
@@ -192,8 +202,6 @@ func SetupRoutes(handler *Handler, authService *auth.AuthService) *gin.Engine {
 			transcription.GET("/:id/summary", handler.GetSummaryForTranscription)
 			transcription.GET("/:id", handler.GetTranscriptionJob)
 			transcription.DELETE("/:id", handler.DeleteTranscriptionJob)
-			transcription.GET("/list", handler.ListTranscriptionJobs)
-			transcription.GET("/models", handler.GetSupportedModels)
 			transcription.GET("/statistics", handler.GetRunStatistics)
 			transcription.GET("/statistics/runs", handler.GetRunHistory)
 			// Notes for a transcription

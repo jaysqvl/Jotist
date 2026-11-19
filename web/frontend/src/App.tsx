@@ -7,6 +7,7 @@ const AudioDetailView = lazy(() => import("@/features/transcription/components/A
 const Settings = lazy(() => import('@/features/settings/pages/SettingsPage').then(module => ({ default: module.Settings })))
 const CLISettings = lazy(() => import('@/features/settings/pages/CLISettingsPage').then(module => ({ default: module.CLISettings })))
 const CLIAuthConfirmation = lazy(() => import('./features/auth/components/CLIAuthConfirmation').then(module => ({ default: module.CLIAuthConfirmation })))
+const SwaggerPage = lazy(() => import('@/features/api-docs/SwaggerPage'))
 
 
 // Loading component
@@ -25,6 +26,7 @@ function App() {
 
         <Route path="/settings" element={<Settings />} />
         <Route path="/settings/cli" element={<CLISettings />} />
+        <Route path="/swagger/" element={<SwaggerPage />} />
         <Route path="/auth/cli/authorize" element={<CLIAuthConfirmation />} />
 
         {/* Fallback */}

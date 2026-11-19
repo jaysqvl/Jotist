@@ -144,7 +144,7 @@
       "method": "GET",
       "path": "/api/v1/transcription/list",
       "summary": "List all transcription records",
-      "description": "Get a list of all transcription jobs with optional search and filtering",
+      "description": "List recordings with pagination and optional search.",
       "tag": "transcription"
     },
     {
@@ -254,14 +254,14 @@
     },
     {
       "method": "GET",
-      "path": "/api/v1/api-keys",
+      "path": "/api/v1/api-keys/",
       "summary": "List API keys",
       "description": "Get all API keys for the current user (without exposing the actual keys)",
       "tag": "api-keys"
     },
     {
       "method": "POST",
-      "path": "/api/v1/api-keys",
+      "path": "/api/v1/api-keys/",
       "summary": "Create API key",
       "description": "Create a new API key for external API access",
       "tag": "api-keys"
@@ -310,14 +310,14 @@
     },
     {
       "method": "GET",
-      "path": "/api/v1/profiles",
+      "path": "/api/v1/profiles/",
       "summary": "List transcription profiles",
       "description": "Get list of all transcription profiles",
       "tag": "profiles"
     },
     {
       "method": "POST",
-      "path": "/api/v1/profiles",
+      "path": "/api/v1/profiles/",
       "summary": "Create transcription profile",
       "description": "Create a new transcription profile",
       "tag": "profiles"
@@ -401,9 +401,9 @@
     },
     {
       "method": "GET",
-      "path": "/api/v1/events",
+      "path": "/api/v1/events/",
       "summary": "SSE Events",
-      "description": "Subscribe to server-sent events",
+      "description": "Subscribe to server-sent events for one recording. The connection stays open for future updates.",
       "tag": "events"
     },
     {
@@ -681,7 +681,7 @@
     },
     {
       "method": "POST",
-      "path": "/api/v1/summarize",
+      "path": "/api/v1/summarize/",
       "summary": "Summarize content",
       "description": "Stream an LLM-generated summary for provided content; persists latest summary for the transcription",
       "tag": "summarize"
@@ -695,14 +695,14 @@
     },
     {
       "method": "GET",
-      "path": "/api/v1/summaries",
+      "path": "/api/v1/summaries/",
       "summary": "List summarization templates",
       "description": "Get all summarization templates",
       "tag": "summaries"
     },
     {
       "method": "POST",
-      "path": "/api/v1/summaries",
+      "path": "/api/v1/summaries/",
       "summary": "Create summarization template",
       "description": "Create a new summarization template",
       "tag": "summaries"
@@ -741,6 +741,41 @@
       "summary": "Save summary settings",
       "description": "Create or update global summarization settings",
       "tag": "summaries"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/transcription/uploads",
+      "summary": "Create an upload session",
+      "description": "Start a resumable upload with a kind and a list of files. Save the returned upload token for chunk, completion and cancellation requests.",
+      "tag": "uploads"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/transcription/uploads/{id}",
+      "summary": "Get upload session progress",
+      "description": "Retrieve each file's accepted and missing chunk indexes.",
+      "tag": "uploads"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/transcription/uploads/{id}/files/{file_id}/chunks/{index}",
+      "summary": "Upload a file chunk",
+      "description": "Send the raw file bytes for one chunk. Compute the SHA-256 and Content-Range for those bytes.",
+      "tag": "uploads"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/transcription/uploads/{id}/complete",
+      "summary": "Complete an upload session",
+      "description": "Assemble the uploaded chunks and create the recording or transcription job.",
+      "tag": "uploads"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/transcription/uploads/{id}",
+      "summary": "Cancel an upload session",
+      "description": "Cancel the upload and remove its staged chunks.",
+      "tag": "uploads"
     }
   ]
 }

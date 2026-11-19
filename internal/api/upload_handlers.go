@@ -38,19 +38,19 @@ const (
 )
 
 type createUploadSessionRequest struct {
-	Kind           models.UploadSessionKind `json:"kind"`
+	Kind           models.UploadSessionKind `json:"kind" validate:"required"`
 	Title          string                   `json:"title"`
 	ProfileName    string                   `json:"profile_name"`
-	ParametersJSON json.RawMessage          `json:"parameters,omitempty"`
-	Files          []uploadSessionFileInput `json:"files"`
+	ParametersJSON json.RawMessage          `json:"parameters,omitempty" swaggertype:"object"`
+	Files          []uploadSessionFileInput `json:"files" validate:"required"`
 }
 
 type uploadSessionFileInput struct {
 	ID           string                `json:"id"`
-	Role         models.UploadFileRole `json:"role"`
-	Name         string                `json:"name"`
+	Role         models.UploadFileRole `json:"role" validate:"required"`
+	Name         string                `json:"name" validate:"required"`
 	ContentType  string                `json:"content_type"`
-	Size         int64                 `json:"size"`
+	Size         int64                 `json:"size" validate:"required" minimum:"1"`
 	LastModified int64                 `json:"last_modified"`
 }
 
@@ -78,6 +78,19 @@ type uploadSessionFileStatus struct {
 }
 
 // CreateUploadSession starts a resumable upload session.
+// @Summary Create an upload session
+// @Description Start a resumable upload with a kind and a list of files. Save the returned upload token for chunk, completion and cancellation requests.
+// @Description Audio, quick and submit uploads require one audio file. Video requires one video file. Multitrack requires one aup file and at least one track.
+// @Tags uploads
+// @Accept json
+// @Produce json
+// @Param session body createUploadSessionRequest true "Upload kind, files and optional run settings"
+// @Success 200 {object} uploadSessionResponse
+// @Failure 400 {object} map[string]string
+// @Failure 429 {object} map[string]string
+// @Router /api/v1/transcription/uploads [post]
+// @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) CreateUploadSession(c *gin.Context) {
 	var req createUploadSessionRequest
 	if err := bindLimitedJSON(c, &req, maxUploadSessionBodyBytes); err != nil {
@@ -200,6 +213,16 @@ func (h *Handler) CreateUploadSession(c *gin.Context) {
 }
 
 // GetUploadSession returns resumable upload progress for a session.
+// @Summary Get upload session progress
+// @Description Retrieve each file's accepted and missing chunk indexes.
+// @Tags uploads
+// @Produce json
+// @Param id path string true "Upload session ID"
+// @Success 200 {object} uploadSessionResponse
+// @Failure 404 {object} map[string]string
+// @Router /api/v1/transcription/uploads/{id} [get]
+// @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) GetUploadSession(c *gin.Context) {
 	session, err := h.loadUploadSession(c.Param("id"))
 	if err != nil {
@@ -211,6 +234,26 @@ func (h *Handler) GetUploadSession(c *gin.Context) {
 }
 
 // UploadChunk accepts one raw file chunk.
+// @Summary Upload a file chunk
+// @Description Send the raw file bytes for one chunk. Compute the SHA-256 and Content-Range for those bytes.
+// @Tags uploads
+// @Accept application/octet-stream
+// @Produce json
+// @Param id path string true "Upload session ID"
+// @Param file_id path string true "File ID from the upload session"
+// @Param index path int true "Zero-based chunk index" minimum(0)
+// @Param X-Upload-Token header string true "Token from the create-session response"
+// @Param Content-Range header string true "Byte range in the form bytes start-end/total"
+// @Param X-Chunk-SHA256 header string true "Hexadecimal SHA-256 of the chunk bytes"
+// @Param chunk body string true "Raw chunk bytes"
+// @Success 200 {object} map[string]bool "accepted is true for a stored chunk. duplicate is true for a retry."
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 409 {object} map[string]string
+// @Router /api/v1/transcription/uploads/{id}/files/{file_id}/chunks/{index} [put]
+// @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) UploadChunk(c *gin.Context) {
 	session, err := h.loadUploadSession(c.Param("id"))
 	if err != nil {
@@ -310,6 +353,20 @@ func (h *Handler) UploadChunk(c *gin.Context) {
 }
 
 // CompleteUploadSession assembles all files and creates the final Jotist job.
+// @Summary Complete an upload session
+// @Description Assemble the uploaded chunks and create the recording or transcription job.
+// @Tags uploads
+// @Produce json
+// @Param id path string true "Upload session ID"
+// @Param X-Upload-Token header string true "Token from the create-session response"
+// @Success 200 {object} map[string]interface{} "Result fields depend on the upload kind."
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 409 {object} map[string]string
+// @Router /api/v1/transcription/uploads/{id}/complete [post]
+// @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) CompleteUploadSession(c *gin.Context) {
 	releaseUpload, err := h.resourceAdmission.tryAcquireUpload()
 	if err != nil {
@@ -389,6 +446,18 @@ func (h *Handler) CompleteUploadSession(c *gin.Context) {
 }
 
 // CancelUploadSession cancels an active upload and removes staged chunks.
+// @Summary Cancel an upload session
+// @Description Cancel the upload and remove its staged chunks.
+// @Tags uploads
+// @Produce json
+// @Param id path string true "Upload session ID"
+// @Param X-Upload-Token header string true "Token from the create-session response"
+// @Success 200 {object} map[string]bool "cancelled is true"
+// @Failure 401 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /api/v1/transcription/uploads/{id} [delete]
+// @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *Handler) CancelUploadSession(c *gin.Context) {
 	h.resourceAdmission.sessionMu.Lock()
 	defer h.resourceAdmission.sessionMu.Unlock()

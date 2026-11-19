@@ -35,7 +35,7 @@ type SummarySettingsResponse struct {
 // @Security ApiKeyAuth
 // @Security BearerAuth
 // @Security BearerAuth
-// @Router /api/v1/summaries [get]
+// @Router /api/v1/summaries/ [get]
 func (h *Handler) ListSummaryTemplates(c *gin.Context) {
 	// TODO: Add pagination support
 	items, _, err := h.summaryRepo.List(c.Request.Context(), 0, 1000)
@@ -59,7 +59,7 @@ func (h *Handler) ListSummaryTemplates(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Security BearerAuth
 // @Security BearerAuth
-// @Router /api/v1/summaries [post]
+// @Router /api/v1/summaries/ [post]
 func (h *Handler) CreateSummaryTemplate(c *gin.Context) {
 	var req SummaryTemplateRequest
 	if err := bindJSON(c, &req); err != nil {

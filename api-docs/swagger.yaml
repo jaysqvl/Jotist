@@ -735,9 +735,93 @@ definitions:
       revision:
         type: integer
     type: object
+  api.createUploadSessionRequest:
+    properties:
+      files:
+        items:
+          $ref: '#/definitions/api.uploadSessionFileInput'
+        type: array
+      kind:
+        $ref: '#/definitions/models.UploadSessionKind'
+      parameters:
+        type: object
+      profile_name:
+        type: string
+      title:
+        type: string
+    required:
+    - files
+    - kind
+    type: object
   api.killJobRequest:
     properties:
       queue_item_id:
+        type: string
+    type: object
+  api.uploadSessionFileInput:
+    properties:
+      content_type:
+        type: string
+      id:
+        type: string
+      last_modified:
+        type: integer
+      name:
+        type: string
+      role:
+        $ref: '#/definitions/models.UploadFileRole'
+      size:
+        minimum: 1
+        type: integer
+    required:
+    - name
+    - role
+    - size
+    type: object
+  api.uploadSessionFileStatus:
+    properties:
+      accepted_chunks:
+        items:
+          type: integer
+        type: array
+      chunk_count:
+        type: integer
+      content_type:
+        type: string
+      id:
+        type: string
+      missing_chunks:
+        items:
+          type: integer
+        type: array
+      name:
+        type: string
+      received_bytes:
+        type: integer
+      role:
+        $ref: '#/definitions/models.UploadFileRole'
+      size:
+        type: integer
+    type: object
+  api.uploadSessionResponse:
+    properties:
+      chunk_size:
+        type: integer
+      expires_at:
+        type: string
+      files:
+        items:
+          $ref: '#/definitions/api.uploadSessionFileStatus'
+        type: array
+      id:
+        type: string
+      kind:
+        $ref: '#/definitions/models.UploadSessionKind'
+      result_id:
+        type: string
+      status:
+        $ref: '#/definitions/models.UploadSessionStatus'
+      token:
         type: string
     type: object
   modeldownloads.Job:
@@ -1575,6 +1659,42 @@ definitions:
     - QueueStatusCompleted
     - QueueStatusFailed
     - QueueStatusCancelled
+  models.UploadFileRole:
+    enum:
+    - audio
+    - video
+    - aup
+    - track
+    type: string
+    x-enum-varnames:
+    - UploadFileRoleAudio
+    - UploadFileRoleVideo
+    - UploadFileRoleAup
+    - UploadFileRoleTrack
+  models.UploadSessionKind:
+    enum:
+    - audio
+    - video
+    - quick
+    - multitrack
+    - submit
+    type: string
+    x-enum-varnames:
+    - UploadKindAudio
+    - UploadKindVideo
+    - UploadKindQuick
+    - UploadKindMultiTrack
+    - UploadKindSubmit
+  models.UploadSessionStatus:
+    enum:
+    - active
+    - completed
+    - cancelled
+    type: string
+    x-enum-varnames:
+    - UploadSessionActive
+    - UploadSessionCompleted
+    - UploadSessionCancelled
   models.WhisperXParams:
     properties:
       adaptive_policy:
@@ -2060,7 +2180,7 @@ paths:
       summary: Get queue statistics
       tags:
       - admin
-  /api/v1/api-keys:
+  /api/v1/api-keys/:
     get:
       description: Get all API keys for the current user (without exposing the actual
         keys)
@@ -2694,16 +2814,37 @@ paths:
       summary: Validate OpenAI API Key
       tags:
       - config
-  /api/v1/events:
+  /api/v1/events/:
     get:
-      description: Subscribe to server-sent events
+      description: |-
+        Subscribe to server-sent events for one recording. The connection stays open for future updates.
+        The first frame is `data: {"type":"connected","job_id":"RECORDING_ID"}`. Updates are data frames with a type and payload.
+      parameters:
+      - description: Recording ID returned by List recordings
+        in: query
+        name: job_id
+        required: true
+        type: string
       produces:
       - text/event-stream
       responses:
         "200":
-          description: stream
+          description: Open event stream
           schema:
             type: string
+        "400":
+          description: job_id is required
+          schema:
+            type: string
+        "401":
+          description: Authentication required
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: SSE Events
       tags:
       - events
@@ -2852,7 +2993,7 @@ paths:
       summary: Update a note
       tags:
       - notes
-  /api/v1/profiles:
+  /api/v1/profiles/:
     get:
       description: Get list of all transcription profiles
       produces:
@@ -3402,7 +3543,7 @@ paths:
       summary: Set automatic model cache retention
       tags:
       - settings
-  /api/v1/summaries:
+  /api/v1/summaries/:
     get:
       description: Get all summarization templates
       produces:
@@ -3623,7 +3764,7 @@ paths:
       summary: Save summary settings
       tags:
       - summaries
-  /api/v1/summarize:
+  /api/v1/summarize/:
     post:
       consumes:
       - application/json
@@ -4658,7 +4799,9 @@ paths:
       - transcription
   /api/v1/transcription/{id}/status:
     get:
-      description: Get the current status of a transcription job
+      description: |-
+        Get the current status of a transcription job
+        Example response fields `{"id":"RECORDING_ID","title":"Library opening","status":"completed"}`
       parameters:
       - description: Job ID
         in: path
@@ -4802,13 +4945,20 @@ paths:
       - transcription
   /api/v1/transcription/{id}/transcript:
     get:
-      description: Get the transcript for a completed transcription job
+      description: |-
+        Get the transcript for a completed transcription job
+        Example response fields `{"job_id":"RECORDING_ID","status":"completed","available":true,"transcript":{"text":"The library opens at nine."}}`
+        If a transcript is unavailable, the response contains `"available":false` and `"transcript":null`.
       parameters:
       - description: Job ID
         in: path
         name: id
         required: true
         type: string
+      - description: Read the saved transcript without backfilling legacy run history
+        in: query
+        name: read_only
+        type: boolean
       produces:
       - application/json
       responses:
@@ -4837,7 +4987,9 @@ paths:
       - transcription
   /api/v1/transcription/list:
     get:
-      description: Get a list of all transcription jobs with optional search and filtering
+      description: |-
+        List recordings with pagination and optional search.
+        Example response fields `{"jobs":[{"id":"RECORDING_ID","title":"Library opening","status":"completed"}],"pagination":{"page":1,"limit":10,"total":1,"pages":1}}`
       parameters:
       - default: 1
         description: Page number
@@ -4856,10 +5008,6 @@ paths:
       - description: Sort Order (asc/desc)
         in: query
         name: sort_order
-        type: string
-      - description: Filter by status
-        in: query
-        name: status
         type: string
       - description: Search in title and audio filename
         in: query
@@ -5204,9 +5352,15 @@ paths:
         in: formData
         name: title
         type: string
-      - description: Audio track files
+      - description: Audio track files. Repeat this field for each track.
         in: formData
         name: files
+        required: true
+        type: file
+        x-repeatable: true
+      - description: Audacity .aup project file
+        in: formData
+        name: aup
         required: true
         type: file
       produces:
@@ -5275,6 +5429,250 @@ paths:
       summary: Upload video file for transcription
       tags:
       - transcription
+  /api/v1/transcription/uploads:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Start a resumable upload with a kind and a list of files. Save the returned upload token for chunk, completion and cancellation requests.
+        Audio, quick and submit uploads require one audio file. Video requires one video file. Multitrack requires one aup file and at least one track.
+      parameters:
+      - description: Upload kind, files and optional run settings
+        in: body
+        name: session
+        required: true
+        schema:
+          $ref: '#/definitions/api.createUploadSessionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.uploadSessionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "429":
+          description: Too Many Requests
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Create an upload session
+      tags:
+      - uploads
+  /api/v1/transcription/uploads/{id}:
+    delete:
+      description: Cancel the upload and remove its staged chunks.
+      parameters:
+      - description: Upload session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Token from the create-session response
+        in: header
+        name: X-Upload-Token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: cancelled is true
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Cancel an upload session
+      tags:
+      - uploads
+    get:
+      description: Retrieve each file's accepted and missing chunk indexes.
+      parameters:
+      - description: Upload session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.uploadSessionResponse'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Get upload session progress
+      tags:
+      - uploads
+  /api/v1/transcription/uploads/{id}/complete:
+    post:
+      description: Assemble the uploaded chunks and create the recording or transcription
+        job.
+      parameters:
+      - description: Upload session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Token from the create-session response
+        in: header
+        name: X-Upload-Token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result fields depend on the upload kind.
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Complete an upload session
+      tags:
+      - uploads
+  /api/v1/transcription/uploads/{id}/files/{file_id}/chunks/{index}:
+    put:
+      consumes:
+      - application/octet-stream
+      description: Send the raw file bytes for one chunk. Compute the SHA-256 and
+        Content-Range for those bytes.
+      parameters:
+      - description: Upload session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: File ID from the upload session
+        in: path
+        name: file_id
+        required: true
+        type: string
+      - description: Zero-based chunk index
+        in: path
+        minimum: 0
+        name: index
+        required: true
+        type: integer
+      - description: Token from the create-session response
+        in: header
+        name: X-Upload-Token
+        required: true
+        type: string
+      - description: Byte range in the form bytes start-end/total
+        in: header
+        name: Content-Range
+        required: true
+        type: string
+      - description: Hexadecimal SHA-256 of the chunk bytes
+        in: header
+        name: X-Chunk-SHA256
+        required: true
+        type: string
+      - description: Raw chunk bytes
+        in: body
+        name: chunk
+        required: true
+        schema:
+          type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: accepted is true for a stored chunk. duplicate is true for
+            a retry.
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      - BearerAuth: []
+      summary: Upload a file chunk
+      tags:
+      - uploads
   /api/v1/transcription/youtube:
     post:
       consumes:

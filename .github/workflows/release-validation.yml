@@ -35,6 +35,12 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Check generated API documentation
+        run: |
+          make docs
+          git add -A -- api-docs web/project-site/public/api
+          git diff --cached --exit-code -- api-docs web/project-site/public/api
+
       - name: Embed validated frontend
         run: make embed
 

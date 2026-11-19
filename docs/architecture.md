@@ -44,9 +44,10 @@ by adapter recipes and explicit verification commands, not a global repository
 interpreter pin.
 
 API handler annotations generate `api-docs/docs.go`, JSON, and YAML via
-`scripts/generate-api-docs.sh`. The JSON is copied to
-`web/project-site/public/api/swagger.json`. These generated specifications are
-committed together for reproducibility and are not independent source files.
+`scripts/generate-api-docs.sh`. The script copies the Swagger 2.0 JSON to
+`web/project-site/public/api/swagger.json` and converts it to OpenAPI 3 for
+the embedded reference. These generated specifications share the Go
+annotations as their source and are committed together for reproducibility.
 
 ## Behavior boundaries
 

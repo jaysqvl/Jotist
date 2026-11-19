@@ -1,9 +1,15 @@
 # Third-party source notices
 
-Jotist distributes the following compatibility sources inside its executable.
+Jotist distributes the following components inside its executable.
 Their notices apply to those components; model weights are downloaded separately
 and retain the terms of their publishers.
 
+## Swagger UI
+
+The API reference embeds the browser assets from
+[Swagger UI](https://github.com/swagger-api/swagger-ui), licensed under
+Apache-2.0. Copyright 2020–2021 SmartBear Software Inc. The API reference
+includes the upstream license, notice, and bundled JavaScript notices.
 
 ## WhisperX
 
