@@ -6,21 +6,28 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
-	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
 	"github.com/jaysqvl/Jotist/internal/models"
 	"github.com/jaysqvl/Jotist/internal/repository"
+	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func hfTokenTestHandler(t *testing.T) (*Handler, *gorm.DB, models.User) {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	// Cancellation can discard a driver connection. Keep the migrated fixture
+	// on disk so a replacement connection still sees the same database.
+	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "settings.db")), &gorm.Config{})
 	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+	t.Cleanup(func() { require.NoError(t, sqlDB.Close()) })
 	require.NoError(t, db.AutoMigrate(&models.AdaptiveProfileRevision{}, &models.AdaptiveObservation{}, &models.AdaptiveLearnedPlan{}, &models.AdaptivePlanSelection{}, &models.User{}, &models.TranscriptionProfile{}, &models.TranscriptionJob{}, &models.TranscriptionQueueItem{}))
 	user := models.User{Username: "hf-settings-test", Password: "unused", HFToken: "hf_saved_before"}
 	require.NoError(t, db.Create(&user).Error)

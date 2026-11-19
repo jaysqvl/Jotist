@@ -16,6 +16,7 @@ import (
 	"github.com/jaysqvl/Jotist/internal/models"
 	"github.com/jaysqvl/Jotist/internal/modelstorage"
 	"github.com/jaysqvl/Jotist/internal/repository"
+	"github.com/stretchr/testify/require"
 )
 
 type testModelFetcher struct {
@@ -110,7 +111,9 @@ func TestManualDownloadKeepsLeaseUntilCanceledChildExits(t *testing.T) {
 	close(f.release)
 	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) {
-		jobs, _ := h.modelDownloads.List(context.Background())
+		jobs, err := h.modelDownloads.List(context.Background())
+		require.NoError(t, err)
+		require.Len(t, jobs, 1)
 		if jobs[0].State == "canceled" && len(gate.Uses()) == 0 {
 			return
 		}
