@@ -1,12 +1,11 @@
 package api
 
 import (
-	"encoding/json"
-	"net/http/httptest"
+	"context"
 	"strings"
 	"testing"
 
-	docs "github.com/jaysqvl/Jotist/api-docs"
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/jaysqvl/Jotist/internal/auth"
 	"github.com/jaysqvl/Jotist/internal/config"
 	"github.com/stretchr/testify/require"
@@ -17,13 +16,11 @@ type specRoute struct {
 	path   string
 }
 
-// Match parameterized segments by shape. Keep the trailing slash, because
-// copied requests should reach the registered handler directly.
-func routeShape(path string) string {
-	segments := strings.Split(path, "/")
+func openAPIPath(ginPath string) string {
+	segments := strings.Split(ginPath, "/")
 	for index, segment := range segments {
-		if strings.HasPrefix(segment, ":") || (strings.HasPrefix(segment, "{") && strings.HasSuffix(segment, "}")) {
-			segments[index] = "{}"
+		if name, dynamic := strings.CutPrefix(segment, ":"); dynamic {
+			segments[index] = "{" + name + "}"
 		}
 	}
 	return strings.Join(segments, "/")
@@ -47,32 +44,23 @@ func TestAPISpecMatchesRegisteredRoutes(t *testing.T) {
 	router := SetupRoutes(handler, auth.NewAuthService("isolated-route-coverage"))
 	registered := make(map[specRoute]bool)
 	for _, route := range router.Routes() {
-		key := specRoute{route.Method, routeShape(route.Path)}
+		key := specRoute{route.Method, openAPIPath(route.Path)}
 		registered[key] = true
 	}
 
-	w := httptest.NewRecorder()
-	docs.ServeSpecification(w, httptest.NewRequest("GET", "/", nil))
-	var specification struct {
-		OpenAPI string                                `json:"openapi"`
-		Paths   map[string]map[string]json.RawMessage `json:"paths"`
-	}
-	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &specification))
-	require.True(t, strings.HasPrefix(specification.OpenAPI, "3."))
-	require.NotEmpty(t, specification.Paths)
+	specification := loadOpenAPISpec(t)
+	require.Equal(t, "3.1.0", specification.OpenAPI)
+	require.NotEmpty(t, specification.Paths.Map())
 	documented := make(map[specRoute]bool)
-	for path, operations := range specification.Paths {
-		for name := range operations {
-			switch name {
-			case "get", "post", "put", "patch", "delete", "head", "options", "trace":
-				key := specRoute{strings.ToUpper(name), routeShape(path)}
-				documented[key] = true
-				if !registered[key] {
-					t.Errorf("documented operation has no registered route: %s %s", key.method, key.path)
-				}
-				if reason := excluded[key]; reason != "" {
-					t.Errorf("remove the exclusion for documented operation %s %s: %s", key.method, key.path, reason)
-				}
+	for path, item := range specification.Paths.Map() {
+		for method := range item.Operations() {
+			key := specRoute{method, path}
+			documented[key] = true
+			if !registered[key] {
+				t.Errorf("documented operation has no registered route: %s %s", key.method, key.path)
+			}
+			if reason := excluded[key]; reason != "" {
+				t.Errorf("remove the exclusion for documented operation %s %s: %s", key.method, key.path, reason)
 			}
 		}
 	}
@@ -86,4 +74,66 @@ func TestAPISpecMatchesRegisteredRoutes(t *testing.T) {
 			t.Errorf("remove the exclusion for deleted route %s %s: %s", key.method, key.path, reason)
 		}
 	}
+}
+
+func loadOpenAPISpec(t *testing.T) *openapi3.T {
+	t.Helper()
+	data, err := OpenAPISpec()
+	require.NoError(t, err)
+	spec, err := openapi3.NewLoader().LoadFromData(data)
+	require.NoError(t, err)
+	return spec
+}
+
+func TestOpenAPIContract(t *testing.T) {
+	spec := loadOpenAPISpec(t)
+	require.NoError(t, spec.Validate(context.Background()))
+
+	events := spec.Paths.Find("/api/v1/events/").Get
+	require.Len(t, events.Parameters, 1)
+	require.Equal(t, "job_id", events.Parameters[0].Value.Name)
+	require.True(t, events.Parameters[0].Value.Required)
+	require.Contains(t, events.Responses.Status(200).Value.Content, "text/event-stream")
+	require.Contains(t, events.Responses.Status(400).Value.Content, "text/plain")
+
+	multitrack := spec.Paths.Find("/api/v1/transcription/upload-multitrack").Post.RequestBody.Value
+	require.True(t, multitrack.Required)
+	parts := multitrack.Content["multipart/form-data"].Schema.Value
+	require.ElementsMatch(t, []string{"aup", "files"}, parts.Required)
+	require.Equal(t, "binary", parts.Properties["aup"].Value.Format)
+	tracks := parts.Properties["files"].Value
+	require.True(t, tracks.Type.Is("array"))
+	require.EqualValues(t, 1, tracks.MinItems)
+	require.Equal(t, "binary", tracks.Items.Value.Format)
+
+	chunk := spec.Paths.Find("/api/v1/transcription/uploads/{id}/files/{file_id}/chunks/{index}").Put
+	require.True(t, chunk.RequestBody.Value.Required)
+	require.Len(t, chunk.RequestBody.Value.Content, 1)
+	require.Equal(t, "binary", chunk.RequestBody.Value.Content["application/octet-stream"].Schema.Value.Format)
+
+	create := spec.Paths.Find("/api/v1/transcription/uploads").Post.Responses.Status(200).Value.Content["application/json"].Schema.Value
+	require.Contains(t, create.Required, "token")
+	progress := spec.Paths.Find("/api/v1/transcription/uploads/{id}").Get.Responses.Status(200).Value.Content["application/json"].Schema.Value
+	require.NotContains(t, progress.Properties, "token")
+
+	settings := spec.Paths.Find("/api/v1/user/settings").Get
+	require.Equal(t, openapi3.SecurityRequirements{{"BearerAuth": {}}}, *settings.Security)
+	require.Equal(t, openapi3.SecurityRequirements{{"ApiKeyAuth": {}}, {"BearerAuth": {}}}, *events.Security)
+
+	createProfile := spec.Paths.Find("/api/v1/profiles/").Post
+	require.NotNil(t, createProfile.Responses.Status(200))
+	require.Contains(t, createProfile.RequestBody.Value.Content["application/json"].Schema.Value.Required, "name")
+	updateProfile := spec.Paths.Find("/api/v1/profiles/{id}").Put.RequestBody.Value.Content["application/json"].Schema.Value
+	require.Contains(t, updateProfile.Required, "name")
+	require.NotContains(t, updateProfile.Required, "expected_revision")
+	require.NotNil(t, updateProfile.Properties["expected_revision"])
+
+	queue := spec.Paths.Find("/api/v1/transcription/{id}/queue").Post.RequestBody.Value.Content["application/json"].Schema.Value
+	require.Error(t, queue.VisitJSON(map[string]any{}, openapi3.EnableJSONSchema2020()))
+	require.Error(t, queue.VisitJSON(map[string]any{"profile_id": " "}, openapi3.EnableJSONSchema2020()))
+	require.NoError(t, queue.VisitJSON(map[string]any{"profile_id": "saved-profile"}, openapi3.EnableJSONSchema2020()))
+	require.NoError(t, queue.VisitJSON(map[string]any{"parameters": map[string]any{}}, openapi3.EnableJSONSchema2020()))
+	reorder := spec.Paths.Find("/api/v1/transcription/{id}/queue/order").Put.RequestBody.Value.Content["application/json"].Schema.Value
+	require.Contains(t, reorder.Required, "ordered_ids")
+	require.NoError(t, reorder.VisitJSON(map[string]any{"ordered_ids": []any{}}, openapi3.EnableJSONSchema2020()))
 }

@@ -15,10 +15,10 @@ import (
 // NoteCreateRequest is the payload for creating a note
 type NoteCreateRequest struct {
 	// Use gte=0 so 0 is valid (first word/time); avoid 'required' which fails for zero values
-	StartWordIndex int     `json:"start_word_index" binding:"gte=0"`
-	EndWordIndex   int     `json:"end_word_index" binding:"gte=0"`
-	StartTime      float64 `json:"start_time" binding:"gte=0"`
-	EndTime        float64 `json:"end_time" binding:"gte=0"`
+	StartWordIndex int     `json:"start_word_index" binding:"gte=0" required:"false"`
+	EndWordIndex   int     `json:"end_word_index" binding:"gte=0" required:"false"`
+	StartTime      float64 `json:"start_time" binding:"gte=0" required:"false"`
+	EndTime        float64 `json:"end_time" binding:"gte=0" required:"false"`
 	Quote          string  `json:"quote" binding:"required,min=1"`
 	Content        string  `json:"content" binding:"required,min=1"`
 }
@@ -29,17 +29,6 @@ type NoteUpdateRequest struct {
 }
 
 // ListNotes returns all notes for a transcription
-// @Summary List notes for a transcription
-// @Description Get all notes attached to a transcription, ordered by time and creation
-// @Tags notes
-// @Produce json
-// @Param id path string true "Transcription ID"
-// @Success 200 {array} models.Note
-// @Failure 400 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Security ApiKeyAuth
-// @Security BearerAuth
-// @Router /api/v1/transcription/{id}/notes [get]
 func (h *Handler) ListNotes(c *gin.Context) {
 	transcriptionID := c.Param("id")
 	if transcriptionID == "" {
@@ -68,19 +57,6 @@ func (h *Handler) ListNotes(c *gin.Context) {
 }
 
 // CreateNote stores a new note for a transcription
-// @Summary Create a note for a transcription
-// @Description Create a new note attached to the specified transcription
-// @Tags notes
-// @Accept json
-// @Produce json
-// @Param id path string true "Transcription ID"
-// @Param request body NoteCreateRequest true "Note create payload"
-// @Success 201 {object} models.Note
-// @Failure 400 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Security ApiKeyAuth
-// @Security BearerAuth
-// @Router /api/v1/transcription/{id}/notes [post]
 func (h *Handler) CreateNote(c *gin.Context) {
 	transcriptionID := c.Param("id")
 	if transcriptionID == "" {
@@ -145,16 +121,6 @@ func (h *Handler) CreateNote(c *gin.Context) {
 }
 
 // GetNote returns a note by ID
-// @Summary Get a note
-// @Description Get a note by its ID
-// @Tags notes
-// @Produce json
-// @Param note_id path string true "Note ID"
-// @Success 200 {object} models.Note
-// @Failure 404 {object} map[string]string
-// @Security ApiKeyAuth
-// @Security BearerAuth
-// @Router /api/v1/notes/{note_id} [get]
 func (h *Handler) GetNote(c *gin.Context) {
 	noteID := c.Param("note_id")
 	n, err := h.noteRepo.FindByID(c.Request.Context(), noteID)
@@ -170,19 +136,6 @@ func (h *Handler) GetNote(c *gin.Context) {
 }
 
 // UpdateNote updates the content of an existing note
-// @Summary Update a note
-// @Description Update the content of a note
-// @Tags notes
-// @Accept json
-// @Produce json
-// @Param note_id path string true "Note ID"
-// @Param request body NoteUpdateRequest true "Note update payload"
-// @Success 200 {object} models.Note
-// @Failure 400 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Security ApiKeyAuth
-// @Security BearerAuth
-// @Router /api/v1/notes/{note_id} [put]
 func (h *Handler) UpdateNote(c *gin.Context) {
 	noteID := c.Param("note_id")
 	var req NoteUpdateRequest
@@ -213,15 +166,6 @@ func (h *Handler) UpdateNote(c *gin.Context) {
 }
 
 // DeleteNote removes a note by ID
-// @Summary Delete a note
-// @Description Delete a note by its ID
-// @Tags notes
-// @Produce json
-// @Param note_id path string true "Note ID"
-// @Success 204 {string} string "No Content"
-// @Failure 500 {object} map[string]string
-// @Security ApiKeyAuth
-// @Router /api/v1/notes/{note_id} [delete]
 func (h *Handler) DeleteNote(c *gin.Context) {
 	noteID := c.Param("note_id")
 	if err := h.noteRepo.Delete(c.Request.Context(), noteID); err != nil {

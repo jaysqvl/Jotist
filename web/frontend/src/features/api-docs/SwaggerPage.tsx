@@ -7,7 +7,10 @@ import { useTheme } from '@/contexts/ThemeContext';
 import swaggerLicense from 'swagger-ui-dist/LICENSE?raw';
 import swaggerNotice from 'swagger-ui-dist/NOTICE?raw';
 import bundleNotices from 'swagger-ui-dist/swagger-ui-bundle.js.LICENSE.txt?url';
-import { swaggerDocument } from './swaggerDocument';
+import swaggerBundle from 'swagger-ui-dist/swagger-ui-bundle.js?url';
+import swaggerStyles from 'swagger-ui-dist/swagger-ui.css?url';
+import frameScript from '../../../../shared/api-docs/swagger-frame.js?url';
+import { swaggerDocument } from '../../../../shared/api-docs/swaggerDocument';
 import { SwaggerExamples } from './SwaggerExamples';
 
 const specPath = '/api/v1/docs/spec';
@@ -39,7 +42,13 @@ export default function SwaggerPage() {
                     throw new Error('Invalid API specification');
                 }
                 if (!request.signal.aborted) {
-                    setFrame(swaggerDocument(spec, window.location.origin, initialTheme.current === 'dark'));
+                    setFrame(swaggerDocument(spec, {
+                        origin: window.location.origin,
+                        dark: initialTheme.current === 'dark',
+                        bundlePath: swaggerBundle,
+                        initializerPath: frameScript,
+                        stylesheetPath: swaggerStyles,
+                    }));
                 }
             } catch {
                 if (!request.signal.aborted) setReferenceError(true);

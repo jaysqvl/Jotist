@@ -45,6 +45,8 @@ func TestSwaggerSpecificationRequiresCurrentSessionAndDisablesCache(t *testing.T
 	key := models.APIKey{Key: "isolated-swagger-api-key", Name: "preview", IsActive: true}
 	require.NoError(t, db.Create(&key).Error)
 	router := SetupRoutes(&Handler{config: &config.Config{}}, authService)
+	exported, err := OpenAPISpec()
+	require.NoError(t, err)
 
 	for _, tt := range []struct {
 		name          string
@@ -82,8 +84,7 @@ func TestSwaggerSpecificationRequiresCurrentSessionAndDisablesCache(t *testing.T
 			require.Equal(t, "private, no-store", w.Header().Get("Cache-Control"))
 			if w.Code == http.StatusOK {
 				require.Contains(t, w.Header().Get("Content-Type"), "application/json")
-				require.Contains(t, w.Body.String(), `"openapi"`)
-				require.Contains(t, w.Body.String(), `"/api/v1/transcription/models"`)
+				require.Equal(t, exported, w.Body.Bytes())
 			} else {
 				require.NotContains(t, w.Body.String(), `"openapi"`)
 			}

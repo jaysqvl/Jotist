@@ -15,22 +15,15 @@ import (
 	"gorm.io/gorm"
 )
 
-type queueRunRequest struct {
-	Parameters       *json.RawMessage `json:"parameters"`
-	ProfileID        *string          `json:"profile_id,omitempty"`
-	ProfileName      *string          `json:"profile_name,omitempty"`
-	ReuseCheckpoints *bool            `json:"reuse_checkpoints,omitempty"`
+type queueRunInput[Params any] struct {
+	Parameters       *Params `json:"parameters,omitempty"`
+	ProfileID        *string `json:"profile_id,omitempty"`
+	ProfileName      *string `json:"profile_name,omitempty"`
+	ReuseCheckpoints *bool   `json:"reuse_checkpoints,omitempty"`
 }
 
-// QueueTranscriptionRunRequest documents the public request schema. The
-// handler binds through RawMessage so partial parameters can be overlaid on
-// server defaults without losing explicit false/zero values.
-type QueueTranscriptionRunRequest struct {
-	Parameters       *models.WhisperXParams `json:"parameters,omitempty"`
-	ProfileID        *string                `json:"profile_id,omitempty"`
-	ProfileName      *string                `json:"profile_name,omitempty"`
-	ReuseCheckpoints *bool                  `json:"reuse_checkpoints,omitempty"`
-}
+// Decode parameters over server defaults, preserving explicit false and zero values.
+type queueRunRequest = queueRunInput[json.RawMessage]
 
 // TranscriptionQueueResponse is the public per-audio queue envelope.
 type TranscriptionQueueResponse struct {
@@ -43,27 +36,11 @@ type TranscriptionQueueResponse struct {
 
 // ReorderTranscriptionQueueRequest replaces the complete future-run order.
 type ReorderTranscriptionQueueRequest struct {
-	OrderedIDs []string `json:"ordered_ids"`
-}
-
-type reorderQueueRequest struct {
-	OrderedIDs []string `json:"ordered_ids" binding:"required"`
+	OrderedIDs []string `json:"ordered_ids" binding:"required" nullable:"false"`
 }
 
 // ListTranscriptionQueue returns the active sequential run and its waiting
 // successors. Terminal audit records are available with include_terminal=true.
-// @Summary List sequential transcription runs
-// @Description Return the active per-audio queue item and all future queued runs
-// @Tags transcription
-// @Produce json
-// @Param id path string true "Job ID"
-// @Param include_terminal query bool false "Include terminal queue audit records"
-// @Success 200 {object} TranscriptionQueueResponse
-// @Failure 404 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
-// @Router /api/v1/transcription/{id}/queue [get]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) ListTranscriptionQueue(c *gin.Context) {
 	jobID := c.Param("id")
 	if !h.requireQueueJob(c, jobID) {
@@ -81,21 +58,6 @@ func (h *Handler) ListTranscriptionQueue(c *gin.Context) {
 
 // QueueTranscriptionRun persists one future run. When the audio is idle, this
 // item is promoted immediately; otherwise it waits behind the active run.
-// @Summary Queue a sequential transcription run
-// @Description Persist one immutable parameter or profile snapshot to run against this audio file
-// @Tags transcription
-// @Accept json
-// @Produce json
-// @Param id path string true "Job ID"
-// @Param request body QueueTranscriptionRunRequest true "Queued run request"
-// @Success 201 {object} TranscriptionQueueResponse
-// @Failure 400 {object} ErrorResponse
-// @Failure 404 {object} ErrorResponse
-// @Failure 409 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
-// @Router /api/v1/transcription/{id}/queue [post]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) QueueTranscriptionRun(c *gin.Context) {
 	jobID := c.Param("id")
 	job, err := h.jobRepo.FindByID(c.Request.Context(), jobID)
@@ -151,26 +113,13 @@ func (h *Handler) QueueTranscriptionRun(c *gin.Context) {
 }
 
 // ReorderTranscriptionQueue changes the order of every future queued run.
-// @Summary Reorder future transcription runs
-// @Tags transcription
-// @Accept json
-// @Produce json
-// @Param id path string true "Job ID"
-// @Param request body ReorderTranscriptionQueueRequest true "Complete ordered list of waiting queue item IDs"
-// @Success 200 {object} TranscriptionQueueResponse
-// @Failure 400 {object} ErrorResponse
-// @Failure 404 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
-// @Router /api/v1/transcription/{id}/queue/order [put]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) ReorderTranscriptionQueue(c *gin.Context) {
 	jobID := c.Param("id")
 	if !h.requireQueueJob(c, jobID) {
 		return
 	}
 
-	var request reorderQueueRequest
+	var request ReorderTranscriptionQueueRequest
 	if err := bindLimitedJSON(c, &request, maxAuthBodyBytes); err != nil || request.OrderedIDs == nil {
 		status := http.StatusBadRequest
 		if err != nil {
@@ -192,18 +141,6 @@ func (h *Handler) ReorderTranscriptionQueue(c *gin.Context) {
 }
 
 // CancelQueuedTranscriptionRun cancels one future run before it is promoted.
-// @Summary Cancel a future queued transcription run
-// @Tags transcription
-// @Produce json
-// @Param id path string true "Job ID"
-// @Param queue_id path string true "Queue item ID"
-// @Success 200 {object} TranscriptionQueueResponse
-// @Failure 404 {object} ErrorResponse
-// @Failure 409 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
-// @Router /api/v1/transcription/{id}/queue/{queue_id} [delete]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) CancelQueuedTranscriptionRun(c *gin.Context) {
 	jobID := c.Param("id")
 	if !h.requireQueueJob(c, jobID) {
@@ -225,16 +162,6 @@ func (h *Handler) CancelQueuedTranscriptionRun(c *gin.Context) {
 }
 
 // ClearTranscriptionQueue cancels every future run without stopping the active run.
-// @Summary Clear future queued transcription runs
-// @Tags transcription
-// @Produce json
-// @Param id path string true "Job ID"
-// @Success 200 {object} TranscriptionQueueResponse
-// @Failure 404 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
-// @Router /api/v1/transcription/{id}/queue [delete]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) ClearTranscriptionQueue(c *gin.Context) {
 	jobID := c.Param("id")
 	if !h.requireQueueJob(c, jobID) {

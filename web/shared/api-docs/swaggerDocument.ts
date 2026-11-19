@@ -1,6 +1,11 @@
-import swaggerScript from 'swagger-ui-dist/swagger-ui-bundle.js?url';
-import swaggerStyle from 'swagger-ui-dist/swagger-ui.css?url';
-import frameScript from './swagger-frame.js?url';
+type SwaggerDocumentOptions = {
+    origin: string;
+    serverURL?: string;
+    dark?: boolean;
+    bundlePath: string;
+    initializerPath: string;
+    stylesheetPath: string;
+};
 
 function localAsset(path: string, origin: string): string {
     const asset = new URL(path, origin);
@@ -10,11 +15,12 @@ function localAsset(path: string, origin: string): string {
     return asset.href;
 }
 
-export function swaggerDocument(spec: Record<string, unknown>, origin: string, dark: boolean): string {
-    const address = new URL(origin);
-    const bundle = localAsset(swaggerScript, address.origin);
-    const initializer = localAsset(frameScript, address.origin);
-    const stylesheet = localAsset(swaggerStyle, address.origin);
+export function swaggerDocument(spec: Record<string, unknown>, options: SwaggerDocumentOptions): string {
+    const origin = new URL(options.origin).origin;
+    const { dark = false, serverURL = origin } = options;
+    const bundle = localAsset(options.bundlePath, origin);
+    const initializer = localAsset(options.initializerPath, origin);
+    const stylesheet = localAsset(options.stylesheetPath, origin);
     const policy = [
         "default-src 'none'",
         `script-src ${bundle} ${initializer}`,
@@ -26,7 +32,7 @@ export function swaggerDocument(spec: Record<string, unknown>, origin: string, d
     ].join('; ');
     const json = JSON.stringify({
         ...spec,
-        servers: [{ url: address.origin }],
+        servers: [{ url: serverURL }],
     }).replaceAll('<', '\\u003c');
 
     return `<!doctype html>
@@ -37,6 +43,7 @@ export function swaggerDocument(spec: Record<string, unknown>, origin: string, d
   <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="${dark ? 'dark' : 'light'}">
+  <meta name="jotist-parent-origin" content="${origin}">
   <title>Jotist API reference</title>
   <link rel="stylesheet" href="${stylesheet}">
   <style>

@@ -15,7 +15,7 @@ import (
 
 // ValidateOpenAIKeyRequest represents the request to validate an OpenAI API key
 type ValidateOpenAIKeyRequest struct {
-	APIKey string `json:"api_key" binding:"max=8192"`
+	APIKey string `json:"api_key" binding:"max=8192" required:"false"`
 }
 
 // OpenAIModel represents a model returned by OpenAI API
@@ -33,18 +33,6 @@ type OpenAIModelListResponse struct {
 }
 
 // ValidateOpenAIKey validates the API key and returns available models
-// @Summary Validate OpenAI API Key
-// @Description Validate the provided OpenAI API key and return available Whisper models
-// @Tags config
-// @Accept json
-// @Produce json
-// @Param request body ValidateOpenAIKeyRequest true "API Key"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/v1/config/openai/validate [post]
-// @Security BearerAuth
 func (h *Handler) ValidateOpenAIKey(c *gin.Context) {
 	var req ValidateOpenAIKeyRequest
 	if err := bindLimitedJSON(c, &req, maxAuthBodyBytes); err != nil {

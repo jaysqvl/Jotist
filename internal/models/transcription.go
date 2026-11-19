@@ -28,7 +28,7 @@ type TranscriptionJob struct {
 	PinnedExecutionID     *string        `json:"pinned_execution_id,omitempty" gorm:"type:varchar(36);index"`
 	CreatedAt             time.Time      `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt             time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
-	DeletedAt             gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index" swaggertype:"string"`
+	DeletedAt             gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
 
 	// WhisperX parameters
 	Parameters WhisperXParams `json:"parameters" gorm:"embedded"`
@@ -66,19 +66,19 @@ const (
 // WhisperXParams contains parameters for WhisperX transcription
 type WhisperXParams struct {
 	// Model family (whisper or nvidia)
-	ModelFamily string `json:"model_family" gorm:"type:varchar(20);default:'whisper'"`
+	ModelFamily string `json:"model_family" gorm:"type:varchar(20);default:'whisper'" required:"false"`
 
 	// Model parameters
-	Model          string  `json:"model" gorm:"type:varchar(200);default:'small'"`
-	ModelCacheOnly bool    `json:"model_cache_only" gorm:"type:boolean;default:false"`
+	Model          string  `json:"model" gorm:"type:varchar(200);default:'small'" required:"false"`
+	ModelCacheOnly bool    `json:"model_cache_only" gorm:"type:boolean;default:false" required:"false"`
 	ModelDir       *string `json:"model_dir,omitempty" gorm:"type:text"`
 
 	// Device and computation
-	Device      string `json:"device" gorm:"type:varchar(20);default:'cpu'"`
-	DeviceIndex int    `json:"device_index" gorm:"type:int;default:0"`
-	BatchSize   int    `json:"batch_size" gorm:"type:int;default:8"`
-	ComputeType string `json:"compute_type" gorm:"type:varchar(20);default:'float32'"`
-	Threads     int    `json:"threads" gorm:"type:int;default:0"`
+	Device      string `json:"device" gorm:"type:varchar(20);default:'cpu'" required:"false"`
+	DeviceIndex int    `json:"device_index" gorm:"type:int;default:0" required:"false"`
+	BatchSize   int    `json:"batch_size" gorm:"type:int;default:8" required:"false"`
+	ComputeType string `json:"compute_type" gorm:"type:varchar(20);default:'float32'" required:"false"`
+	Threads     int    `json:"threads" gorm:"type:int;default:0" required:"false"`
 
 	// Empty preserves the historical Auto GPU-to-CPU behavior. Explicit fixed
 	// and stage_management modes never change device, precision, or context.
@@ -94,60 +94,60 @@ type WhisperXParams struct {
 	AdaptivePolicy   *AdaptiveExecutionPolicy `json:"adaptive_policy,omitempty" gorm:"serializer:json;type:text"`
 
 	// Output settings
-	OutputFormat string `json:"output_format" gorm:"type:varchar(20);default:'all'"`
-	Verbose      bool   `json:"verbose" gorm:"type:boolean;default:true"`
+	OutputFormat string `json:"output_format" gorm:"type:varchar(20);default:'all'" required:"false"`
+	Verbose      bool   `json:"verbose" gorm:"type:boolean;default:true" required:"false"`
 
 	// Task and language
-	Task     string  `json:"task" gorm:"type:varchar(20);default:'transcribe'"`
+	Task     string  `json:"task" gorm:"type:varchar(20);default:'transcribe'" required:"false"`
 	Language *string `json:"language,omitempty" gorm:"type:varchar(10)"`
 
 	// Alignment settings
 	AlignModel           *string `json:"align_model,omitempty" gorm:"type:varchar(100)"`
-	InterpolateMethod    string  `json:"interpolate_method" gorm:"type:varchar(20);default:'nearest'"`
-	NoAlign              bool    `json:"no_align" gorm:"type:boolean;default:false"`
-	ReturnCharAlignments bool    `json:"return_char_alignments" gorm:"type:boolean;default:false"`
+	InterpolateMethod    string  `json:"interpolate_method" gorm:"type:varchar(20);default:'nearest'" required:"false"`
+	NoAlign              bool    `json:"no_align" gorm:"type:boolean;default:false" required:"false"`
+	ReturnCharAlignments bool    `json:"return_char_alignments" gorm:"type:boolean;default:false" required:"false"`
 
 	// VAD (Voice Activity Detection) settings
-	VadMethod string  `json:"vad_method" gorm:"type:varchar(20);default:'pyannote'"`
-	VadOnset  float64 `json:"vad_onset" gorm:"type:real;default:0.5"`
-	VadOffset float64 `json:"vad_offset" gorm:"type:real;default:0.363"`
-	ChunkSize int     `json:"chunk_size" gorm:"type:int;default:30"`
+	VadMethod string  `json:"vad_method" gorm:"type:varchar(20);default:'pyannote'" required:"false"`
+	VadOnset  float64 `json:"vad_onset" gorm:"type:real;default:0.5" required:"false"`
+	VadOffset float64 `json:"vad_offset" gorm:"type:real;default:0.363" required:"false"`
+	ChunkSize int     `json:"chunk_size" gorm:"type:int;default:30" required:"false"`
 
 	// Diarization settings
-	Diarize           bool   `json:"diarize" gorm:"type:boolean;default:false"`
+	Diarize           bool   `json:"diarize" gorm:"type:boolean;default:false" required:"false"`
 	MinSpeakers       *int   `json:"min_speakers,omitempty" gorm:"type:int"`
 	MaxSpeakers       *int   `json:"max_speakers,omitempty" gorm:"type:int"`
-	DiarizeModel      string `json:"diarize_model" gorm:"type:varchar(50);default:'pyannote'"` // Options: 'pyannote', 'nvidia_sortformer'
-	SpeakerEmbeddings bool   `json:"speaker_embeddings" gorm:"type:boolean;default:false"`
+	DiarizeModel      string `json:"diarize_model" gorm:"type:varchar(50);default:'pyannote'" required:"false"` // Options: 'pyannote', 'nvidia_sortformer'
+	SpeakerEmbeddings bool   `json:"speaker_embeddings" gorm:"type:boolean;default:false" required:"false"`
 
 	// Transcription quality settings
-	Temperature      float64 `json:"temperature" gorm:"type:real;default:0"`
-	BestOf           int     `json:"best_of" gorm:"type:int;default:5"`
-	BeamSize         int     `json:"beam_size" gorm:"type:int;default:5"`
-	Patience         float64 `json:"patience" gorm:"type:real;default:1.0"`
-	LengthPenalty    float64 `json:"length_penalty" gorm:"type:real;default:1.0"`
+	Temperature      float64 `json:"temperature" gorm:"type:real;default:0" required:"false"`
+	BestOf           int     `json:"best_of" gorm:"type:int;default:5" required:"false"`
+	BeamSize         int     `json:"beam_size" gorm:"type:int;default:5" required:"false"`
+	Patience         float64 `json:"patience" gorm:"type:real;default:1.0" required:"false"`
+	LengthPenalty    float64 `json:"length_penalty" gorm:"type:real;default:1.0" required:"false"`
 	SuppressTokens   *string `json:"suppress_tokens,omitempty" gorm:"type:text"`
-	SuppressNumerals bool    `json:"suppress_numerals" gorm:"type:boolean;default:false"`
+	SuppressNumerals bool    `json:"suppress_numerals" gorm:"type:boolean;default:false" required:"false"`
 	InitialPrompt    *string `json:"initial_prompt,omitempty" gorm:"type:text"`
 	// Nil context fields inherit the requesting user's defaults when a run is
 	// queued. A pointer to an empty string explicitly disables that default.
 	TranscriptionContext           *string `json:"transcription_context,omitempty" gorm:"type:text"`
 	TranscriptionContextTerms      *string `json:"transcription_context_terms,omitempty" gorm:"type:text"`
 	AudioChunkDuration             *int    `json:"audio_chunk_duration,omitempty" gorm:"type:int"`
-	DiarizationDevice              string  `json:"diarization_device" gorm:"type:varchar(20)"`
+	DiarizationDevice              string  `json:"diarization_device" gorm:"type:varchar(20)" required:"false"`
 	DiarizationCheckpoint          string  `json:"diarization_checkpoint,omitempty" gorm:"type:varchar(200)"`
-	ConditionOnPreviousText        bool    `json:"condition_on_previous_text" gorm:"type:boolean;default:false"`
-	Fp16                           bool    `json:"fp16" gorm:"type:boolean;default:true"`
-	TemperatureIncrementOnFallback float64 `json:"temperature_increment_on_fallback" gorm:"type:real;default:0.2"`
-	CompressionRatioThreshold      float64 `json:"compression_ratio_threshold" gorm:"type:real;default:2.4"`
-	LogprobThreshold               float64 `json:"logprob_threshold" gorm:"type:real;default:-1.0"`
-	NoSpeechThreshold              float64 `json:"no_speech_threshold" gorm:"type:real;default:0.6"`
+	ConditionOnPreviousText        bool    `json:"condition_on_previous_text" gorm:"type:boolean;default:false" required:"false"`
+	Fp16                           bool    `json:"fp16" gorm:"type:boolean;default:true" required:"false"`
+	TemperatureIncrementOnFallback float64 `json:"temperature_increment_on_fallback" gorm:"type:real;default:0.2" required:"false"`
+	CompressionRatioThreshold      float64 `json:"compression_ratio_threshold" gorm:"type:real;default:2.4" required:"false"`
+	LogprobThreshold               float64 `json:"logprob_threshold" gorm:"type:real;default:-1.0" required:"false"`
+	NoSpeechThreshold              float64 `json:"no_speech_threshold" gorm:"type:real;default:0.6" required:"false"`
 
 	// Output formatting
 	MaxLineWidth      *int   `json:"max_line_width,omitempty" gorm:"type:int"`
 	MaxLineCount      *int   `json:"max_line_count,omitempty" gorm:"type:int"`
-	HighlightWords    bool   `json:"highlight_words" gorm:"type:boolean;default:false"`
-	SegmentResolution string `json:"segment_resolution" gorm:"type:varchar(20);default:'sentence'"`
+	HighlightWords    bool   `json:"highlight_words" gorm:"type:boolean;default:false" required:"false"`
+	SegmentResolution string `json:"segment_resolution" gorm:"type:varchar(20);default:'sentence'" required:"false"`
 
 	// Token and progress
 	HfToken       *string `json:"hf_token,omitempty" gorm:"type:text"`
@@ -155,20 +155,20 @@ type WhisperXParams struct {
 	// Admission may run twice while an upload is finalized. This in-memory flag
 	// prevents a settings change between those calls from replacing its snapshot.
 	HFTokenResolved bool `json:"-" gorm:"-"`
-	PrintProgress   bool `json:"print_progress" gorm:"type:boolean;default:false"`
+	PrintProgress   bool `json:"print_progress" gorm:"type:boolean;default:false" required:"false"`
 
 	// NVIDIA model-specific parameters
-	AttentionContextLeft  int     `json:"attention_context_left" gorm:"type:int;default:256"`
-	AttentionContextRight int     `json:"attention_context_right" gorm:"type:int;default:256"`
-	NvidiaChunkDuration   int     `json:"nvidia_chunk_duration" gorm:"type:int;default:300"`
+	AttentionContextLeft  int     `json:"attention_context_left" gorm:"type:int;default:256" required:"false"`
+	AttentionContextRight int     `json:"attention_context_right" gorm:"type:int;default:256" required:"false"`
+	NvidiaChunkDuration   int     `json:"nvidia_chunk_duration" gorm:"type:int;default:300" required:"false"`
 	NvidiaTimestamps      *bool   `json:"nvidia_timestamps,omitempty" gorm:"type:boolean;default:true"`
 	NvidiaTargetLanguage  *string `json:"nvidia_target_language,omitempty" gorm:"type:varchar(10)"`
-	NvidiaPrecision       string  `json:"nvidia_precision" gorm:"type:varchar(20);default:'float16'"`
+	NvidiaPrecision       string  `json:"nvidia_precision" gorm:"type:varchar(20);default:'float16'" required:"false"`
 	NvidiaPrompt          *string `json:"nvidia_prompt,omitempty" gorm:"type:text"`
 	NvidiaUseChunking     *bool   `json:"nvidia_use_chunking,omitempty" gorm:"type:boolean"`
 
 	// Multi-track transcription settings
-	IsMultiTrackEnabled bool `json:"is_multi_track_enabled" gorm:"type:boolean;default:false"`
+	IsMultiTrackEnabled bool `json:"is_multi_track_enabled" gorm:"type:boolean;default:false" required:"false"`
 
 	// Webhook settings
 	CallbackURL *string `json:"callback_url,omitempty" gorm:"type:text"`
@@ -270,15 +270,15 @@ func (ak *APIKey) BeforeCreate(tx *gorm.DB) error {
 // TranscriptionProfile represents a saved transcription configuration profile
 type TranscriptionProfile struct {
 	Revisions          []AdaptiveProfileRevision `json:"-" gorm:"foreignKey:ProfileID;constraint:OnDelete:CASCADE"`
-	Revision           int64                     `json:"revision" gorm:"not null;default:1"`
-	LearningGeneration int64                     `json:"learning_generation" gorm:"not null;default:1"`
-	ID                 string                    `json:"id" gorm:"primaryKey;type:varchar(36)"`
-	Name               string                    `json:"name" gorm:"type:varchar(255);not null"`
+	Revision           int64                     `json:"revision" gorm:"not null;default:1" required:"false"`
+	LearningGeneration int64                     `json:"learning_generation" gorm:"not null;default:1" required:"false"`
+	ID                 string                    `json:"id" gorm:"primaryKey;type:varchar(36)" required:"false"`
+	Name               string                    `json:"name" gorm:"type:varchar(255);not null" minLength:"1"`
 	Description        *string                   `json:"description,omitempty" gorm:"type:text"`
-	IsDefault          bool                      `json:"is_default" gorm:"type:boolean;default:false"`
-	Parameters         WhisperXParams            `json:"parameters" gorm:"embedded"`
-	CreatedAt          time.Time                 `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt          time.Time                 `json:"updated_at" gorm:"autoUpdateTime"`
+	IsDefault          bool                      `json:"is_default" gorm:"type:boolean;default:false" required:"false"`
+	Parameters         WhisperXParams            `json:"parameters" gorm:"embedded" required:"false"`
+	CreatedAt          time.Time                 `json:"created_at" gorm:"autoCreateTime" required:"false"`
+	UpdatedAt          time.Time                 `json:"updated_at" gorm:"autoUpdateTime" required:"false"`
 }
 
 // BeforeCreate sets the ID if not already set

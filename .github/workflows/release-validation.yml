@@ -46,8 +46,8 @@ jobs:
 
       - name: Vet and test backend
         run: |
-          go vet ./api-docs ./cmd/... ./internal/... ./pkg/... ./tests
-          go test -race -count=1 ./api-docs ./cmd/... ./internal/... ./pkg/... ./tests
+          go vet ./cmd/... ./internal/... ./pkg/... ./tests
+          go test -race -count=1 ./cmd/... ./internal/... ./pkg/... ./tests
 
       - name: Install browser
         working-directory: web/frontend

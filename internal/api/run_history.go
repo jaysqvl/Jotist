@@ -7,18 +7,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 	"github.com/jaysqvl/Jotist/internal/repository"
+	"gorm.io/gorm"
 )
 
 // GetRunHistory lists paginated execution identities for Statistics.
-// @Summary List run diagnostics history
-// @Tags transcription
-// @Produce json
-// @Success 200 {object} models.RunHistory
-// @Router /api/v1/transcription/statistics/runs [get]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) GetRunHistory(c *gin.Context) {
 	days, dayErr := strconv.Atoi(c.DefaultQuery("days", "30"))
 	page, pageErr := strconv.Atoi(c.DefaultQuery("page", "1"))

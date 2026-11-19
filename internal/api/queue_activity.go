@@ -6,19 +6,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 	"github.com/jaysqvl/Jotist/internal/repository"
+	"gorm.io/gorm"
 )
 
 // GetQueueActivity is the authenticated, read-only view of all recording work.
-// @Summary Show activity across recording queues
-// @Description Sample shared worker ownership, current stages and waiting recordings without private request or transcript content.
-// @Tags admin
-// @Produce json
-// @Success 200 {object} models.QueueActivity
-// @Router /api/v1/admin/queue/activity [get]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) GetQueueActivity(c *gin.Context) {
 	provider, ok := h.jobRepo.(interface{ Database() *gorm.DB })
 	if h.taskQueue == nil || !ok || provider.Database() == nil {

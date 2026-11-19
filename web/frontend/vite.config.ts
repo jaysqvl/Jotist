@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, searchForWorkspaceRoot } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from "path"
@@ -74,6 +74,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
   },
   server: {
+    fs: { allow: [searchForWorkspaceRoot(import.meta.dirname), path.resolve(import.meta.dirname, '../shared')] },
     proxy: {
       '/api': {
         target: 'http://localhost:8080',

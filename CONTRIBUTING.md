@@ -44,7 +44,8 @@ make test
 For API handler changes, run `make docs` and commit its generated changes with
 the source. For website changes, install dependencies in `web/project-site`,
 then run `make website-build` and `npm --prefix web/project-site run lint`.
-The generator version is pinned in `scripts/generate-api-docs.sh`.
+The export comes from the route declarations and Huma version pinned in
+`go.mod`.
 
 For Python runtime changes, follow [runtime maintenance](docs/python-runtime-maintenance.md).
 Passing a resolver or import check does not establish model inference quality

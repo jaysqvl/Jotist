@@ -221,7 +221,7 @@ type LLMConfigRequest struct {
 	BaseURL       *string `json:"base_url,omitempty"`
 	OpenAIBaseURL *string `json:"openai_base_url,omitempty"`
 	APIKey        *string `json:"api_key,omitempty"`
-	IsActive      bool    `json:"is_active"`
+	IsActive      bool    `json:"is_active" required:"false"`
 }
 
 // LLMConfigResponse represents the LLM configuration response
@@ -284,19 +284,6 @@ func transformAPIKeyForList(apiKey models.APIKey) APIKeyListResponse {
 	}
 }
 
-// @Summary Upload audio file
-// @Description Upload an audio file without starting transcription
-// @Tags transcription
-// @Accept multipart/form-data
-// @Produce json
-// @Param audio formData file true "Audio file"
-// @Param title formData string false "Job title"
-// @Success 200 {object} models.TranscriptionJob
-// @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/v1/transcription/upload [post]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) UploadAudio(c *gin.Context) {
 	release, ok := h.beginMultipartUpload(c, h.config.UploadDir)
 	if !ok {
@@ -329,19 +316,6 @@ func (h *Handler) UploadAudio(c *gin.Context) {
 	c.JSON(http.StatusOK, job)
 }
 
-// @Summary Upload video file for transcription
-// @Description Upload a video file, extract audio from it using ffmpeg, and create a transcription job
-// @Tags transcription
-// @Accept multipart/form-data
-// @Produce json
-// @Param video formData file true "Video file"
-// @Param title formData string false "Job title"
-// @Success 200 {object} models.TranscriptionJob
-// @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/v1/transcription/upload-video [post]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) UploadVideo(c *gin.Context) {
 	release, ok := h.beginMultipartUpload(c, h.config.UploadDir)
 	if !ok {
@@ -372,20 +346,6 @@ func (h *Handler) UploadVideo(c *gin.Context) {
 	c.JSON(http.StatusOK, job)
 }
 
-// @Summary Upload multi-track audio files
-// @Description Upload multiple audio files for multi-track transcription
-// @Tags transcription
-// @Accept multipart/form-data
-// @Produce json
-// @Param title formData string false "Job title"
-// @Param files formData file true "Audio track files. Repeat this field for each track." extensions(x-repeatable)
-// @Param aup formData file true "Audacity .aup project file"
-// @Success 200 {object} models.TranscriptionJob
-// @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/v1/transcription/upload-multitrack [post]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) UploadMultiTrack(c *gin.Context) {
 	release, ok := h.beginMultipartUpload(c, h.config.TempDir)
 	if !ok {
@@ -459,16 +419,6 @@ func (h *Handler) UploadMultiTrack(c *gin.Context) {
 	c.JSON(http.StatusOK, job)
 }
 
-// @Summary Get multi-track merge status
-// @Description Get the current merge status for a multi-track job
-// @Tags transcription
-// @Produce json
-// @Param id path string true "Job ID"
-// @Success 200 {object} map[string]interface{}
-// @Failure 404 {object} map[string]string
-// @Router /api/v1/transcription/{id}/merge-status [get]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) GetMergeStatus(c *gin.Context) {
 	jobID := c.Param("id")
 
@@ -489,16 +439,6 @@ func (h *Handler) GetMergeStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// @Summary Get multi-track job progress
-// @Description Get real-time progress information for individual tracks in a multi-track job
-// @Tags transcription
-// @Produce json
-// @Param id path string true "Job ID"
-// @Success 200 {object} map[string]interface{}
-// @Failure 404 {object} map[string]string
-// @Router /api/v1/transcription/{id}/track-progress [get]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) GetTrackProgress(c *gin.Context) {
 	jobID := c.Param("id")
 
@@ -583,37 +523,6 @@ func (h *Handler) GetTrackProgress(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// @Summary Submit a transcription job
-// @Description Submit an audio file using a supported transcription model. Omitted context fields inherit the authenticated user's defaults; empty fields explicitly disable those hints.
-// @Tags transcription
-// @Accept multipart/form-data
-// @Produce json
-// @Param audio formData file true "Audio file"
-// @Param title formData string false "Job title"
-// @Param diarization formData boolean false "Enable speaker diarization"
-// @Param model_family formData string false "Model family from /transcription/models" default(whisper)
-// @Param model formData string false "Checkpoint or Whisper model size; defaults to base for Whisper and the family default for local models"
-// @Param transcription_context formData string false "Meeting context, at most 4000 characters; omitted inherits and empty disables"
-// @Param transcription_context_terms formData string false "Vocabulary, one term per line, at most 8000 characters; omitted inherits and empty disables"
-// @Param audio_chunk_duration formData int false "Audio chunk duration in seconds; omit for the model default, 0 requests full-recording context where supported"
-// @Param diarize_model formData string false "Speaker diarization model; native requires an integrated diarizer" Enums(pyannote,nvidia_sortformer,diarizen,suplime,native) default(pyannote)
-// @Param diarization_device formData string false "Device used for speaker diarization; same follows the transcription device" Enums(same,cpu,cuda,auto) default(same)
-// @Param diarization_checkpoint formData string false "Optional research diarizer checkpoint, such as rewayai/suplime or rewayai/suplime-large"
-// @Param language formData string false "Language code"
-// @Param batch_size formData int false "Batch size" default(16)
-// @Param compute_type formData string false "Compute precision; Whisper defaults to int8, local ASR to float32, and BitNet uses fixed quantized weights"
-// @Param device formData string false "Transcription device; supported choices depend on the model" default(cpu)
-// @Param vad_filter formData boolean false "Enable VAD filter"
-// @Param vad_onset formData number false "VAD onset" default(0.500)
-// @Param vad_offset formData number false "VAD offset" default(0.363)
-// @Param min_speakers formData int false "Minimum speakers for diarization"
-// @Param max_speakers formData int false "Maximum speakers for diarization"
-// @Success 200 {object} models.TranscriptionJob
-// @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/v1/transcription/submit [post]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) SubmitJob(c *gin.Context) {
 	release, ok := h.beginMultipartUpload(c, h.config.UploadDir)
 	if !ok {
@@ -658,17 +567,6 @@ func (h *Handler) SubmitJob(c *gin.Context) {
 	c.JSON(http.StatusOK, job)
 }
 
-// @Summary Get job status
-// @Description Get the current status of a transcription job
-// @Description Example response fields `{"id":"RECORDING_ID","title":"Library opening","status":"completed"}`
-// @Tags transcription
-// @Produce json
-// @Param id path string true "Job ID"
-// @Success 200 {object} models.TranscriptionJob
-// @Failure 404 {object} map[string]string
-// @Router /api/v1/transcription/{id}/status [get]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) GetJobStatus(c *gin.Context) {
 	jobID := c.Param("id")
 
@@ -685,20 +583,20 @@ func (h *Handler) GetJobStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, job)
 }
 
-// @Summary Get transcript
-// @Description Get the transcript for a completed transcription job
-// @Description Example response fields `{"job_id":"RECORDING_ID","status":"completed","available":true,"transcript":{"text":"The library opens at nine."}}`
-// @Description If a transcript is unavailable, the response contains `"available":false` and `"transcript":null`.
-// @Tags transcription
-// @Produce json
-// @Param id path string true "Job ID"
-// @Param read_only query bool false "Read the saved transcript without backfilling legacy run history"
-// @Success 200 {object} map[string]interface{}
-// @Failure 404 {object} map[string]string
-// @Failure 400 {object} map[string]string
-// @Router /api/v1/transcription/{id}/transcript [get]
-// @Security ApiKeyAuth
-// @Security BearerAuth
+type transcriptResponse struct {
+	JobID           string           `json:"job_id"`
+	Title           *string          `json:"title"`
+	RunID           *string          `json:"run_id,omitempty"`
+	ActiveRunPinned *bool            `json:"active_run_pinned,omitempty"`
+	PinnedRunID     *string          `json:"pinned_run_id,omitempty"`
+	Transcript      any              `json:"transcript"`
+	Status          models.JobStatus `json:"status"`
+	Available       bool             `json:"available"`
+	Message         string           `json:"message,omitempty"`
+	CreatedAt       time.Time        `json:"created_at"`
+	UpdatedAt       time.Time        `json:"updated_at"`
+}
+
 func (h *Handler) GetTranscript(c *gin.Context) {
 	var query struct {
 		ReadOnly bool `form:"read_only"`
@@ -726,6 +624,13 @@ func (h *Handler) GetTranscript(c *gin.Context) {
 		}
 	}
 
+	response := transcriptResponse{
+		JobID:     job.ID,
+		Title:     job.Title,
+		Status:    job.Status,
+		CreatedAt: job.CreatedAt,
+		UpdatedAt: job.UpdatedAt,
+	}
 	if activeExecution, activePinned, err := h.resolveActiveExecution(c.Request.Context(), job); err == nil && activeExecution.Transcript != nil {
 		transcript, err := parseTranscriptPayload(*activeExecution.Transcript)
 		if err != nil {
@@ -737,87 +642,47 @@ func (h *Handler) GetTranscript(c *gin.Context) {
 		if job.PinnedExecutionID != nil {
 			pinnedRunID = *job.PinnedExecutionID
 		}
-		c.JSON(http.StatusOK, gin.H{
-			"job_id":            job.ID,
-			"title":             job.Title,
-			"run_id":            activeExecution.ID,
-			"active_run_pinned": activePinned,
-			"pinned_run_id":     pinnedRunID,
-			"transcript":        transcript,
-			"status":            job.Status,
-			"available":         true,
-			"created_at":        job.CreatedAt,
-			"updated_at":        job.UpdatedAt,
-		})
+		response.RunID = &activeExecution.ID
+		response.ActiveRunPinned = &activePinned
+		response.PinnedRunID = &pinnedRunID
+		response.Transcript = transcript
+		response.Available = true
+		c.JSON(http.StatusOK, response)
 		return
 	} else if err != nil && err != gorm.ErrRecordNotFound {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to resolve active transcript"})
 		return
 	}
 
-	// Return empty transcript gracefully for non-completed jobs
-	if job.Status != models.StatusCompleted {
-		c.JSON(http.StatusOK, gin.H{
-			"job_id":     job.ID,
-			"title":      job.Title,
-			"transcript": nil,
-			"status":     job.Status,
-			"available":  false,
-			"message":    fmt.Sprintf("Transcript not ready, current status: %s", job.Status),
-			"created_at": job.CreatedAt,
-			"updated_at": job.UpdatedAt,
-		})
-		return
+	switch {
+	case job.Status != models.StatusCompleted:
+		response.Message = fmt.Sprintf("Transcript not ready, current status: %s", job.Status)
+	case job.Transcript == nil:
+		response.Message = "Transcript not available"
+	default:
+		transcript, err := parseTranscriptPayload(*job.Transcript)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse transcript"})
+			return
+		}
+		response.Transcript = transcript
+		response.Available = true
 	}
-
-	// Return empty transcript gracefully if nil
-	if job.Transcript == nil {
-		c.JSON(http.StatusOK, gin.H{
-			"job_id":     job.ID,
-			"title":      job.Title,
-			"transcript": nil,
-			"status":     job.Status,
-			"available":  false,
-			"message":    "Transcript not available",
-			"created_at": job.CreatedAt,
-			"updated_at": job.UpdatedAt,
-		})
-		return
-	}
-
-	transcript, err := parseTranscriptPayload(*job.Transcript)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse transcript"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"job_id":     job.ID,
-		"title":      job.Title,
-		"transcript": transcript,
-		"status":     job.Status,
-		"available":  true,
-		"created_at": job.CreatedAt,
-		"updated_at": job.UpdatedAt,
-	})
+	c.JSON(http.StatusOK, response)
 }
 
-// @Summary List all transcription records
-// @Description List recordings with pagination and optional search.
-// @Description Example response fields `{"jobs":[{"id":"RECORDING_ID","title":"Library opening","status":"completed"}],"pagination":{"page":1,"limit":10,"total":1,"pages":1}}`
-// @Tags transcription
-// @Produce json
-// @Param page query int false "Page number" default(1)
-// @Param limit query int false "Items per page" default(10)
-// @Param sort_by query string false "Sort By"
-// @Param sort_order query string false "Sort Order (asc/desc)"
-// @Param q query string false "Search in title and audio filename"
-// @Param updated_after query string false "Filter by updated_at > timestamp (RFC3339)"
-// @Success 200 {object} map[string]interface{}
-// @Failure 500 {object} map[string]string
-// @Router /api/v1/transcription/list [get]
-// @Security ApiKeyAuth
-// @Security BearerAuth
+type recordingListResponse struct {
+	Jobs       []models.TranscriptionJob `json:"jobs"`
+	Pagination recordingPagination       `json:"pagination"`
+}
+
+type recordingPagination struct {
+	Page  int   `json:"page"`
+	Limit int   `json:"limit"`
+	Total int64 `json:"total"`
+	Pages int64 `json:"pages"`
+}
+
 func (h *Handler) ListTranscriptionJobs(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
@@ -841,27 +706,17 @@ func (h *Handler) ListTranscriptionJobs(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"jobs": jobs,
-		"pagination": gin.H{
-			"page":  page,
-			"limit": limit,
-			"total": total,
-			"pages": (total + int64(limit) - 1) / int64(limit),
+	c.JSON(http.StatusOK, recordingListResponse{
+		Jobs: jobs,
+		Pagination: recordingPagination{
+			Page:  page,
+			Limit: limit,
+			Total: total,
+			Pages: (total + int64(limit) - 1) / int64(limit),
 		},
 	})
 }
 
-// @Summary Get transcription job details
-// @Description Get details of a specific transcription job
-// @Tags transcription
-// @Produce json
-// @Param id path string true "Job ID"
-// @Success 200 {object} models.TranscriptionJob
-// @Failure 404 {object} map[string]string
-// @Router /api/v1/transcription/{id} [get]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) GetTranscriptionJob(c *gin.Context) {
 	id := c.Param("id")
 
@@ -874,20 +729,6 @@ func (h *Handler) GetTranscriptionJob(c *gin.Context) {
 	c.JSON(http.StatusOK, job)
 }
 
-// @Summary Start transcription for uploaded file
-// @Description Start transcription for an already uploaded audio file
-// @Tags transcription
-// @Accept json
-// @Produce json
-// @Param id path string true "Job ID"
-// @Param parameters body ImmediateTranscriptionRequest true "Transcription parameters or authoritative saved profile ID"
-// @Success 200 {object} models.TranscriptionJob
-// @Failure 400 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Router /api/v1/transcription/{id}/start [post]
-// @Router /api/v1/transcription/{id}/rerun [post]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) StartTranscription(c *gin.Context) {
 	jobID := c.Param("id")
 
@@ -1081,22 +922,9 @@ func (h *Handler) validateTranscriptionParams(c *gin.Context, job *models.Transc
 }
 
 type killJobRequest struct {
-	QueueItemID string `json:"queue_item_id"`
+	QueueItemID string `json:"queue_item_id" required:"false"`
 }
 
-// @Summary Kill running transcription job
-// @Description Cancel a currently running or queued transcription job. A queue_item_id targets that exact queued run; an empty JSON object targets only an unqueued legacy run. Omitting the body preserves unrestricted legacy behavior.
-// @Tags transcription
-// @Produce json
-// @Param id path string true "Job ID"
-// @Param request body killJobRequest false "Optional expected queue item identity"
-// @Success 200 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Failure 400 {object} map[string]string
-// @Failure 409 {object} map[string]string
-// @Router /api/v1/transcription/{id}/kill [post]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) KillJob(c *gin.Context) {
 	jobID := c.Param("id")
 	var request killJobRequest
@@ -1144,20 +972,6 @@ func (h *Handler) KillJob(c *gin.Context) {
 }
 
 // UpdateTranscriptionTitle updates the title of a transcription job
-// @Summary Update transcription title
-// @Description Update the title of an audio file / transcription
-// @Tags transcription
-// @Accept json
-// @Produce json
-// @Param id path string true "Job ID"
-// @Param request body map[string]string true "Title update request"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Router /api/v1/transcription/{id}/title [put]
-// @Security ApiKeyAuth
-// @Security BearerAuth
-// @Security BearerAuth
 func (h *Handler) UpdateTranscriptionTitle(c *gin.Context) {
 	jobID := c.Param("id")
 	if jobID == "" {
@@ -1194,17 +1008,6 @@ func (h *Handler) UpdateTranscriptionTitle(c *gin.Context) {
 	})
 }
 
-// @Summary Delete transcription job
-// @Description Delete a transcription job and its associated files
-// @Tags transcription
-// @Produce json
-// @Param id path string true "Job ID"
-// @Success 200 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Failure 400 {object} map[string]string
-// @Router /api/v1/transcription/{id} [delete]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) DeleteTranscriptionJob(c *gin.Context) {
 	jobID := c.Param("id")
 
@@ -1264,16 +1067,6 @@ func (h *Handler) removeRecordingMedia(job *models.TranscriptionJob) error {
 	return errors.Join(cleanupErrors...)
 }
 
-// @Summary Get transcription job execution data
-// @Description Get execution parameters and timing for a transcription job
-// @Tags transcription
-// @Produce json
-// @Param id path string true "Job ID"
-// @Success 200 {object} map[string]interface{}
-// @Failure 404 {object} map[string]string
-// @Router /api/v1/transcription/{id}/execution [get]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) GetJobExecutionData(c *gin.Context) {
 	jobID := c.Param("id")
 
@@ -1352,15 +1145,6 @@ func (h *Handler) GetJobExecutionData(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// @Summary Get audio file
-// @Description Serve the audio file for a transcription job
-// @Tags transcription
-// @Produce audio/mpeg,audio/wav,audio/mp4
-// @Param id path string true "Job ID"
-// @Success 200 {file} binary
-// @Failure 404 {object} map[string]string
-// @Router /api/v1/transcription/{id}/audio [get]
-// @Security ApiKeyAuth
 func (h *Handler) GetAudioFile(c *gin.Context) {
 	jobID := c.Param("id")
 
@@ -1467,17 +1251,6 @@ func (h *Handler) GetAudioFile(c *gin.Context) {
 	http.ServeContent(c.Writer, c.Request, filepath.Base(audioPath), fileInfo.ModTime(), file)
 }
 
-// @Summary Login
-// @Description Authenticate user and return JWT token
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Param credentials body LoginRequest true "User credentials"
-// @Success 200 {object} LoginResponse
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Failure 429 {object} map[string]string
-// @Router /api/v1/auth/login [post]
 func (h *Handler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := bindLimitedJSON(c, &req, maxAuthBodyBytes); err != nil {
@@ -1550,13 +1323,6 @@ func (h *Handler) writeLoginRateLimit(c *gin.Context, username, clientIP string,
 	c.JSON(http.StatusTooManyRequests, gin.H{"error": "Too many login attempts. Try again later."})
 }
 
-// @Summary Logout user
-// @Description Logout user and invalidate token (client-side action)
-// @Tags auth
-// @Produce json
-// @Success 200 {object} map[string]string
-// @Security BearerAuth
-// @Router /api/v1/auth/logout [post]
 func (h *Handler) Logout(c *gin.Context) {
 	revocationFailed := false
 	if rawToken := accessTokenFromRequest(c); rawToken != "" {
@@ -1615,12 +1381,6 @@ func accessTokenFromRequest(c *gin.Context) string {
 	return ""
 }
 
-// @Summary Check registration status
-// @Description Check if the application requires initial user registration
-// @Tags auth
-// @Produce json
-// @Success 200 {object} RegistrationStatusResponse
-// @Router /api/v1/auth/registration-status [get]
 func (h *Handler) GetRegistrationStatus(c *gin.Context) {
 	userCount, err := h.userRepo.Count(c.Request.Context())
 	if err != nil {
@@ -1635,16 +1395,6 @@ func (h *Handler) GetRegistrationStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// @Summary Register initial admin user
-// @Description Register the initial admin user (only allowed when no users exist)
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Param request body RegisterRequest true "Registration details"
-// @Success 201 {object} LoginResponse
-// @Failure 400 {object} map[string]string
-// @Failure 409 {object} map[string]string
-// @Router /api/v1/auth/register [post]
 func (h *Handler) Register(c *gin.Context) {
 	// Check if any users already exist
 	userCount, err := h.userRepo.Count(c.Request.Context())
@@ -1720,13 +1470,6 @@ type RefreshTokenResponse struct {
 	Token string `json:"token"`
 }
 
-// @Summary Refresh access token
-// @Description Rotate refresh token and return new access token
-// @Tags auth
-// @Produce json
-// @Success 200 {object} RefreshTokenResponse
-// @Failure 401 {object} map[string]string
-// @Router /api/v1/auth/refresh [post]
 func (h *Handler) Refresh(c *gin.Context) {
 	cookie, err := c.Cookie("jotist_refresh_token")
 	if err != nil || cookie == "" {
@@ -1811,17 +1554,6 @@ func sha256Hex(s string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// @Summary Change user password
-// @Description Change the current user's password
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Param request body ChangePasswordRequest true "Password change details"
-// @Success 200 {object} map[string]string
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Security BearerAuth
-// @Router /api/v1/auth/change-password [post]
 func (h *Handler) ChangePassword(c *gin.Context) {
 	// Get user ID from context (set by auth middleware)
 	userID, exists := c.Get("user_id")
@@ -1855,18 +1587,6 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Password changed successfully"})
 }
 
-// @Summary Change username
-// @Description Change the current user's username
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Param request body ChangeUsernameRequest true "Username change details"
-// @Success 200 {object} map[string]string
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Failure 409 {object} map[string]string
-// @Security BearerAuth
-// @Router /api/v1/auth/change-username [post]
 func (h *Handler) ChangeUsername(c *gin.Context) {
 	// Get user ID from context (set by auth middleware)
 	userID, exists := c.Get("user_id")
@@ -1897,13 +1617,6 @@ func (h *Handler) ChangeUsername(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Username changed successfully"})
 }
 
-// @Summary List API keys
-// @Description Get all API keys for the current user (without exposing the actual keys)
-// @Tags api-keys
-// @Produce json
-// @Success 200 {object} APIKeysWrapper
-// @Security BearerAuth
-// @Router /api/v1/api-keys/ [get]
 func (h *Handler) ListAPIKeys(c *gin.Context) {
 	apiKeys, err := h.apiKeyRepo.ListActive(c.Request.Context())
 	if err != nil {
@@ -1920,16 +1633,6 @@ func (h *Handler) ListAPIKeys(c *gin.Context) {
 	c.JSON(http.StatusOK, APIKeysWrapper{APIKeys: responseKeys})
 }
 
-// @Summary Create API key
-// @Description Create a new API key for external API access
-// @Tags api-keys
-// @Accept json
-// @Produce json
-// @Param request body CreateAPIKeyRequest true "API key creation details"
-// @Success 201 {object} CreateAPIKeyResponse
-// @Failure 400 {object} map[string]string
-// @Security BearerAuth
-// @Router /api/v1/api-keys/ [post]
 func (h *Handler) CreateAPIKey(c *gin.Context) {
 	var req CreateAPIKeyRequest
 	if err := bindJSON(c, &req); err != nil {
@@ -1957,16 +1660,6 @@ func (h *Handler) CreateAPIKey(c *gin.Context) {
 	c.JSON(http.StatusOK, newKey)
 }
 
-// @Summary Delete API key
-// @Description Delete an API key
-// @Tags api-keys
-// @Produce json
-// @Param id path int true "API Key ID"
-// @Success 200 {object} map[string]string
-// @Failure 400 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Security BearerAuth
-// @Router /api/v1/api-keys/{id} [delete]
 func (h *Handler) DeleteAPIKey(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 32)
@@ -1991,14 +1684,6 @@ func (h *Handler) DeleteAPIKey(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "API key deleted successfully"})
 }
 
-// @Summary Get LLM configuration
-// @Description Get the current active LLM configuration
-// @Tags llm
-// @Produce json
-// @Success 200 {object} LLMConfigResponse
-// @Failure 404 {object} map[string]string
-// @Security BearerAuth
-// @Router /api/v1/llm/config [get]
 func (h *Handler) GetLLMConfig(c *gin.Context) {
 	config, err := h.llmConfigRepo.GetActive(c.Request.Context())
 	if err != nil {
@@ -2024,16 +1709,6 @@ func (h *Handler) GetLLMConfig(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// @Summary Create or update LLM configuration
-// @Description Create or update LLM configuration settings
-// @Tags llm
-// @Accept json
-// @Produce json
-// @Param request body LLMConfigRequest true "LLM configuration details"
-// @Success 200 {object} LLMConfigResponse
-// @Failure 400 {object} map[string]string
-// @Security BearerAuth
-// @Router /api/v1/llm/config [post]
 func (h *Handler) SaveLLMConfig(c *gin.Context) {
 	var req LLMConfigRequest
 	if err := bindLimitedJSON(c, &req, maxAuthBodyBytes); err != nil {
@@ -2191,51 +1866,38 @@ func generateSecureAPIKey(length int) string {
 	return string(b)
 }
 
-// @Summary Get queue statistics
-// @Description Get current queue statistics
-// @Tags admin
-// @Produce json
-// @Success 200 {object} map[string]interface{}
-// @Router /api/v1/admin/queue/stats [get]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) GetQueueStats(c *gin.Context) {
 	stats := h.taskQueue.GetQueueStats()
 	c.JSON(http.StatusOK, stats)
 }
 
-// @Summary Get supported models
-// @Description Get list of supported WhisperX models
-// @Tags transcription
-// @Produce json
-// @Success 200 {object} map[string]interface{}
-// @Router /api/v1/transcription/models [get]
-// @Security ApiKeyAuth
-// @Security BearerAuth
-func (h *Handler) GetSupportedModels(c *gin.Context) {
-	models := h.unifiedProcessor.GetSupportedModels()
-	languages := h.unifiedProcessor.GetSupportedLanguages()
+type modelCatalogResponse struct {
+	Models            map[string]any  `json:"models"`
+	Languages         []string        `json:"languages"`
+	ExecutionDefaults platform.Target `json:"execution_defaults"`
+}
 
-	c.JSON(http.StatusOK, gin.H{
-		"models":             models,
-		"languages":          languages,
-		"execution_defaults": platform.Host(),
+func (h *Handler) GetSupportedModels(c *gin.Context) {
+	c.JSON(http.StatusOK, modelCatalogResponse{
+		Models:            h.unifiedProcessor.GetSupportedModels(),
+		Languages:         h.unifiedProcessor.GetSupportedLanguages(),
+		ExecutionDefaults: platform.Host(),
 	})
 }
 
-// Health check endpoint
-// @Summary Service liveness and release identity
-// @Description Confirms the HTTP process is responding. Use /ready for database and queue readiness.
-// @Tags health
-// @Produce json
-// @Success 200 {object} map[string]string
-// @Router /health [get]
+type livenessResponse struct {
+	Status  string `json:"status"`
+	Version string `json:"version"`
+	Commit  string `json:"commit"`
+	Built   string `json:"built"`
+}
+
 func (h *Handler) HealthCheck(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"status":  "healthy",
-		"version": appversion.Version,
-		"commit":  appversion.Commit,
-		"built":   appversion.Date,
+	c.JSON(http.StatusOK, livenessResponse{
+		Status:  "healthy",
+		Version: appversion.Version,
+		Commit:  appversion.Commit,
+		Built:   appversion.Date,
 	})
 }
 
@@ -2276,14 +1938,6 @@ func getFormBoolWithDefault(c *gin.Context, key string, defaultValue bool) bool 
 
 // Profile API Handlers
 
-// @Summary List transcription profiles
-// @Description Get list of all transcription profiles
-// @Tags profiles
-// @Produce json
-// @Success 200 {array} models.TranscriptionProfile
-// @Router /api/v1/profiles/ [get]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) ListProfiles(c *gin.Context) {
 	// TODO: Add pagination support to API if needed. For now, list all (limit 1000)
 	profiles, _, err := h.profileRepo.List(c.Request.Context(), 0, 1000)
@@ -2294,17 +1948,6 @@ func (h *Handler) ListProfiles(c *gin.Context) {
 	c.JSON(http.StatusOK, profiles)
 }
 
-// @Summary Create transcription profile
-// @Description Create a new transcription profile
-// @Tags profiles
-// @Accept json
-// @Produce json
-// @Param profile body models.TranscriptionProfile true "Profile data"
-// @Success 201 {object} models.TranscriptionProfile
-// @Failure 400 {object} map[string]string
-// @Router /api/v1/profiles/ [post]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) CreateProfile(c *gin.Context) {
 	// Seed omitted fields before decoding so explicit false/zero values remain
 	// distinguishable from the legacy defaults previously supplied by GORM.
@@ -2349,16 +1992,6 @@ func (h *Handler) CreateProfile(c *gin.Context) {
 	c.JSON(http.StatusOK, profile)
 }
 
-// @Summary Get transcription profile
-// @Description Get a transcription profile by ID
-// @Tags profiles
-// @Produce json
-// @Param id path string true "Profile ID"
-// @Success 200 {object} models.TranscriptionProfile
-// @Failure 404 {object} map[string]string
-// @Router /api/v1/profiles/{id} [get]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) GetProfile(c *gin.Context) {
 	profileID := c.Param("id")
 
@@ -2371,19 +2004,11 @@ func (h *Handler) GetProfile(c *gin.Context) {
 	c.JSON(http.StatusOK, profile)
 }
 
-// @Summary Update transcription profile
-// @Description Update a transcription profile
-// @Tags profiles
-// @Accept json
-// @Produce json
-// @Param id path string true "Profile ID"
-// @Param profile body models.TranscriptionProfile true "Updated profile data"
-// @Success 200 {object} models.TranscriptionProfile
-// @Failure 400 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Router /api/v1/profiles/{id} [put]
-// @Security ApiKeyAuth
-// @Security BearerAuth
+type updateProfileRequest struct {
+	models.TranscriptionProfile
+	ExpectedRevision *int64 `json:"expected_revision" required:"false" minimum:"1"`
+}
+
 func (h *Handler) UpdateProfile(c *gin.Context) {
 	profileID := c.Param("id")
 
@@ -2393,10 +2018,7 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	var request struct {
-		models.TranscriptionProfile
-		ExpectedRevision *int64 `json:"expected_revision"`
-	}
+	var request updateProfileRequest
 	if err := bindJSON(c, &request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
 		return
@@ -2455,16 +2077,6 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 	c.JSON(http.StatusOK, updatedProfile)
 }
 
-// @Summary Delete transcription profile
-// @Description Delete a transcription profile
-// @Tags profiles
-// @Produce json
-// @Param id path string true "Profile ID"
-// @Success 200 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Router /api/v1/profiles/{id} [delete]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) DeleteProfile(c *gin.Context) {
 	profileID := c.Param("id")
 
@@ -2484,18 +2096,6 @@ func (h *Handler) DeleteProfile(c *gin.Context) {
 }
 
 // SetDefaultProfile sets a profile as the default profile
-// @Summary Set default transcription profile
-// @Description Mark the specified profile as the default profile
-// @Tags profiles
-// @Produce json
-// @Param id path string true "Profile ID"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Security ApiKeyAuth
-// @Security BearerAuth
-// @Router /api/v1/profiles/{id}/set-default [post]
 func (h *Handler) SetDefaultProfile(c *gin.Context) {
 	profileID := c.Param("id")
 	if profileID == "" {
@@ -2526,20 +2126,6 @@ type QuickTranscriptionRequest struct {
 	ProfileName *string                `json:"profile_name,omitempty"`
 }
 
-// @Summary Submit quick transcription job
-// @Description Submit an audio file for temporary transcription (data discarded after 6 hours)
-// @Tags transcription
-// @Accept multipart/form-data
-// @Produce json
-// @Param audio formData file true "Audio file"
-// @Param parameters formData string false "JSON string of transcription parameters"
-// @Param profile_name formData string false "Profile name to use for transcription"
-// @Success 200 {object} transcription.QuickTranscriptionJob
-// @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/v1/transcription/quick [post]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) SubmitQuickTranscription(c *gin.Context) {
 	release, ok := h.beginMultipartUpload(c, h.config.UploadDir)
 	if !ok {
@@ -2664,16 +2250,6 @@ func (h *Handler) SubmitQuickTranscription(c *gin.Context) {
 	c.JSON(http.StatusOK, job)
 }
 
-// @Summary Get quick transcription status
-// @Description Get the current status of a quick transcription job
-// @Tags transcription
-// @Produce json
-// @Param id path string true "Job ID"
-// @Success 200 {object} transcription.QuickTranscriptionJob
-// @Failure 404 {object} map[string]string
-// @Router /api/v1/transcription/quick/{id} [get]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) GetQuickTranscriptionStatus(c *gin.Context) {
 	jobID := c.Param("id")
 
@@ -2700,18 +2276,6 @@ func (h *Handler) GetQuickTranscriptionStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, job)
 }
 
-// @Summary Download audio from YouTube URL
-// @Description Download audio from a YouTube video URL and prepare it for transcription
-// @Tags transcription
-// @Accept json
-// @Produce json
-// @Param request body YouTubeDownloadRequest true "YouTube download request"
-// @Success 200 {object} models.TranscriptionJob
-// @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/v1/transcription/youtube [post]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) DownloadFromYouTube(c *gin.Context) {
 	var req YouTubeDownloadRequest
 	if err := bindLimitedJSON(c, &req, maxAuthBodyBytes); err != nil {
@@ -2884,14 +2448,6 @@ func isAllowedYouTubeURL(rawURL string) bool {
 	return host == "youtu.be" || host == "youtube.com" || strings.HasSuffix(host, ".youtube.com")
 }
 
-// @Summary Get user's default profile
-// @Description Get the default transcription profile for the current user
-// @Tags profiles
-// @Produce json
-// @Success 200 {object} models.TranscriptionProfile
-// @Failure 404 {object} map[string]string
-// @Security BearerAuth
-// @Router /api/v1/user/default-profile [get]
 func (h *Handler) GetUserDefaultProfile(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
@@ -2946,17 +2502,6 @@ type SetUserDefaultProfileRequest struct {
 	ProfileID string `json:"profile_id" binding:"required"`
 }
 
-// @Summary Set user's default profile
-// @Description Set the default transcription profile for the current user
-// @Tags profiles
-// @Accept json
-// @Produce json
-// @Param request body SetUserDefaultProfileRequest true "Default profile request"
-// @Success 200 {object} map[string]string
-// @Failure 400 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Security BearerAuth
-// @Router /api/v1/user/default-profile [post]
 func (h *Handler) SetUserDefaultProfile(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
@@ -3014,15 +2559,6 @@ type UpdateUserSettingsRequest struct {
 	HFToken *string `json:"hf_token,omitempty"`
 }
 
-// @Summary Get user settings
-// @Description Get the current user's settings including auto-transcription preference
-// @Tags user
-// @Produce json
-// @Success 200 {object} UserSettingsResponse
-// @Failure 401 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Security BearerAuth
-// @Router /api/v1/user/settings [get]
 func (h *Handler) GetUserSettings(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
@@ -3048,18 +2584,6 @@ func (h *Handler) GetUserSettings(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// @Summary Update user settings
-// @Description Update the current user's settings
-// @Tags user
-// @Accept json
-// @Produce json
-// @Param request body UpdateUserSettingsRequest true "Settings update request"
-// @Success 200 {object} UserSettingsResponse
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Security BearerAuth
-// @Router /api/v1/user/settings [put]
 func (h *Handler) UpdateUserSettings(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
@@ -3132,18 +2656,6 @@ func (h *Handler) UpdateUserSettings(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// @Summary SSE Events
-// @Description Subscribe to server-sent events for one recording. The connection stays open for future updates.
-// @Description The first frame is `data: {"type":"connected","job_id":"RECORDING_ID"}`. Updates are data frames with a type and payload.
-// @Tags events
-// @Produce text/event-stream
-// @Param job_id query string true "Recording ID returned by List recordings"
-// @Success 200 {string} string "Open event stream"
-// @Failure 400 {string} string "job_id is required"
-// @Failure 401 {object} map[string]string "Authentication required"
-// @Router /api/v1/events/ [get]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) Events(c *gin.Context) {
 	h.broadcaster.ServeHTTP(c.Writer, c.Request)
 }

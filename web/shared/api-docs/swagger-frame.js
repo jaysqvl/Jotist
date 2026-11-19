@@ -1,7 +1,7 @@
 const spec = JSON.parse(document.getElementById('jotist-api-spec').textContent);
 const SwaggerUIBundle = globalThis.SwaggerUIBundle;
 
-const appOrigin = new URL(spec.servers[0].url).origin;
+const appOrigin = document.querySelector('meta[name="jotist-parent-origin"]').content;
 globalThis.addEventListener('message', event => {
     if (event.source !== globalThis.parent || event.origin !== appOrigin) return;
     const { type, theme } = event.data ?? {};
@@ -44,9 +44,6 @@ function prepareSnippet(request) {
             substituted = true;
             return 'FORM_VALUE';
         }));
-    } else if (typeof body === 'string' && /^[-_/@]/.test(body)) {
-        // Keep a raw body in the snippet's quoted argument path.
-        request = request.set('body', ' ' + body);
     }
     return { request, substituted };
 }
@@ -96,6 +93,7 @@ SwaggerUIBundle({
     dom_id: '#swagger-ui',
     layout: 'BaseLayout',
     docExpansion: 'list',
+    defaultModelsExpandDepth: 0,
     filter: true,
     persistAuthorization: false,
     queryConfigEnabled: false,

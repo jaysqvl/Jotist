@@ -26,31 +26,9 @@ import (
 	"github.com/jaysqvl/Jotist/internal/transcription/adapters"
 	"github.com/jaysqvl/Jotist/internal/transcription/registry"
 	appversion "github.com/jaysqvl/Jotist/internal/version"
+	"github.com/jaysqvl/Jotist/internal/web"
 	"github.com/jaysqvl/Jotist/pkg/logger"
 )
-
-// @title Jotist API
-// @version 1.0
-// @description Self-hosted audio transcription with local models and optional cloud providers
-
-// @contact.name Jotist support
-// @contact.url https://github.com/jaysqvl/Jotist/issues
-
-// @license.name MIT
-// @license.url https://opensource.org/licenses/MIT
-
-// @host localhost:8080
-// @BasePath /
-// @schemes http https
-
-// @securityDefinitions.apikey ApiKeyAuth
-// @in header
-// @name X-API-Key
-
-// @securityDefinitions.apikey BearerAuth
-// @in header
-// @name Authorization
-// @description JWT token with Bearer prefix
 
 func main() {
 	// Handle version flag
@@ -189,6 +167,7 @@ func main() {
 	}
 	defer handler.StopModelDownloads()
 	router := api.SetupRoutes(handler, authService)
+	web.SetupStaticRoutes(router)
 
 	// Create server
 	srv := &http.Server{

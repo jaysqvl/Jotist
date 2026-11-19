@@ -43,11 +43,10 @@ the root. Personal IDE and agent state is ignored. Python versions are selected
 by adapter recipes and explicit verification commands, not a global repository
 interpreter pin.
 
-API handler annotations generate `api-docs/docs.go`, JSON, and YAML via
-`scripts/generate-api-docs.sh`. The script copies the Swagger 2.0 JSON to
-`web/project-site/public/api/swagger.json` and converts it to OpenAPI 3 for
-the embedded reference. These generated specifications share the Go
-annotations as their source and are committed together for reproducibility.
+The API route declarations register Gin handlers and Huma operations
+together. The server builds its OpenAPI 3.1 document from those declarations
+at startup. `make docs` exports the same contract for GitHub and the public
+site. Both references use the shared sandboxed Swagger UI renderer.
 
 ## Behavior boundaries
 

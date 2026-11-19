@@ -112,13 +112,13 @@ jobs:
         run: go build -v ./cmd/... ./internal/... ./pkg/...
 
       - name: Vet Go Project
-        run: go vet ./api-docs ./cmd/... ./internal/... ./pkg/... ./tests
+        run: go vet ./cmd/... ./internal/... ./pkg/... ./tests
 
       - name: Scan Go dependencies
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./cmd/... ./internal/... ./pkg/...
 
       - name: Run Go Tests
-        run: go test -race -count=1 ./api-docs ./cmd/... ./internal/... ./pkg/... ./tests
+        run: go test -race -count=1 ./cmd/... ./internal/... ./pkg/... ./tests
 
     # Project site
       - name: Setup Node.js

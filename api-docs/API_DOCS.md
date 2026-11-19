@@ -1,9 +1,10 @@
 # API documentation
 
 Jotist serves its REST API at `/api/v1`. The server also exposes `/health` and
-`/ready` at the root. Use the [OpenAPI 3 specification](openapi.json) from the
-Git tag that matches your installed version. The project site uses the
-[Swagger 2.0 export](swagger.json) generated from the same annotations.
+`/ready` at the root. Use the [OpenAPI specification](openapi.json) from the
+Git tag that matches your installed version. The server and the project site
+use the same OpenAPI 3.1 contract. The last Swagger 2 exports are available
+under the [v3.2.1 tag](https://github.com/jaysqvl/Jotist/tree/v3.2.1/api-docs).
 
 Import the JSON into your API client and set the server URL to your Jotist
 installation, including its scheme and port. Use the endpoint paths as written.
@@ -79,9 +80,12 @@ repository root is the checkout folder containing `Makefile` and `go.mod`.
 For a Docker installation, use the spec from the Git tag matching your
 installed release.
 
-Handler annotations in `internal/api/*.go` and server metadata in
-`cmd/server/main.go` define the specification. Paths in `@Router` annotations
-are relative to the server origin and include `/api/v1` for versioned routes.
+The route declarations in `internal/api/routes*.go` register the Gin
+handlers and the corresponding Huma operations together. Authentication
+requirements come from the same groups that install the middleware. Huma
+derives JSON schemas from the Go request and response types. Multipart
+fields, binary bodies and event streams have explicit media types so clients
+can generate the right requests.
 
 From the repository root, run:
 
@@ -89,21 +93,17 @@ From the repository root, run:
 make docs
 ```
 
-This uses the pinned Swag generator in `scripts/generate-api-docs.sh` to write
-`api-docs/docs.go`, `api-docs/swagger.json`, and `api-docs/swagger.yaml`. A Go
-build tool uses kin-openapi to convert and validate `api-docs/openapi.json`
-for the embedded reference, including the file schemas for multipart and
-binary uploads. The script copies the Swagger 2.0 JSON to the project site
-and regenerates its endpoint index, `undocumented.json`.
-Review and commit the generated changes with the handler changes.
+This exports the native OpenAPI document to `api-docs/openapi.json` and
+copies it to the project site's `public/api/openapi.json`. The running server
+serves the contract produced by its own registered routes. Review and commit
+the generated files with changes to the API.
 
 Use `make website-dev` to inspect the reference locally after installing the
 project site's dependencies (`cd web/project-site && npm ci`).
 `make website-build` writes the website to `web/project-site/dist`; the root
 `docs/` directory contains authored documentation and qualification records.
 
-CI regenerates the spec and rejects stale output. A Go test also compares
-the documented methods and paths to the registered router in both
-directions. It accounts for the reference bootstrap and CLI installer
-routes explicitly. Keep the API annotations current when changing
-parameters or responses.
+CI regenerates the exports and rejects stale output. Go tests validate the
+OpenAPI document, compare methods and exact paths with the router, and check
+the upload, streaming and authentication contracts. When changing an API,
+update its route declaration and the Go types it uses.

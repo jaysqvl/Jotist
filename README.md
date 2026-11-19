@@ -532,7 +532,7 @@ The CLI uses **`jotist`**. Install or update it from the Jotist application's **
 
 Use `/api/v1` on your Jotist server. The [API guide](api-docs/API_DOCS.md) includes
 an authenticated request example and instructions for importing the
-[Swagger specification](api-docs/swagger.json) from your release tag.
+[OpenAPI specification](api-docs/openapi.json) from your release tag.
 
 ## Development
 

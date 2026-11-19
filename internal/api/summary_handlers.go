@@ -12,10 +12,10 @@ import (
 
 type SummaryTemplateRequest struct {
 	Name               string  `json:"name" binding:"required,min=1"`
-	Description        *string `json:"description"`
+	Description        *string `json:"description" required:"false"`
 	Model              string  `json:"model" binding:"required,min=1"`
 	Prompt             string  `json:"prompt" binding:"required,min=1"`
-	IncludeSpeakerInfo *bool   `json:"include_speaker_info"`
+	IncludeSpeakerInfo *bool   `json:"include_speaker_info" required:"false"`
 }
 
 type SummarySettingsRequest struct {
@@ -27,15 +27,6 @@ type SummarySettingsResponse struct {
 }
 
 // ListSummaryTemplates returns all templates
-// @Summary List summarization templates
-// @Description Get all summarization templates
-// @Tags summaries
-// @Produce json
-// @Success 200 {array} models.SummaryTemplate
-// @Security ApiKeyAuth
-// @Security BearerAuth
-// @Security BearerAuth
-// @Router /api/v1/summaries/ [get]
 func (h *Handler) ListSummaryTemplates(c *gin.Context) {
 	// TODO: Add pagination support
 	items, _, err := h.summaryRepo.List(c.Request.Context(), 0, 1000)
@@ -47,19 +38,6 @@ func (h *Handler) ListSummaryTemplates(c *gin.Context) {
 }
 
 // CreateSummaryTemplate creates a new template
-// @Summary Create summarization template
-// @Description Create a new summarization template
-// @Tags summaries
-// @Accept json
-// @Produce json
-// @Param request body SummaryTemplateRequest true "Template payload"
-// @Success 201 {object} models.SummaryTemplate
-// @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Security ApiKeyAuth
-// @Security BearerAuth
-// @Security BearerAuth
-// @Router /api/v1/summaries/ [post]
 func (h *Handler) CreateSummaryTemplate(c *gin.Context) {
 	var req SummaryTemplateRequest
 	if err := bindJSON(c, &req); err != nil {
@@ -85,18 +63,6 @@ func (h *Handler) CreateSummaryTemplate(c *gin.Context) {
 }
 
 // GetSummaryTemplate fetches one by id
-// @Summary Get summarization template
-// @Description Get a summarization template by ID
-// @Tags summaries
-// @Produce json
-// @Param id path string true "Template ID"
-// @Success 200 {object} models.SummaryTemplate
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Security ApiKeyAuth
-// @Security BearerAuth
-// @Security BearerAuth
-// @Router /api/v1/summaries/{id} [get]
 func (h *Handler) GetSummaryTemplate(c *gin.Context) {
 	id := c.Param("id")
 	item, err := h.summaryRepo.FindByID(c.Request.Context(), id)
@@ -108,21 +74,6 @@ func (h *Handler) GetSummaryTemplate(c *gin.Context) {
 }
 
 // UpdateSummaryTemplate updates an existing template
-// @Summary Update summarization template
-// @Description Update a summarization template by ID
-// @Tags summaries
-// @Accept json
-// @Produce json
-// @Param id path string true "Template ID"
-// @Param request body SummaryTemplateRequest true "Template payload"
-// @Success 200 {object} models.SummaryTemplate
-// @Failure 400 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Security ApiKeyAuth
-// @Security BearerAuth
-// @Security BearerAuth
-// @Router /api/v1/summaries/{id} [put]
 func (h *Handler) UpdateSummaryTemplate(c *gin.Context) {
 	id := c.Param("id")
 	var req SummaryTemplateRequest
@@ -151,15 +102,6 @@ func (h *Handler) UpdateSummaryTemplate(c *gin.Context) {
 }
 
 // DeleteSummaryTemplate deletes a template
-// @Summary Delete summarization template
-// @Description Delete a summarization template by ID
-// @Tags summaries
-// @Produce json
-// @Param id path string true "Template ID"
-// @Success 204 {string} string "No Content"
-// @Failure 500 {object} map[string]string
-// @Security ApiKeyAuth
-// @Router /api/v1/summaries/{id} [delete]
 func (h *Handler) DeleteSummaryTemplate(c *gin.Context) {
 	id := c.Param("id")
 	if err := h.summaryRepo.Delete(c.Request.Context(), id); err != nil {
@@ -170,14 +112,6 @@ func (h *Handler) DeleteSummaryTemplate(c *gin.Context) {
 }
 
 // GetSummarySettings returns the global summary settings (default model)
-// @Summary Get summary settings
-// @Description Get global summarization settings
-// @Tags summaries
-// @Produce json
-// @Success 200 {object} SummarySettingsResponse
-// @Failure 500 {object} map[string]string
-// @Security ApiKeyAuth
-// @Router /api/v1/summaries/settings [get]
 func (h *Handler) GetSummarySettings(c *gin.Context) {
 	s, err := h.summaryRepo.GetSettings(c.Request.Context())
 	if err != nil {
@@ -192,17 +126,6 @@ func (h *Handler) GetSummarySettings(c *gin.Context) {
 }
 
 // SaveSummarySettings updates default model (creates row if absent)
-// @Summary Save summary settings
-// @Description Create or update global summarization settings
-// @Tags summaries
-// @Accept json
-// @Produce json
-// @Param request body SummarySettingsRequest true "Settings payload"
-// @Success 200 {object} SummarySettingsResponse
-// @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Security ApiKeyAuth
-// @Router /api/v1/summaries/settings [post]
 func (h *Handler) SaveSummarySettings(c *gin.Context) {
 	var req SummarySettingsRequest
 	if err := bindJSON(c, &req); err != nil {

@@ -16,12 +16,6 @@ type UpdateQueueSettingsRequest struct {
 }
 
 // GetQueueSettings shows the shared server-wide recording concurrency limit.
-// @Summary Read recording queue settings
-// @Tags admin
-// @Produce json
-// @Success 200 {object} models.QueueSettingsResponse
-// @Router /api/v1/admin/queue/settings [get]
-// @Security BearerAuth
 func (h *Handler) GetQueueSettings(c *gin.Context) {
 	if h.taskQueue == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Queue settings are unavailable"})
@@ -32,15 +26,6 @@ func (h *Handler) GetQueueSettings(c *gin.Context) {
 }
 
 // UpdateQueueSettings persists a recording claim limit across all users.
-// @Summary Set recording concurrency
-// @Description Save a server-wide limit. Active executions finish normally when the limit is lowered. QUEUE_WORKERS is an explicit deployment override.
-// @Tags admin
-// @Accept json
-// @Produce json
-// @Param settings body UpdateQueueSettingsRequest true "Recording concurrency"
-// @Success 200 {object} models.QueueSettingsResponse
-// @Router /api/v1/admin/queue/settings [put]
-// @Security BearerAuth
 func (h *Handler) UpdateQueueSettings(c *gin.Context) {
 	if h.taskQueue == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Queue settings are unavailable"})

@@ -80,17 +80,6 @@ func (h *Handler) preserveCurrentRunSnapshot(ctx context.Context, job *models.Tr
 }
 
 // ListJobRuns returns every recorded execution for a transcription job.
-// @Summary List transcription runs
-// @Description List every transcription attempt for a job, including timing, status, and captured parameter metadata
-// @Tags transcription
-// @Produce json
-// @Param id path string true "Job ID"
-// @Success 200 {object} map[string]interface{}
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/v1/transcription/{id}/runs [get]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) ListJobRuns(c *gin.Context) {
 	jobID := c.Param("id")
 	job, err := h.jobRepo.FindByID(c.Request.Context(), jobID)
@@ -168,19 +157,6 @@ func (h *Handler) ListJobRuns(c *gin.Context) {
 }
 
 // SetActiveRun pins one completed run as the active transcript source.
-// @Summary Set active transcription run
-// @Description Pin a completed run as the active transcript source for a transcription job
-// @Tags transcription
-// @Produce json
-// @Param id path string true "Job ID"
-// @Param run_id path string true "Run ID"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/v1/transcription/{id}/runs/{run_id}/active [post]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) SetActiveRun(c *gin.Context) {
 	jobID := c.Param("id")
 	runID := c.Param("run_id")
@@ -228,17 +204,6 @@ func (h *Handler) SetActiveRun(c *gin.Context) {
 }
 
 // ClearActiveRun clears the pinned active run and returns to latest-completed fallback.
-// @Summary Clear active transcription run
-// @Description Clear a pinned active run so the latest completed run becomes active again
-// @Tags transcription
-// @Produce json
-// @Param id path string true "Job ID"
-// @Success 200 {object} map[string]interface{}
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/v1/transcription/{id}/runs/active [delete]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) ClearActiveRun(c *gin.Context) {
 	jobID := c.Param("id")
 
@@ -275,18 +240,6 @@ func (h *Handler) ClearActiveRun(c *gin.Context) {
 }
 
 // GetRunTranscript returns the transcript captured for one run.
-// @Summary Get run transcript
-// @Description Get the transcript snapshot captured for a specific transcription run
-// @Tags transcription
-// @Produce json
-// @Param id path string true "Job ID"
-// @Param run_id path string true "Run ID"
-// @Success 200 {object} map[string]interface{}
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/v1/transcription/{id}/runs/{run_id}/transcript [get]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) GetRunTranscript(c *gin.Context) {
 	jobID := c.Param("id")
 	runID := c.Param("run_id")
@@ -327,19 +280,6 @@ func (h *Handler) GetRunTranscript(c *gin.Context) {
 }
 
 // GetRunLogs returns logs captured for one run.
-// @Summary Get run logs
-// @Description Get the log snapshot captured for a specific transcription run
-// @Tags transcription
-// @Produce json
-// @Param id path string true "Job ID"
-// @Param run_id path string true "Run ID"
-// @Success 200 {object} map[string]interface{}
-// @Failure 403 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/v1/transcription/{id}/runs/{run_id}/logs [get]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) GetRunLogs(c *gin.Context) {
 	jobID := c.Param("id")
 	runID := c.Param("run_id")

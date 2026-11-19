@@ -87,16 +87,10 @@ type ModelDownloadListResponse struct {
 }
 type DownloadModelRequest struct {
 	ModelID        string `json:"model_id" binding:"required,len=32,hexadecimal"`
-	KeepDownloaded bool   `json:"keep_downloaded"`
+	KeepDownloaded bool   `json:"keep_downloaded" required:"false"`
 }
 
 // GetModelDownloadCatalog lists the server's registered downloadable models.
-// @Summary Browse models available for manual download
-// @Tags settings
-// @Produce json
-// @Success 200 {object} ModelDownloadCatalogResponse
-// @Router /api/v1/settings/models/catalog [get]
-// @Security BearerAuth
 func (h *Handler) GetModelDownloadCatalog(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
 	if h.modelDownloads == nil {
@@ -107,12 +101,6 @@ func (h *Handler) GetModelDownloadCatalog(c *gin.Context) {
 }
 
 // ListModelDownloads returns bounded, public file-download metadata.
-// @Summary List model downloads and recent outcomes
-// @Tags settings
-// @Produce json
-// @Success 200 {object} ModelDownloadListResponse
-// @Router /api/v1/settings/models/downloads [get]
-// @Security BearerAuth
 func (h *Handler) ListModelDownloads(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
 	if h.modelDownloads == nil {
@@ -135,15 +123,6 @@ func (h *Handler) ListModelDownloads(c *gin.Context) {
 }
 
 // DownloadModel queues a curated weight download without starting a run.
-// @Summary Download a model's files
-// @Tags settings
-// @Accept json
-// @Produce json
-// @Param download body DownloadModelRequest true "Registered model and keep preference"
-// @Success 202 {object} modeldownloads.Job
-// @Failure 409 {object} map[string]string
-// @Router /api/v1/settings/models/downloads [post]
-// @Security BearerAuth
 func (h *Handler) DownloadModel(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
 	if h.modelDownloads == nil {
@@ -174,13 +153,6 @@ func (h *Handler) DownloadModel(c *gin.Context) {
 }
 
 // CancelModelDownload cancels only the requesting owner's model file download.
-// @Summary Cancel a model download
-// @Tags settings
-// @Produce json
-// @Param downloadID path string true "Download job ID"
-// @Success 200 {object} modeldownloads.Job
-// @Router /api/v1/settings/models/downloads/{downloadID}/cancel [post]
-// @Security BearerAuth
 func (h *Handler) CancelModelDownload(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
 	if h.modelDownloads == nil {

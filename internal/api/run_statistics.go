@@ -7,19 +7,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 	"github.com/jaysqvl/Jotist/internal/repository"
+	"gorm.io/gorm"
 )
 
 // GetRunStatistics serves retained run telemetry to authenticated clients.
-// @Summary Get global run statistics
-// @Tags transcription
-// @Produce json
-// @Param days query int false "Window: 0 (all), 7, 30 or 90 days" default(30)
-// @Success 200 {object} models.RunStatistics
-// @Router /api/v1/transcription/statistics [get]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) GetRunStatistics(c *gin.Context) {
 	days, err := strconv.Atoi(c.DefaultQuery("days", "30"))
 	if err != nil || (days != 0 && days != 7 && days != 30 && days != 90) {

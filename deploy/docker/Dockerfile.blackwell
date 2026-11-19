@@ -17,6 +17,7 @@ RUN cd frontend \
   && npm audit
 
 COPY web/frontend ./frontend
+COPY web/shared ./shared
 RUN cd frontend \
   && npm run build
 

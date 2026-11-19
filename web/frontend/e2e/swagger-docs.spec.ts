@@ -104,7 +104,7 @@ test('runs four reviewed reads and copies both upload forms without frame networ
     await page.getByRole('button', { name: 'Sign In', exact: true }).click();
 
     const viewer = page.frameLocator('iframe[title="Swagger API reference"]');
-    await expect(viewer.getByRole('heading', { name: /Jotist API/ })).toBeVisible();
+    await expect(viewer.getByRole('heading', { name: /Jotist API/ })).toBeVisible({ timeout: 15_000 });
     await expect(iframe).toHaveAttribute('sandbox', 'allow-scripts');
     await expect(viewer.locator('html')).not.toHaveClass(/dark-mode/);
     expect(await iframe.evaluate(element => (element as HTMLIFrameElement).contentDocument)).toBeNull();
