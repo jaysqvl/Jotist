@@ -81,9 +81,11 @@ The current package is `6.8.0-149.149`. The November 15 review compared the
 official AMD64 and ARM64 packages with the previously reviewed versions and
 matched their complete file hashes to the CI images. The twelve changed
 headers contain userspace API declarations, include order changes and comments.
-All kernel-header findings in the CPU and CUDA scans are covered by the
-existing upstream fix review. The netfilter header remains byte-identical,
-with the kernel-only definition removed by the upstream export step.
+The November 19 review matched the same package payload in all three CI images.
+It checked 264 stable kernel commits cited for 45 additional findings against
+both architectures' installed file manifests. None changed an exported
+header or a shipped path. The netfilter header remains byte-identical, with
+the kernel-only definition removed by the upstream export step.
 
 Each built image must independently verify its actual payload: 990 files on
 AMD64 or 962 files on ARM64. They must be regular exported headers or the two
