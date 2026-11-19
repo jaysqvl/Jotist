@@ -77,7 +77,7 @@ executables. This does not establish the security of the host's kernel.
 
 `scripts/container-header-review.json` records the exact Ubuntu package PURL,
 version, architecture, path manifest and individually reviewed CVE fix commits.
-The current package is `6.8.0-149.149`. The November 15 review compared the
+The current package is `6.8.0-151.151`. The November 15 review compared the
 official AMD64 and ARM64 packages with the previously reviewed versions and
 matched their complete file hashes to the CI images. The twelve changed
 headers contain userspace API declarations, include order changes and comments.
@@ -86,6 +86,14 @@ It checked 264 stable kernel commits cited for 45 additional findings against
 both architectures' installed file manifests. None changed an exported
 header or a shipped path. The netfilter header remains byte-identical, with
 the kernel-only definition removed by the upstream export step.
+
+The November 19 release build picked up Ubuntu's `6.8.0-151.151` package.
+The official AMD64 and ARM64 archives matched the file paths and complete
+payload hashes in all three built images. Only two headers and the package
+changelog changed. The next-hop header adds a weight accessor and the PCI
+header adds names for existing register constants. All 227 findings in each
+build were already covered by the reviewed kernel fixes.
+[Ubuntu security notice USN-9173-1](https://ubuntu.com/security/notices/USN-9173-1).
 
 Each built image must independently verify its actual payload: 990 files on
 AMD64 or 962 files on ARM64. They must be regular exported headers or the two

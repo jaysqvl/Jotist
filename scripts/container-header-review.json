@@ -1,23 +1,25 @@
 {
   "schema_version": 1,
-  "reviewed_at": "2026-11-19T10:02:54Z",
+  "reviewed_at": "2026-11-19T18:29:42Z",
   "review_by": "2026-11-22",
   "package": {
     "name": "linux-libc-dev",
-    "version": "6.8.0-149.149",
-    "purl": "pkg:deb/ubuntu/linux-libc-dev@6.8.0-149.149?arch=amd64&distro=ubuntu-24.04",
+    "version": "6.8.0-151.151",
+    "purl": "pkg:deb/ubuntu/linux-libc-dev@6.8.0-151.151?arch=amd64&distro=ubuntu-24.04",
     "installed_files": 990,
     "headers": 988,
     "installed_paths_sha256": "ab0b28e0f17afee8d182697823f7ef5c7e7c34fa614b013e5d0b9f6fed575c33",
-    "installed_payload_sha256": "5ce9e9fc2e5e71f65c4e8031b0342691648020818f903c59b46713ee88237b58"
+    "installed_payload_sha256": "54177c831ac6e8bba3397146041b8265f9fb74cb357467b8b41d8208f283f628"
   },
   "justification": "vulnerable_code_not_present",
   "impact": "The listed CVEs affect Linux kernel implementation code. This exact Ubuntu package contains exported userspace development headers and two documentation files, without kernel implementation, modules or executables. The headers remain required for first-use native model builds. Each upstream fix below was compared with the 990 installed package paths. Runtime image qualification independently verifies the files are regular headers/documentation and that both the path manifest and complete file-content hash match the reviewed Ubuntu package. This assessment covers this image package only; it makes no assertion about the host kernel.",
   "references": [
+    "https://snapshot.ubuntu.com/ubuntu/20261119T000000Z/pool/main/l/linux/linux-libc-dev_6.8.0-151.151_amd64.deb",
+    "https://snapshot.ubuntu.com/ubuntu/20261119T000000Z/pool/main/l/linux/linux-libc-dev_6.8.0-149.149_amd64.deb",
+    "https://ubuntu.com/security/notices/USN-9173-1",
     "https://packages.ubuntu.com/noble/linux-libc-dev",
     "https://packages.ubuntu.com/noble/amd64/linux-libc-dev/filelist",
     "https://www.kernel.org/doc/html/latest/kbuild/headers_install.html",
-    "https://archive.ubuntu.com/ubuntu/pool/main/l/linux/linux-libc-dev_6.8.0-149.149_amd64.deb",
     "https://snapshot.ubuntu.com/ubuntu/20261102T000000Z/pool/main/l/linux/linux-libc-dev_6.8.0-147.147_amd64.deb",
     "https://archive.ubuntu.com/ubuntu/pool/main/l/linux/linux-libc-dev_6.8.0-146.146_amd64.deb",
     "https://ubuntu.com/security/CVE-2024-58098",
@@ -3388,27 +3390,17 @@
     }
   },
   "package_refresh": {
-    "previous_version": "6.8.0-147.147",
-    "previous_deb_sha256": "fec8e4a308c03cd98dace67370a8d5a8031c36741796065c9f6e3f9548ab0cd2",
-    "reviewed_deb_sha256": "e4b7b9c5023ba727908868661e1113d28ed9b68e47aed00e314723dad4b2b31d",
-    "source": "https://archive.ubuntu.com/ubuntu/pool/main/l/linux/linux-libc-dev_6.8.0-149.149_amd64.deb",
+    "previous_version": "6.8.0-149.149",
+    "previous_deb_sha256": "e4b7b9c5023ba727908868661e1113d28ed9b68e47aed00e314723dad4b2b31d",
+    "reviewed_deb_sha256": "badd744a9dc7e43c53975ac08d88e23dd13223f2334637c25fd9b9e9bb5d236d",
+    "source": "https://snapshot.ubuntu.com/ubuntu/20261119T000000Z/pool/main/l/linux/linux-libc-dev_6.8.0-151.151_amd64.deb",
     "changed_payload": [
-      "/usr/include/linux/bpf.h",
-      "/usr/include/linux/dma-heap.h",
-      "/usr/include/linux/ethtool.h",
-      "/usr/include/linux/if_link.h",
-      "/usr/include/linux/iommufd.h",
-      "/usr/include/linux/ip_vs.h",
-      "/usr/include/linux/landlock.h",
-      "/usr/include/linux/raid/md_p.h",
-      "/usr/include/linux/time_types.h",
-      "/usr/include/linux/virtio_crypto.h",
-      "/usr/include/rdma/rdma_netlink.h",
-      "/usr/include/sound/asound.h",
+      "/usr/include/linux/nexthop.h",
+      "/usr/include/linux/pci_regs.h",
       "/usr/share/doc/linux-libc-dev/changelog.Debian.gz"
     ],
-    "exported_header_review": "The same twelve headers changed on both architectures. The differences are userspace type, constant and structure declarations, include order and comments. The reviewed netfilter export is byte-identical to the previous package. No paths were added or removed.",
-    "new_findings_review": "The CPU amd64, CPU arm64 and CUDA amd64 qualification scans each reported 182 kernel-header findings from the existing upstream fix set. The package archives and actual image payloads matched on both architectures."
+    "exported_header_review": "Both architectures retain the same installed paths. The next-hop header names the high byte of a weight and adds an inline accessor. The PCI header adds RRS names with compatibility aliases for the existing constants. The reviewed netfilter export is byte-identical to the previous package.",
+    "new_findings_review": "The CPU amd64, CPU arm64 and CUDA amd64 qualification scans each reported 227 findings for this exact package, all in the existing upstream fix set. Both official package archives matched all corresponding image path and complete payload hashes. The review keeps the existing vulnerability set and expiry."
   },
   "review_refresh": {
     "date": "2026-11-02",
@@ -3420,30 +3412,31 @@
   },
   "architecture_reviews": {
     "arm64": {
-      "reviewed_at": "2026-11-19T10:02:54Z",
+      "reviewed_at": "2026-11-19T18:29:42Z",
       "review_by": "2026-11-22",
       "upstream_fixes_sha256": "1a25302bda5648d2aa308da8d8d77239f7365bbc4411ce77cac3fdd07ddcacd1",
       "package": {
         "name": "linux-libc-dev",
-        "version": "6.8.0-149.149",
-        "purl": "pkg:deb/ubuntu/linux-libc-dev@6.8.0-149.149?arch=arm64&distro=ubuntu-24.04",
+        "version": "6.8.0-151.151",
+        "purl": "pkg:deb/ubuntu/linux-libc-dev@6.8.0-151.151?arch=arm64&distro=ubuntu-24.04",
         "installed_files": 962,
         "headers": 960,
         "installed_paths_sha256": "eacd02d419ea6c65f39351fcf58f05601a22ca43d6810488d297dee73d01c07b",
-        "installed_payload_sha256": "0cb3d4d577add683c7bee98c3f972599c5846427cb3a213b7404332c34292925"
+        "installed_payload_sha256": "b6fbae7dc620341b75b373099ee41fd79b9b0b004fea5ec4e6567e5c938c47da"
       },
       "impact": "The reviewed CVEs affect Linux kernel implementation code. This exact ARM64 Ubuntu package contains 960 exported userspace development headers and two documentation files, with no executable files, kernel implementation or modules. All 925 paths shared with the independently reviewed AMD64 package have identical bytes. The 37 ARM64-only files are exported asm headers; none of the reviewed fixes changes these ARM UAPI files. The three ARM64-specific fixes change KVM/VGIC or BPF JIT implementation .c files absent from the package. The only reviewed common UAPI change is the already reviewed __KERNEL__-guarded netfilter definition; its exported header is byte-identical across both architectures and contains no NF_CT_EXPECT_DEAD. Each actual ARM image must independently reproduce this exact path and complete content hash. This assessment covers only this image package and makes no assertion about the host kernel.",
       "references": [
+        "https://ports.ubuntu.com/ubuntu-ports/pool/main/l/linux/linux-libc-dev_6.8.0-151.151_arm64.deb",
         "https://ports.ubuntu.com/ubuntu-ports/pool/main/l/linux/linux-libc-dev_6.8.0-149.149_arm64.deb",
         "https://snapshot.ubuntu.com/ubuntu/20261102T000000Z/pool/main/l/linux/linux-libc-dev_6.8.0-147.147_arm64.deb",
         "https://packages.ubuntu.com/noble/arm64/linux-libc-dev/filelist"
       ],
-      "package_archive_sha256": "7ab70f6ebc55fe9ea6ceb9bb087cc7df252b62b9f1b14df46e825052206d7cff",
+      "package_archive_sha256": "e9fe154b8357bfdba61fe4f95690be4aaccdc8fe14e08571dc396633185a170f",
       "comparison": {
         "shared_files": 925,
         "shared_files_changed": 0,
-        "arm64_only_files": 37,
         "amd64_only_files": 65,
+        "arm64_only_files": 37,
         "shared_netfilter_header_sha256": "f96c03a170825a42f0a417efe70d77f05dd4265d7855eb05ba8024a58cc938f8"
       }
     }
