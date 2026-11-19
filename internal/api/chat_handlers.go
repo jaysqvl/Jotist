@@ -103,16 +103,6 @@ func (h *Handler) getLLMService(ctx context.Context) (llm.Service, string, error
 	}
 }
 
-// @Summary Get available chat models
-// @Description Get list of available OpenAI chat models
-// @Tags chat
-// @Produce json
-// @Success 200 {object} ChatModelsResponse
-// @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/v1/chat/models [get]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) GetChatModels(c *gin.Context) {
 	svc, _, err := h.getLLMService(c.Request.Context())
 	if err != nil {
@@ -132,19 +122,6 @@ func (h *Handler) GetChatModels(c *gin.Context) {
 	c.JSON(http.StatusOK, ChatModelsResponse{Models: models})
 }
 
-// @Summary Create a new chat session
-// @Description Create a new chat session for a transcription
-// @Tags chat
-// @Accept json
-// @Produce json
-// @Param request body ChatCreateRequest true "Chat session creation request"
-// @Success 201 {object} ChatSessionResponse
-// @Failure 400 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/v1/chat/sessions [post]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) CreateChatSession(c *gin.Context) {
 	var req ChatCreateRequest
 	if err := bindJSON(c, &req); err != nil {
@@ -210,17 +187,6 @@ func (h *Handler) CreateChatSession(c *gin.Context) {
 	c.JSON(http.StatusCreated, response)
 }
 
-// @Summary Get chat sessions for a transcription
-// @Description Get all chat sessions for a specific transcription
-// @Tags chat
-// @Produce json
-// @Param transcription_id path string true "Transcription ID"
-// @Success 200 {array} ChatSessionResponse
-// @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/v1/chat/transcriptions/{transcription_id}/sessions [get]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) GetChatSessions(c *gin.Context) {
 	transcriptionID := c.Param("transcription_id")
 	if transcriptionID == "" {
@@ -277,17 +243,6 @@ func (h *Handler) GetChatSessions(c *gin.Context) {
 	c.JSON(http.StatusOK, responses)
 }
 
-// @Summary Get a chat session with messages
-// @Description Get a specific chat session with all its messages
-// @Tags chat
-// @Produce json
-// @Param session_id path string true "Chat Session ID"
-// @Success 200 {object} ChatSessionWithMessages
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/v1/chat/sessions/{session_id} [get]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) GetChatSession(c *gin.Context) {
 	sessionID := c.Param("session_id")
 	if sessionID == "" {
@@ -345,20 +300,6 @@ func formatTime(seconds float64) string {
 	return fmt.Sprintf("%02d:%02d:%02d", hours, minutes, secs)
 }
 
-// @Summary Send a message to a chat session
-// @Description Send a message to a chat session and get streaming response
-// @Tags chat
-// @Accept json
-// @Produce text/plain
-// @Param session_id path string true "Chat Session ID"
-// @Param message body ChatMessageRequest true "Message content"
-// @Success 200 {string} string "Streaming response"
-// @Failure 400 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/v1/chat/sessions/{session_id}/messages [post]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 //
 //nolint:gocyclo // Streaming chat logic is inherently complex
 func (h *Handler) SendChatMessage(c *gin.Context) {
@@ -678,20 +619,6 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 	}
 }
 
-// @Summary Update chat session title
-// @Description Update the title of a chat session
-// @Tags chat
-// @Accept json
-// @Produce json
-// @Param session_id path string true "Chat Session ID"
-// @Param request body map[string]string true "Title update request"
-// @Success 200 {object} ChatSessionResponse
-// @Failure 400 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/v1/chat/sessions/{session_id}/title [put]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) UpdateChatSessionTitle(c *gin.Context) {
 	sessionID := c.Param("session_id")
 	if sessionID == "" {
@@ -739,17 +666,6 @@ func (h *Handler) UpdateChatSessionTitle(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// @Summary Delete a chat session
-// @Description Delete a chat session and all its messages
-// @Tags chat
-// @Produce json
-// @Param session_id path string true "Chat Session ID"
-// @Success 204
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/v1/chat/sessions/{session_id} [delete]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) DeleteChatSession(c *gin.Context) {
 	sessionID := c.Param("session_id")
 	if sessionID == "" {
@@ -790,17 +706,6 @@ func generateChatTitle(message string) string {
 }
 
 // AutoGenerateChatTitle generates a session title using the configured LLM based on conversation history
-// @Summary Auto-generate chat session title
-// @Description Uses the configured LLM to summarize the first exchange into a concise title. Only updates if the current title appears default/user-unset.
-// @Tags chat
-// @Produce json
-// @Param session_id path string true "Chat Session ID"
-// @Success 200 {object} ChatSessionResponse
-// @Failure 400 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Router /api/v1/chat/sessions/{session_id}/title/auto [post]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) AutoGenerateChatTitle(c *gin.Context) {
 	sessionID := c.Param("session_id")
 	if sessionID == "" {

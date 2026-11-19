@@ -16,18 +16,6 @@ import (
 )
 
 // GetRunRecovery exposes validated checkpoints and exact attempt history.
-// @Summary Get execution recovery details
-// @Description Return saved stages, attempts, partial text and same-plan resume availability
-// @Tags transcription
-// @Produce json
-// @Param id path string true "Recording ID"
-// @Param run_id path string true "Execution ID"
-// @Success 200 {object} map[string]interface{}
-// @Failure 404 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
-// @Router /api/v1/transcription/{id}/runs/{run_id}/recovery [get]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) GetRunRecovery(c *gin.Context) {
 	jobID, runID := c.Param("id"), c.Param("run_id")
 	job, err := h.jobRepo.FindByID(c.Request.Context(), jobID)
@@ -194,19 +182,6 @@ func mergeRecoveryPartialOutputs(retained map[string]recoveryPartialOutput) inte
 }
 
 // ResumeRun admits the exact retained execution and its immutable settings.
-// @Summary Resume a saved execution
-// @Description Resume the same execution within its original deadline and attempt budget; accepts no quality overrides
-// @Tags transcription
-// @Produce json
-// @Param id path string true "Recording ID"
-// @Param run_id path string true "Execution ID"
-// @Success 202 {object} map[string]interface{}
-// @Failure 404 {object} ErrorResponse
-// @Failure 409 {object} ErrorResponse
-// @Failure 503 {object} ErrorResponse
-// @Router /api/v1/transcription/{id}/runs/{run_id}/resume [post]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) ResumeRun(c *gin.Context) {
 	jobID, runID := c.Param("id"), c.Param("run_id")
 	job, err := h.jobRepo.FindByID(c.Request.Context(), jobID)

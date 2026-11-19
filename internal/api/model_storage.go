@@ -55,12 +55,6 @@ func newModelStorageManager(cfg *config.Config, db *gorm.DB) *modelstorage.Manag
 }
 
 // GetModelStorage lists downloaded model files without loading any model.
-// @Summary Audit downloaded models and local cache storage
-// @Tags settings
-// @Produce json
-// @Success 200 {object} modelstorage.Inventory
-// @Router /api/v1/settings/models [get]
-// @Security BearerAuth
 func (h *Handler) GetModelStorage(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
 	if h.modelStorage == nil {
@@ -118,14 +112,6 @@ type UpdateModelRetentionRequest struct {
 }
 
 // UpdateModelRetention saves the owner's server-wide model-cache policy.
-// @Summary Set automatic model cache retention
-// @Tags settings
-// @Accept json
-// @Produce json
-// @Param policy body UpdateModelRetentionRequest true "Automatic cleanup policy"
-// @Success 200 {object} modelstorage.CacheRetentionPolicy
-// @Router /api/v1/settings/models/retention [put]
-// @Security BearerAuth
 func (h *Handler) UpdateModelRetention(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
 	if h.modelRetention == nil {
@@ -162,16 +148,6 @@ type UpdateModelKeepDownloadedResponse struct {
 }
 
 // UpdateModelKeepDownloaded keeps a selected model out of all cache removals.
-// @Summary Keep a model downloaded or resume its retention policy
-// @Tags settings
-// @Accept json
-// @Produce json
-// @Param id path string true "Opaque cache entry ID"
-// @Param preference body UpdateModelKeepDownloadedRequest true "Keep downloaded preference and current file version"
-// @Success 200 {object} UpdateModelKeepDownloadedResponse
-// @Failure 409 {object} map[string]string
-// @Router /api/v1/settings/models/{id}/retention [put]
-// @Security BearerAuth
 func (h *Handler) UpdateModelKeepDownloaded(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
 	if h.modelRetention == nil {
@@ -203,13 +179,6 @@ func (h *Handler) UpdateModelKeepDownloaded(c *gin.Context) {
 }
 
 // PreviewModelCleanup returns the exact eligible set to confirm before a clear.
-// @Summary Preview model cache cleanup
-// @Tags settings
-// @Produce json
-// @Param mode query string false "Cleanup scope" Enums(all, expired)
-// @Success 200 {object} modelstorage.CleanupPlan
-// @Router /api/v1/settings/models/cleanup [get]
-// @Security BearerAuth
 func (h *Handler) PreviewModelCleanup(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
 	if h.modelRetention == nil {
@@ -237,15 +206,6 @@ type CleanupModelCacheRequest struct {
 }
 
 // CleanupModelCache rechecks the confirmed set and protects newly active models.
-// @Summary Clear confirmed downloaded model files
-// @Tags settings
-// @Accept json
-// @Produce json
-// @Param confirmation body CleanupModelCacheRequest true "Confirmed cleanup version"
-// @Success 200 {object} modelstorage.CleanupResult
-// @Failure 409 {object} map[string]string
-// @Router /api/v1/settings/models/cleanup [post]
-// @Security BearerAuth
 func (h *Handler) CleanupModelCache(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
 	if h.modelRetention == nil {
@@ -273,12 +233,6 @@ func (h *Handler) CleanupModelCache(c *gin.Context) {
 
 // ModelStorageEvents notifies the signed-in owner when model/run activity
 // changes. Notifications carry no paths, parameters, recording data or secrets.
-// @Summary Subscribe to model storage changes
-// @Tags settings
-// @Produce text/event-stream
-// @Success 200 {string} string "Model storage invalidations"
-// @Router /api/v1/settings/models/events [get]
-// @Security BearerAuth
 func (h *Handler) ModelStorageEvents(c *gin.Context) {
 	if h.modelStorage == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Model storage is unavailable."})
@@ -344,15 +298,6 @@ type RemoveModelFilesRequest struct {
 }
 
 // RemoveModelFiles removes only the verified model's files, never profiles or runs.
-// @Summary Remove a downloaded model
-// @Tags settings
-// @Accept json
-// @Produce json
-// @Param id path string true "Opaque cache entry ID"
-// @Param request body RemoveModelFilesRequest true "Confirmed inventory version"
-// @Success 200 {object} modelstorage.Removal
-// @Router /api/v1/settings/models/{id} [delete]
-// @Security BearerAuth
 func (h *Handler) RemoveModelFiles(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
 	if h.modelStorage == nil {

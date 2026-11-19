@@ -24,7 +24,7 @@ build-cli: ## Build Jotist CLI downloads
 	GOOS=windows GOARCH=amd64 go build -o bin/cli/jotist-windows-amd64.exe ./cmd/jotist-cli
 
 vet: ## Run the Go analysis used by CI (requires make embed or make build first)
-	go vet ./api-docs ./cmd/... ./internal/... ./pkg/... ./tests
+	go vet ./cmd/... ./internal/... ./pkg/... ./tests
 
 test: ## Run Go tests (requires make embed or make build first)
 	go tool gotestsum --format pkgname -- ./...
@@ -32,12 +32,13 @@ test: ## Run Go tests (requires make embed or make build first)
 test-watch: ## Watch Go tests
 	go tool gotestsum --watch -- ./...
 
-docs: ## Generate the API package and project-site specifications
-	./scripts/generate-api-docs.sh
+docs: ## Export the OpenAPI specification for GitHub and the project site
+	go run ./cmd/openapi api-docs/openapi.json
+	mkdir -p web/project-site/public/api
+	cp api-docs/openapi.json web/project-site/public/api/openapi.json
 
-docs-clean: ## Remove generated API specifications
-	rm -f api-docs/docs.go api-docs/swagger.json api-docs/swagger.yaml
-	rm -f web/project-site/public/api/swagger.json web/project-site/public/api/undocumented.json
+docs-clean: ## Remove the generated OpenAPI exports
+	rm -f api-docs/openapi.json web/project-site/public/api/openapi.json
 
 website-dev: docs ## Run the project website in Vite
 	cd web/project-site && npm run dev

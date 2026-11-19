@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, searchForWorkspaceRoot } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from "path"
@@ -16,7 +16,16 @@ export default defineConfig({
       // registerSW.js. The new worker URL also bypasses old CDN copies of sw.js.
       injectRegister: 'inline',
       filename: 'service-worker.js',
-      workbox: { skipWaiting: true, clientsClaim: true },
+      workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
+        globIgnores: ['**/SwaggerPage-*.js', '**/swagger-ui-bundle-*.js', '**/swagger-ui-*.css', '**/swagger-frame-*.js'],
+        navigateFallbackDenylist: [
+          /^\/swagger(?:[/?]|$)/,
+          /^\/api\/v1\/docs(?:[/?]|$)/,
+          /^\/api\/v1\/transcription\/(?:models|list|[^/?]+\/(?:status|transcript))\/?(?:\?|$)/,
+        ],
+      },
       includeAssets: ['jotist-icon.png', 'jotist-logo-light.svg', 'jotist-logo-dark.svg'],
       manifest: {
         name: 'Jotist',
@@ -48,6 +57,7 @@ export default defineConfig({
   build: {
     outDir: "dist",
     assetsDir: "assets",
+    assetsInlineLimit: (filePath) => path.basename(filePath) === 'swagger-frame.js' ? false : undefined,
     rollupOptions: {
       output: {
         manualChunks: {
@@ -64,6 +74,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
   },
   server: {
+    fs: { allow: [searchForWorkspaceRoot(import.meta.dirname), path.resolve(import.meta.dirname, '../shared')] },
     proxy: {
       '/api': {
         target: 'http://localhost:8080',

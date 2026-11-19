@@ -5,12 +5,12 @@ import "time"
 // AdaptiveStageSettings is a concrete execution choice, never a permission to
 // invent a model, prompt, precision or window. Only qualified settings may learn.
 type AdaptiveStageSettings struct {
-	Device           string  `json:"device"`
-	Precision        string  `json:"precision"`
-	BatchSize        int     `json:"batch_size"`
-	Concurrency      int     `json:"concurrency"`
-	WindowSeconds    float64 `json:"window_seconds"`
-	OverlapSeconds   float64 `json:"overlap_seconds"`
+	Device           string  `json:"device" required:"false"`
+	Precision        string  `json:"precision" required:"false"`
+	BatchSize        int     `json:"batch_size" required:"false"`
+	Concurrency      int     `json:"concurrency" required:"false"`
+	WindowSeconds    float64 `json:"window_seconds" required:"false"`
+	OverlapSeconds   float64 `json:"overlap_seconds" required:"false"`
 	StitchingVersion string  `json:"stitching_version,omitempty"`
 }
 
@@ -104,13 +104,13 @@ type AdaptivePlanSelection struct {
 }
 
 type AdaptivePlanSnapshot struct {
-	PlanID             string                `json:"plan_id"`
-	ScopeKey           string                `json:"scope_key"`
-	ProfileRevision    int64                 `json:"profile_revision"`
-	LearningGeneration int64                 `json:"learning_generation"`
-	StageKey           string                `json:"stage_key"`
-	CandidateHash      string                `json:"candidate_hash"`
-	Settings           AdaptiveStageSettings `json:"settings"`
+	PlanID             string                `json:"plan_id" required:"false"`
+	ScopeKey           string                `json:"scope_key" required:"false"`
+	ProfileRevision    int64                 `json:"profile_revision" required:"false"`
+	LearningGeneration int64                 `json:"learning_generation" required:"false"`
+	StageKey           string                `json:"stage_key" required:"false"`
+	CandidateHash      string                `json:"candidate_hash" required:"false"`
+	Settings           AdaptiveStageSettings `json:"settings" required:"false"`
 }
 
 // Profile revision parameters are private profile data, with credentials

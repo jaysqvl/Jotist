@@ -29,15 +29,6 @@ func (h *Handler) adaptiveLearningStore(c *gin.Context) *repository.AdaptiveLear
 }
 
 // GetAdaptivePolicy returns stored measurements and immutable profile history.
-// @Summary Get profile learning state
-// @Tags profiles
-// @Produce json
-// @Param id path string true "Profile ID"
-// @Param scope_key query string false "Optional exact scope fingerprint"
-// @Success 200 {object} repository.AdaptivePolicySnapshot
-// @Router /api/v1/profiles/{id}/adaptive-policy [get]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) GetAdaptivePolicy(c *gin.Context) {
 	store := h.adaptiveLearningStore(c)
 	if store == nil {
@@ -52,10 +43,10 @@ func (h *Handler) GetAdaptivePolicy(c *gin.Context) {
 }
 
 type adaptiveProfileAction struct {
-	ExpectedRevision   int64  `json:"expected_revision"`
-	ExpectedGeneration int64  `json:"expected_generation"`
-	PlanID             string `json:"plan_id"`
-	Revision           int64  `json:"revision"`
+	ExpectedRevision   int64  `json:"expected_revision" required:"false"`
+	ExpectedGeneration int64  `json:"expected_generation" required:"false"`
+	PlanID             string `json:"plan_id" required:"false"`
+	Revision           int64  `json:"revision" required:"false"`
 }
 
 func (h *Handler) adaptiveProfileAction(c *gin.Context, action string) {
@@ -101,43 +92,10 @@ func adaptiveActionError(c *gin.Context, err error) {
 }
 
 // ResetAdaptivePolicy changes the generation without removing historical evidence.
-// @Summary Reset profile learned starting plans
-// @Tags profiles
-// @Accept json
-// @Produce json
-// @Param id path string true "Profile ID"
-// @Param request body adaptiveProfileAction true "Expected revision and generation"
-// @Success 200 {object} models.TranscriptionProfile
-// @Failure 409 {object} ErrorResponse
-// @Router /api/v1/profiles/{id}/reset-adaptive [post]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) ResetAdaptivePolicy(c *gin.Context) { h.adaptiveProfileAction(c, "reset") }
 
 // FreezeAdaptivePolicy saves a selected measured plan in a new fixed revision.
-// @Summary Freeze a measured plan as fixed profile settings
-// @Tags profiles
-// @Accept json
-// @Produce json
-// @Param id path string true "Profile ID"
-// @Param request body adaptiveProfileAction true "Selected plan ID and expected revision and generation"
-// @Success 200 {object} models.TranscriptionProfile
-// @Failure 409 {object} ErrorResponse
-// @Router /api/v1/profiles/{id}/freeze-adaptive [post]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) FreezeAdaptivePolicy(c *gin.Context) { h.adaptiveProfileAction(c, "freeze") }
 
 // RestoreProfileRevision creates a new revision from a saved fixed configuration.
-// @Summary Restore saved profile parameters in a new revision
-// @Tags profiles
-// @Accept json
-// @Produce json
-// @Param id path string true "Profile ID"
-// @Param request body adaptiveProfileAction true "Saved revision and expected current revision and generation"
-// @Success 200 {object} models.TranscriptionProfile
-// @Failure 409 {object} ErrorResponse
-// @Router /api/v1/profiles/{id}/restore-revision [post]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) RestoreProfileRevision(c *gin.Context) { h.adaptiveProfileAction(c, "restore") }

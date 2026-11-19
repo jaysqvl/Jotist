@@ -38,27 +38,31 @@ const (
 )
 
 type createUploadSessionRequest struct {
-	Kind           models.UploadSessionKind `json:"kind"`
-	Title          string                   `json:"title"`
-	ProfileName    string                   `json:"profile_name"`
+	Kind           models.UploadSessionKind `json:"kind" validate:"required" enum:"audio,video,quick,multitrack,submit"`
+	Title          string                   `json:"title" required:"false"`
+	ProfileName    string                   `json:"profile_name" required:"false"`
 	ParametersJSON json.RawMessage          `json:"parameters,omitempty"`
-	Files          []uploadSessionFileInput `json:"files"`
+	Files          []uploadSessionFileInput `json:"files" validate:"required" minItems:"1" nullable:"false"`
 }
 
 type uploadSessionFileInput struct {
-	ID           string                `json:"id"`
-	Role         models.UploadFileRole `json:"role"`
-	Name         string                `json:"name"`
-	ContentType  string                `json:"content_type"`
-	Size         int64                 `json:"size"`
-	LastModified int64                 `json:"last_modified"`
+	ID           string                `json:"id" required:"false"`
+	Role         models.UploadFileRole `json:"role" validate:"required" enum:"audio,video,aup,track"`
+	Name         string                `json:"name" validate:"required"`
+	ContentType  string                `json:"content_type" required:"false"`
+	Size         int64                 `json:"size" validate:"required" minimum:"1"`
+	LastModified int64                 `json:"last_modified" required:"false"`
+}
+
+type createUploadSessionResponse struct {
+	uploadSessionResponse
+	Token string `json:"token" validate:"required"`
 }
 
 type uploadSessionResponse struct {
 	ID        string                     `json:"id"`
 	Kind      models.UploadSessionKind   `json:"kind"`
 	Status    models.UploadSessionStatus `json:"status"`
-	Token     string                     `json:"token,omitempty"`
 	ChunkSize int64                      `json:"chunk_size"`
 	ExpiresAt time.Time                  `json:"expires_at"`
 	ResultID  *string                    `json:"result_id,omitempty"`
@@ -196,7 +200,10 @@ func (h *Handler) CreateUploadSession(c *gin.Context) {
 	}
 
 	session.Files = files
-	c.JSON(http.StatusOK, buildUploadSessionResponse(session, token))
+	c.JSON(http.StatusOK, createUploadSessionResponse{
+		uploadSessionResponse: buildUploadSessionResponse(session),
+		Token:                 token,
+	})
 }
 
 // GetUploadSession returns resumable upload progress for a session.
@@ -207,7 +214,7 @@ func (h *Handler) GetUploadSession(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, buildUploadSessionResponse(*session, ""))
+	c.JSON(http.StatusOK, buildUploadSessionResponse(*session))
 }
 
 // UploadChunk accepts one raw file chunk.
@@ -534,7 +541,7 @@ func ensureSessionWritable(session models.UploadSession) error {
 	return nil
 }
 
-func buildUploadSessionResponse(session models.UploadSession, token string) uploadSessionResponse {
+func buildUploadSessionResponse(session models.UploadSession) uploadSessionResponse {
 	files := make([]uploadSessionFileStatus, 0, len(session.Files))
 	for _, file := range session.Files {
 		accepted, _ := parseChunkList(file.ReceivedChunks)
@@ -555,7 +562,6 @@ func buildUploadSessionResponse(session models.UploadSession, token string) uplo
 		ID:        session.ID,
 		Kind:      session.Kind,
 		Status:    session.Status,
-		Token:     token,
 		ChunkSize: session.ChunkSize,
 		ExpiresAt: session.ExpiresAt,
 		ResultID:  session.ResultID,

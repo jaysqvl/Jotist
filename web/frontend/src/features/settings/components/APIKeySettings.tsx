@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { APIKeyTable } from "./APIKeyTable";
 import { APIKeyCreateDialog } from "./APIKeyCreateDialog";
@@ -50,12 +51,17 @@ export function APIKeySettings() {
 							Manage your API keys for external access to Jotist.
 						</p>
 					</div>
-					<Button
-						onClick={handleCreateAPIKey}
-						className="!bg-[image:var(--brand-gradient)] hover:!opacity-90 !text-white shadow-lg shadow-brand-500/20 border-none"
-					>
-						Create New API Key
-					</Button>
+					<div className="flex flex-wrap gap-2">
+						<Button asChild variant="outline">
+							<Link to="/swagger/">API reference</Link>
+						</Button>
+						<Button
+							onClick={handleCreateAPIKey}
+							className="!bg-[image:var(--brand-gradient)] hover:!opacity-90 !text-white shadow-lg shadow-brand-500/20 border-none"
+						>
+							Create New API Key
+						</Button>
+					</div>
 				</div>
 
 				<APIKeyTable

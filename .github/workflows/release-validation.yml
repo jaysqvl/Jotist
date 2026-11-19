@@ -35,13 +35,19 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Check generated API documentation
+        run: |
+          make docs
+          git add -A -- api-docs web/project-site/public/api
+          git diff --cached --exit-code -- api-docs web/project-site/public/api
+
       - name: Embed validated frontend
         run: make embed
 
       - name: Vet and test backend
         run: |
-          go vet ./api-docs ./cmd/... ./internal/... ./pkg/... ./tests
-          go test -race -count=1 ./api-docs ./cmd/... ./internal/... ./pkg/... ./tests
+          go vet ./cmd/... ./internal/... ./pkg/... ./tests
+          go test -race -count=1 ./cmd/... ./internal/... ./pkg/... ./tests
 
       - name: Install browser
         working-directory: web/frontend

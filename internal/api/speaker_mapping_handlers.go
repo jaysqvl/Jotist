@@ -28,18 +28,6 @@ type SpeakerMappingResponse struct {
 }
 
 // GetSpeakerMappings retrieves all speaker mappings for a transcription
-// @Summary Get speaker mappings for a transcription
-// @Description Retrieves all custom speaker names for a transcription job
-// @Tags transcription
-// @Produce json
-// @Param id path string true "Transcription Job ID"
-// @Success 200 {array} SpeakerMappingResponse
-// @Failure 400 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Security BearerAuth
-// @Security ApiKeyAuth
-// @Router /api/v1/transcription/{id}/speakers [get]
 func (h *Handler) GetSpeakerMappings(c *gin.Context) {
 	jobID := c.Param("id")
 
@@ -82,20 +70,6 @@ func (h *Handler) GetSpeakerMappings(c *gin.Context) {
 }
 
 // UpdateSpeakerMappings updates speaker mappings for a transcription
-// @Summary Update speaker mappings for a transcription
-// @Description Updates or creates custom speaker names for a transcription job
-// @Tags transcription
-// @Accept json
-// @Produce json
-// @Param id path string true "Transcription Job ID"
-// @Param request body SpeakerMappingsUpdateRequest true "Speaker mappings to update"
-// @Success 200 {array} SpeakerMappingResponse
-// @Failure 400 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Security BearerAuth
-// @Security ApiKeyAuth
-// @Router /api/v1/transcription/{id}/speakers [post]
 func (h *Handler) UpdateSpeakerMappings(c *gin.Context) {
 	jobID := c.Param("id")
 

@@ -8,18 +8,6 @@ import (
 )
 
 // GetRunResources returns numeric telemetry without reading checkpoint files.
-// @Summary Get run resource measurements
-// @Description Return invocation measurements and stage attempt timing, settings and resource usage
-// @Tags transcription
-// @Produce json
-// @Param id path string true "Recording ID"
-// @Param run_id path string true "Execution ID"
-// @Success 200 {object} map[string]interface{}
-// @Failure 404 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
-// @Router /api/v1/transcription/{id}/runs/{run_id}/resources [get]
-// @Security ApiKeyAuth
-// @Security BearerAuth
 func (h *Handler) GetRunResources(c *gin.Context) {
 	run, err := h.jobRepo.FindExecution(c.Request.Context(), c.Param("id"), c.Param("run_id"))
 	if err != nil {
