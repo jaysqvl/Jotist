@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.0](https://github.com/jaysqvl/Jotist/compare/v3.2.1...v3.3.0) (2026-11-19)
+
+
+### Features
+
+* **api:** add a native OpenAPI 3.1 reference ([8f73a45](https://github.com/jaysqvl/Jotist/commit/8f73a4563b0910a5ba01fd8d0dc1718b0d7d4196))
+
 ## [3.2.1](https://github.com/jaysqvl/Jotist/compare/v3.2.0...v3.2.1) (2026-11-15)
 
 
